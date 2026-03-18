@@ -11,6 +11,15 @@ backend:
 collector:
   watch_folders: []
   poll_interval: 60
+  openclaw:
+    agents_dir: "C:/Users/20211/.openclaw/agents"
+    target_agents:
+      - backend_dev
+      - req_analyst
+      - qa_ops
+      - coord
+    skip_cron_sessions: true
+    min_message_count: 5
 
 curator:
   default_enabled: true

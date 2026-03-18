@@ -1,0 +1,5 @@
+name: openclaw
+version: 1.0.0
+description: "OpenClaw Agent session collector - reads from local OpenClaw session files"
+author: HarvestFlow Team
+backend_entry: backend.py
