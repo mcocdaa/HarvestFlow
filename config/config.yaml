@@ -22,3 +22,6 @@ export:
 
 plugins:
   dir: ./plugins
+  # 选择激活的插件实现：default 或 openclaw
+  active_collector: openclaw
+  active_curator: openclaw

@@ -1,0 +1,8 @@
+schema: spec-driven
+context: |
+  HarvestFlow is a local Agent session data collection and review system for LoRA training data.
+  Tech stack: Python + FastAPI + SQLite (backend), React + Ant Design + Vite (frontend), plugin architecture.
+  Data source: OpenClaw Agent sessions stored as JSONL files under C:/Users/20211/.openclaw/agents/{agent_id}/sessions/
+  Target agents: backend_dev, req_analyst, qa_ops, coord
+  Export format: ShareGPT JSONL for LoRA fine-tuning
+  All changes must go through PR workflow on GitHub (mcocdaa/HarvestFlow).
