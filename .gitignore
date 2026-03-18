@@ -1,0 +1,16 @@
+# IDEs
+.vscode/
+.trae/
+
+# Python
+__pycache__/
+.pytest_cache/
+
+# frontend
+node_modules
+dist
+dist-electron
+
+# Env files & secrets
+secrets/*
+!secrets/.gitkeep

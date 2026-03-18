@@ -1,0 +1,7 @@
+name: default
+description: Default human reviewer - basic review interface
+version: 1.0.0
+author: HarvestFlow
+enabled: true
+backend_entry: backend.py
+frontend_entry: frontend.tsx

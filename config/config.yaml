@@ -1,0 +1,24 @@
+app:
+  name: HarvestFlow
+  version: 1.0.0
+
+backend:
+  host: 0.0.0.0
+  port: 3000
+  db_path: ./backend/db/harvestflow.db
+  data_dir: ./backend/data
+
+collector:
+  watch_folders: []
+  poll_interval: 60
+
+curator:
+  default_enabled: true
+  auto_approve_threshold: 4
+
+export:
+  default_format: sharegpt
+  output_dir: ./backend/data/export
+
+plugins:
+  dir: ./plugins
