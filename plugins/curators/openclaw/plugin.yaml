@@ -3,3 +3,6 @@ version: 1.0.0
 description: "OpenClaw-specific curator - scores sessions based on tool calls, decision chains, and outputs"
 author: HarvestFlow Team
 backend_entry: backend.py
+config:
+  auto_approve_threshold: 3
+  high_value_min_score: 3

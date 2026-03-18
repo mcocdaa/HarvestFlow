@@ -3,6 +3,7 @@
 # @create 2026-03-18
 
 import os
+import yaml
 from enum import Enum
 from dotenv import load_dotenv
 
@@ -34,6 +35,29 @@ HOST = os.getenv("HOST", "0.0.0.0")
 PORT = 3000
 
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
+
+# 读取全局 config.yaml
+_CONFIG_PATH = os.path.join(ROOT_DIR, "config", "config.yaml")
+_global_config = {}
+if os.path.exists(_CONFIG_PATH):
+    with open(_CONFIG_PATH, "r", encoding="utf-8") as _f:
+        _global_config = yaml.safe_load(_f) or {}
+
+# 激活的插件选择（default 或 openclaw）
+_plugins_config = _global_config.get("plugins", {})
+ACTIVE_COLLECTOR = _plugins_config.get("active_collector", "default")
+ACTIVE_CURATOR = _plugins_config.get("active_curator", "default")
+
+
+def get_plugin_config(plugin_type: str, plugin_name: str) -> dict:
+    """从插件自身的 plugin.yaml 读取 config 块"""
+    plugin_yaml_path = os.path.join(PLUGINS_DIR, plugin_type, plugin_name, "plugin.yaml")
+    if not os.path.exists(plugin_yaml_path):
+        return {}
+    with open(plugin_yaml_path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    return data.get("config", {})
+
 
 COLLECTOR_CONFIG = {
     "watch_folders": [],
@@ -67,6 +91,9 @@ __all__ = [
     "COLLECTOR_CONFIG",
     "CURATOR_CONFIG",
     "EXPORT_CONFIG",
+    "ACTIVE_COLLECTOR",
+    "ACTIVE_CURATOR",
+    "get_plugin_config",
 ]
 
 os.makedirs(DATA_DIR, exist_ok=True)
