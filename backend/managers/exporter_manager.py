@@ -1,27 +1,77 @@
 # @file backend/managers/exporter_manager.py
-# @brief 导出管理器
+# @brief 导出管理器 - 导出会话为多种格式
 # @create 2026-03-18
 
 import json
 import os
-from typing import Dict, Optional, List
+import logging
+from typing import Dict, List
 from datetime import datetime
-from core.database import get_database
-from config import EXPORT_DIR, HUMAN_APPROVED_DIR, EXPORT_CONFIG
+import argparse
+
+from core import database_manager, setting_manager, hook_manager
 from managers.session_manager import session_manager
 
 
+DEFAULT_FORMAT = "sharegpt"
+FORMAT_SHAREGPT = "sharegpt"
+FORMAT_ALPACA = "alpaca"
+DEFAULT_VERSION = "v1"
+DEFAULT_HISTORY_LIMIT = 20
+ROLE_USER = "user"
+ROLE_ASSISTANT = "assistant"
+ROLE_GPT = "gpt"
+ROLE_SYSTEM = "system"
+
+
 class ExporterManager:
+    """导出管理器
+
+    职责：
+    1. 导出会话为指定格式（sharegpt, alpaca）
+    2. 支持多种过滤条件
+    3. 记录导出历史
+
+    使用流程：
+    1. register_arguments(parser) 注册参数
+    2. init(args) 初始化
+    """
+
+    @hook_manager.wrap_hooks("exporter_manager_construct_before", "exporter_manager_construct_after")
     def __init__(self):
-        self.db = None
-        self.default_format = EXPORT_CONFIG.get("default_format", "sharegpt")
-        self.output_dir = EXPORT_CONFIG.get("output_dir", EXPORT_DIR)
+        self.logger = logging.getLogger(__name__)
+        self.default_format: str = DEFAULT_FORMAT
 
-    def get_db(self):
-        if not self.db:
-            self.db = get_database()
-        return self.db
+    @hook_manager.wrap_hooks(after="exporter_manager_register_arguments")
+    def register_arguments(self, parser: argparse.ArgumentParser):
+        group = parser.add_argument_group("Exporter", "Exporter Settings")
+        group.add_argument(
+            "--export-default-format",
+            type=str,
+            default=DEFAULT_FORMAT,
+            choices=[FORMAT_SHAREGPT, FORMAT_ALPACA],
+            help=f"默认导出格式 (默认: {DEFAULT_FORMAT})"
+        )
+        group.add_argument(
+            "--export-output-dir",
+            type=str,
+            default=None,
+            help="导出输出目录"
+        )
 
+    @hook_manager.wrap_hooks("exporter_manager_init_before", "exporter_manager_init_after")
+    def init(self, args: argparse.Namespace):
+        self.default_format = getattr(args, 'export_default_format', DEFAULT_FORMAT)
+        if getattr(args, 'export_output_dir', None):
+            self.output_dir = args.export_output_dir
+        else:
+            self.output_dir = os.path.join(setting_manager.get("DATA_DIR", "./data"), "export")
+
+    @property
+    def default_output_dir(self) -> str:
+        return os.path.join(setting_manager.get("DATA_DIR", "./data"), "export")
+
+    @hook_manager.wrap_hooks("exporter_manager_export_before", "exporter_manager_export_after")
     def export(
         self,
         format: str = None,
@@ -29,8 +79,9 @@ class ExporterManager:
         agent_role: str = None,
         task_type: str = None,
         tags: List[str] = None,
-        version: str = "v1"
-    ) -> Optional[Dict]:
+        version: str = DEFAULT_VERSION
+    ) -> Dict:
+        """导出会话"""
         if format is None:
             format = self.default_format
 
@@ -41,7 +92,12 @@ class ExporterManager:
             "tags": tags,
         }
 
-        sessions = self._get_sessions_for_export(min_score, agent_role, task_type, tags)
+        sessions = database_manager.session_get_for_export(
+            min_score=min_score,
+            agent_role=agent_role,
+            task_type=task_type,
+            tags=tags
+        )
 
         if not sessions:
             return {
@@ -50,9 +106,14 @@ class ExporterManager:
                 "record_count": 0,
             }
 
-        if format == "sharegpt":
+        for session in sessions:
+            content = session_manager.get_session_content(session["session_id"])
+            if content:
+                session["content"] = content
+
+        if format == FORMAT_SHAREGPT:
             data = self._convert_to_sharegpt(sessions)
-        elif format == "alpaca":
+        elif format == FORMAT_ALPACA:
             data = self._convert_to_alpaca(sessions)
         else:
             return {
@@ -64,6 +125,8 @@ class ExporterManager:
         filename = f"{format}_{timestamp}_{version}.jsonl"
         file_path = os.path.join(self.output_dir, filename)
 
+        os.makedirs(self.output_dir, exist_ok=True)
+
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
                 for item in data:
@@ -74,7 +137,13 @@ class ExporterManager:
                 "message": f"Failed to write file: {str(e)}",
             }
 
-        self._save_export_record(format, file_path, filters, len(data), version)
+        database_manager.export_record_create(
+            export_format=format,
+            file_path=file_path,
+            filters=filters,
+            record_count=len(data),
+            version=version
+        )
 
         return {
             "success": True,
@@ -85,49 +154,8 @@ class ExporterManager:
             "version": version,
         }
 
-    def _get_sessions_for_export(
-        self,
-        min_score: int = None,
-        agent_role: str = None,
-        task_type: str = None,
-        tags: List[str] = None
-    ) -> List[Dict]:
-        db = self.get_db()
-
-        query = "SELECT * FROM sessions WHERE status = 'approved'"
-        params = []
-
-        if min_score is not None:
-            query += " AND quality_manual_score >= ?"
-            params.append(min_score)
-
-        if agent_role:
-            query += " AND agent_role = ?"
-            params.append(agent_role)
-
-        if task_type:
-            query += " AND task_type = ?"
-            params.append(task_type)
-
-        rows = db.fetchall(query, tuple(params))
-        sessions = []
-
-        for row in rows:
-            session = dict(row)
-            content = session_manager.get_session_content(session["session_id"])
-            if content:
-                session["content"] = content
-
-            if tags:
-                session_tags = json.loads(session.get("tags", "[]")) if session.get("tags") else []
-                if not any(tag in session_tags for tag in tags):
-                    continue
-
-            sessions.append(session)
-
-        return sessions
-
     def _convert_to_sharegpt(self, sessions: List[Dict]) -> List[Dict]:
+        """转换为 ShareGPT 格式"""
         result = []
         for session in sessions:
             content = session.get("content", {})
@@ -138,9 +166,9 @@ class ExporterManager:
 
             conversations = []
             for msg in messages:
-                role = msg.get("role", "user")
-                if role == "assistant":
-                    role = "gpt"
+                role = msg.get("role", ROLE_USER)
+                if role == ROLE_ASSISTANT:
+                    role = ROLE_GPT
 
                 content_text = msg.get("content", "")
                 if isinstance(content_text, list):
@@ -160,6 +188,7 @@ class ExporterManager:
         return result
 
     def _convert_to_alpaca(self, sessions: List[Dict]) -> List[Dict]:
+        """转换为 Alpaca 格式"""
         result = []
         for session in sessions:
             content = session.get("content", {})
@@ -172,17 +201,17 @@ class ExporterManager:
             input_text = ""
             output_text = ""
 
-            for i, msg in enumerate(messages):
+            for msg in messages:
                 role = msg.get("role", "")
                 msg_content = msg.get("content", "")
                 if isinstance(msg_content, list):
                     msg_content = str(msg_content)
 
-                if role == "system":
+                if role == ROLE_SYSTEM:
                     instruction = msg_content
-                elif role == "user" and not input_text:
+                elif role == ROLE_USER and not input_text:
                     input_text = msg_content
-                elif role == "assistant":
+                elif role == ROLE_ASSISTANT:
                     output_text = msg_content
 
             if output_text:
@@ -194,29 +223,10 @@ class ExporterManager:
 
         return result
 
-    def _save_export_record(
-        self,
-        export_format: str,
-        file_path: str,
-        filters: Dict,
-        record_count: int,
-        version: str
-    ):
-        db = self.get_db()
-        db.execute(
-            """INSERT INTO export_records
-               (export_format, file_path, filters, record_count, version)
-               VALUES (?, ?, ?, ?, ?)""",
-            (export_format, file_path, json.dumps(filters), record_count, version)
-        )
-
-    def get_export_history(self, limit: int = 20) -> List[Dict]:
-        db = self.get_db()
-        rows = db.fetchall(
-            "SELECT * FROM export_records ORDER BY created_at DESC LIMIT ?",
-            (limit,)
-        )
-        return [dict(row) for row in rows]
+    @hook_manager.wrap_hooks("exporter_manager_get_history_before", "exporter_manager_get_history_after")
+    def get_export_history(self, limit: int = DEFAULT_HISTORY_LIMIT) -> List[Dict]:
+        """获取导出历史"""
+        return database_manager.export_record_get_history(limit=limit)
 
 
 exporter_manager = ExporterManager()

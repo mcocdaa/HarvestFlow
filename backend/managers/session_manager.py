@@ -1,51 +1,98 @@
 # @file backend/managers/session_manager.py
-# @brief 会话管理器
+# @brief 会话管理器 - 管理会话生命周期和文件读写
 # @create 2026-03-18
 
 import json
 import os
-from typing import Optional, List, Dict, Any
-from datetime import datetime
-from core.database import get_database
-from config import RAW_SESSIONS_DIR, AGENT_CURATED_DIR, HUMAN_APPROVED_DIR
+import logging
+from typing import Optional, Dict, Any
+import argparse
+
+from core import database_manager, setting_manager, hook_manager
 
 
 class SessionManager:
+    """会话管理器
+
+    职责：
+    1. 管理会话的生命周期
+    2. 会话内容的文件读写
+    3. 调用 DatabaseManager 封装的数据库操作
+
+    使用流程：
+    1. register_arguments(parser) 注册参数
+    2. init(args) 初始化
+    """
+
+    @hook_manager.wrap_hooks("session_manager_construct_before", "session_manager_construct_after")
     def __init__(self):
-        self.db = None
+        self.logger = logging.getLogger(__name__)
+        self.data_dir: str = ""
 
-    def get_db(self):
-        if not self.db:
-            self.db = get_database()
-        return self.db
+    @hook_manager.wrap_hooks(after="session_manager_register_arguments")
+    def register_arguments(self, parser: argparse.ArgumentParser):
+        """注册 argparse 参数
 
-    def create_session(self, session_data: Dict) -> Dict:
-        db = self.get_db()
-        session_id = session_data.get("session_id")
-        file_path = session_data.get("file_path", "")
-
-        db.execute(
-            """INSERT INTO sessions (session_id, file_path, status, agent_role, task_type, tools_used, tags)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (
-                session_id,
-                file_path,
-                session_data.get("status", "raw"),
-                session_data.get("agent_role"),
-                session_data.get("task_type"),
-                json.dumps(session_data.get("tools_used", [])),
-                json.dumps(session_data.get("tags", [])),
-            )
+        Args:
+            parser: argparse.ArgumentParser 实例
+        """
+        group = parser.add_argument_group("Session", "Session Management")
+        group.add_argument(
+            "--session-data-dir",
+            type=str,
+            default=None,
+            help="会话数据目录"
         )
-        return session_data
 
+    @hook_manager.wrap_hooks("session_manager_init_before", "session_manager_init_after")
+    def init(self, args: argparse.Namespace):
+        """初始化会话管理器
+
+        Args:
+            args: 解析后的参数
+        """
+        if getattr(args, 'session_data_dir', None):
+            self.data_dir = args.session_data_dir
+        else:
+            self.data_dir = setting_manager.get("DATA_DIR", "./data")
+
+    @property
+    def raw_sessions_dir(self) -> str:
+        return os.path.join(self.data_dir, "raw_sessions")
+
+    @property
+    def agent_curated_dir(self) -> str:
+        return os.path.join(self.data_dir, "agent_curated")
+
+    @property
+    def human_approved_dir(self) -> str:
+        return os.path.join(self.data_dir, "human_approved")
+
+    @hook_manager.wrap_hooks("session_manager_create_before", "session_manager_create_after")
+    def create_session(self, session_data: Dict) -> Dict:
+        """创建会话
+
+        Args:
+            session_data: 会话数据字典
+
+        Returns:
+            创建后的会话数据
+        """
+        return database_manager.session_create(session_data)
+
+    @hook_manager.wrap_hooks("session_manager_get_before", "session_manager_get_after")
     def get_session(self, session_id: str) -> Optional[Dict]:
-        db = self.get_db()
-        row = db.fetchone("SELECT * FROM sessions WHERE session_id = ?", (session_id,))
-        if row:
-            return dict(row)
-        return None
+        """获取会话
 
+        Args:
+            session_id: 会话 ID
+
+        Returns:
+            会话数据，不存在返回 None
+        """
+        return database_manager.session_get(session_id)
+
+    @hook_manager.wrap_hooks("session_manager_list_before", "session_manager_list_after")
     def get_sessions(
         self,
         status: str = None,
@@ -53,87 +100,59 @@ class SessionManager:
         page_size: int = 20,
         sort: str = "recent"
     ) -> Dict:
-        db = self.get_db()
+        """获取会话列表
 
-        where_clause = ""
-        params = []
-        if status:
-            where_clause = "WHERE status = ?"
-            params = [status]
+        Args:
+            status: 会话状态过滤
+            page: 页码
+            page_size: 每页数量
+            sort: 排序方式
 
-        sort_order = "DESC" if sort == "recent" else "ASC"
-        offset = (page - 1) * page_size
+        Returns:
+            会话列表分页结果
+        """
+        return database_manager.session_get_all(
+            status=status,
+            page=page,
+            page_size=page_size,
+            sort=sort
+        )
 
-        count_query = f"SELECT COUNT(*) as total FROM sessions {where_clause}"
-        total_result = db.fetchone(count_query, tuple(params))
-        total = dict(total_result)["total"] if total_result else 0
-
-        query = f"""SELECT * FROM sessions {where_clause}
-                    ORDER BY created_at {sort_order}
-                    LIMIT ? OFFSET ?"""
-        params.extend([page_size, offset])
-
-        rows = db.fetchall(query, tuple(params))
-        sessions = [dict(row) for row in rows]
-
-        for session in sessions:
-            if session.get("tags"):
-                session["tags"] = json.loads(session["tags"])
-            if session.get("tools_used"):
-                session["tools_used"] = json.loads(session["tools_used"])
-
-        return {
-            "sessions": sessions,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-        }
-
+    @hook_manager.wrap_hooks("session_manager_update_before", "session_manager_update_after")
     def update_session(self, session_id: str, updates: Dict) -> Optional[Dict]:
-        db = self.get_db()
+        """更新会话
 
-        allowed_fields = [
-            "status", "quality_auto_score", "quality_manual_score",
-            "agent_role", "task_type", "tools_used", "tags"
-        ]
+        Args:
+            session_id: 会话 ID
+            updates: 更新数据字典
 
-        set_clauses = []
-        params = []
-        for field in allowed_fields:
-            if field in updates:
-                value = updates[field]
-                if field in ("tools_used", "tags"):
-                    value = json.dumps(value) if isinstance(value, list) else value
-                set_clauses.append(f"{field} = ?")
-                params.append(value)
+        Returns:
+            更新后的会话数据，失败返回 None
+        """
+        return database_manager.session_update(session_id, updates)
 
-        if not set_clauses:
-            return None
-
-        set_clauses.append("updated_at = CURRENT_TIMESTAMP")
-        params.append(session_id)
-
-        query = f"UPDATE sessions SET {', '.join(set_clauses)} WHERE session_id = ?"
-        db.execute(query, tuple(params))
-
-        return self.get_session(session_id)
-
+    @hook_manager.wrap_hooks("session_manager_delete_before", "session_manager_delete_after")
     def delete_session(self, session_id: str) -> bool:
-        db = self.get_db()
-        session = self.get_session(session_id)
-        if not session:
-            return False
+        """删除会话
 
-        if session.get("file_path") and os.path.exists(session["file_path"]):
-            try:
-                os.remove(session["file_path"])
-            except Exception:
-                pass
+        Args:
+            session_id: 会话 ID
 
-        db.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
-        return True
+        Returns:
+            是否删除成功
+        """
+        return database_manager.session_delete(session_id)
 
+    @hook_manager.wrap_hooks("session_manager_content_get_before", "session_manager_content_get_after")
     def get_session_content(self, session_id: str) -> Optional[Dict]:
+        """获取会话内容
+
+        Args:
+            session_id: 会话 ID
+
+        Returns:
+            会话内容，失败返回 None
+        """
         session = self.get_session(session_id)
         if not session:
             return None

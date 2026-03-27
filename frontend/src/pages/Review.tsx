@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Button, Tag, Rate, Input, message } from 'antd';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { reviewerApi } from '../services/api';
+import type { Session } from '../types';
 
 const { TextArea } = Input;
 
 const Review: React.FC = () => {
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedIndex] = useState(0);
   const [score, setScore] = useState(3);
   const [notes, setNotes] = useState('');
 

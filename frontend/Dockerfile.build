@@ -1,0 +1,17 @@
+# ============================================
+# HarvestFlow 前端构建 Dockerfile（CI/CD）
+# 使用：docker build -f Dockerfile.build --target export -o dist .
+# ============================================
+
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+RUN npm run build
+
+FROM scratch AS export
+COPY --from=builder /app/dist /

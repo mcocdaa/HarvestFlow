@@ -1,7 +1,13 @@
 name: default
-description: Default human reviewer - basic review interface
+type: reviewer
 version: 1.0.0
+description: Default human reviewer - basic review interface
 author: HarvestFlow
-enabled: true
-backend_entry: backend.py
-frontend_entry: frontend.tsx
+
+# 密钥定义（本插件无需密钥）
+secrets: []
+
+# 插件配置
+config:
+  backend_entry: backend.py
+  frontend_entry: frontend.tsx

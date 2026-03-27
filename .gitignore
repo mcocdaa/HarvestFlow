@@ -12,5 +12,10 @@ dist
 dist-electron
 
 # Env files & secrets
-secrets/*
-!secrets/.gitkeep
+.env
+.env.*.local
+
+# Other sensitive files
+*.pem
+*.key
+*.crt

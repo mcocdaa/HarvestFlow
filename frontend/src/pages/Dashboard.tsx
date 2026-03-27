@@ -2,9 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Statistic } from 'antd';
 import { FolderOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { statsApi } from '../services/api';
+import type { Stats } from '../types';
 
 const Dashboard: React.FC = () => {
-  const [stats, setStats] = useState<any>({});
+  const [stats, setStats] = useState<Stats>({
+    total_sessions: 0,
+    raw_sessions: 0,
+    approved_sessions: 0,
+    rejected_sessions: 0,
+    avg_auto_score: 0,
+    curated_sessions: 0,
+  });
 
   useEffect(() => {
     loadStats();

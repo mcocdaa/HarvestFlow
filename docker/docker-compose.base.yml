@@ -1,0 +1,33 @@
+# ============================================
+# HarvestFlow Docker Compose 基础模板
+# ============================================
+
+networks:
+  harvestflow-network:
+    driver: bridge
+
+services:
+  harvestflow-backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: harvestflow-backend
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - API_VERSION=${API_VERSION:-v1}
+      - DATA_DIR=/app/data
+      - DB_PATH=/app/data/db/harvestflow.db
+      - PLUGINS_DIR=/app/plugins
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - SECRET_FALLBACK_MODE=${SECRET_FALLBACK_MODE:-default}
+    volumes:
+      - ../backend/data:/app/data
+      - ../plugins:/app/plugins:ro
+    networks:
+      - harvestflow-network
+    deploy:
+      mode: replicated
+      replicas: 1

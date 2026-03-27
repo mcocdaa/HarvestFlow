@@ -1,0 +1,26 @@
+# ============================================
+# HarvestFlow 全栈模式（后端 + 前端）
+# 使用: docker-compose -f docker-compose.full.yml -p harvestflow up
+# ============================================
+
+services:
+  harvestflow-backend:
+    ports:
+      - "${BACKEND_EXTERNAL_PORT:-3001}:3000"
+
+  harvestflow-frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: harvestflow-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_EXTERNAL_PORT:-8001}:8000"
+    environment:
+      - VITE_API_BASE_URL=http://harvestflow-backend:3000
+    depends_on:
+      - harvestflow-backend
+
+networks:
+  harvestflow-network:
+    name: harvestflow-network

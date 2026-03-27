@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, Space, Modal, Drawer } from 'antd';
+import { Table, Tag, Button, Drawer } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
 import { sessionApi } from '../services/api';
+import type { Session, SessionContent, SessionListParams } from '../types';
 
 const Sessions: React.FC = () => {
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [selectedSession, setSelectedSession] = useState<any>(null);
-  const [content, setContent] = useState<any>(null);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [content, setContent] = useState<SessionContent | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
 
   useEffect(() => {
@@ -20,7 +21,8 @@ const Sessions: React.FC = () => {
   const loadSessions = async () => {
     setLoading(true);
     try {
-      const res = await sessionApi.getSessions({ page, page_size: pageSize, sort: 'recent' });
+      const params: SessionListParams = { page, page_size: pageSize, sort: 'recent' };
+      const res = await sessionApi.getSessions(params);
       setSessions(res.data.sessions || []);
       setTotal(res.data.total || 0);
     } catch (error) {
@@ -30,7 +32,7 @@ const Sessions: React.FC = () => {
     }
   };
 
-  const viewSession = async (record: any) => {
+  const viewSession = async (record: Session) => {
     setSelectedSession(record);
     try {
       const res = await sessionApi.getSessionContent(record.session_id);
@@ -88,7 +90,7 @@ const Sessions: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: any) => (
+      render: (_: any, record: Session) => (
         <Button icon={<EyeOutlined />} onClick={() => viewSession(record)}>
           View
         </Button>

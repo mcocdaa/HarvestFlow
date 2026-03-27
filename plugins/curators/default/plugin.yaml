@@ -1,6 +1,12 @@
 name: default
-description: Default curator - passes all sessions (no filtering)
+type: curator
 version: 1.0.0
+description: Default curator - passes all sessions (no filtering)
 author: HarvestFlow
-enabled: true
-backend_entry: backend.py
+
+# 密钥定义（本插件无需密钥）
+secrets: []
+
+# 插件配置
+config:
+  backend_entry: backend.py
