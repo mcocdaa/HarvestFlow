@@ -1,0 +1,15 @@
+.main-layout {
+  min-height: 100vh;
+}
+
+.main-body {
+  display: flex;
+}
+
+.content-area {
+  flex: 1;
+  padding: 24px;
+  background: var(--flow-bg-page);
+  min-height: calc(100vh - 64px);
+  overflow-y: auto;
+}

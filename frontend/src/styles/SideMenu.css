@@ -1,0 +1,8 @@
+.side-menu {
+  min-height: calc(100vh - 64px);
+}
+
+.sidebar-content {
+  height: 100%;
+  padding-top: 16px;
+}

@@ -1,0 +1,13 @@
+# ============================================
+# HarvestFlow 后端模式
+# 使用: docker-compose -f docker-compose.backend.yml -p harvestflow up
+# ============================================
+
+services:
+  harvestflow-backend:
+    ports:
+      - "${BACKEND_EXTERNAL_PORT:-3001}:3000"
+
+networks:
+  harvestflow-network:
+    external: false

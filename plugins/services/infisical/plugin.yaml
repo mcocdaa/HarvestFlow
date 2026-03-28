@@ -1,0 +1,21 @@
+name: Infisical Service
+type: service
+version: 1.0.0
+description: Infisical SDK integration for secrets management
+
+config:
+  backend_entry: backend.py
+
+secrets:
+  - name: INFISICAL_CLIENT_ID
+    description: Infisical Client ID
+    level: optional
+  - name: INFISICAL_CLIENT_SECRET
+    description: Infisical Client Secret
+    level: optional
+  - name: INFISICAL_PROJECT_ID
+    description: Infisical Project ID
+    level: optional
+
+hooks:
+  - secrets_manager_register_arguments

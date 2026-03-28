@@ -1,0 +1,22 @@
+# @file plugins/plugins.yaml
+# @brief 插件注册表
+# @create 2026-03-22
+
+plugins:
+  collectors/default:
+    enabled: true
+
+  collectors/openclaw:
+    enabled: true
+
+  curators/default:
+    enabled: true
+
+  curators/openclaw:
+    enabled: true
+
+  reviewers/default:
+    enabled: true
+
+  services/infisical:
+    enabled: true

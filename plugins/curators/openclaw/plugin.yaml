@@ -1,8 +1,18 @@
 name: openclaw
+type: curator
 version: 1.0.0
-description: "OpenClaw-specific curator - scores sessions based on tool calls, decision chains, and outputs"
+description: OpenClaw curator - AI-powered quality assessment
 author: HarvestFlow Team
-backend_entry: backend.py
+
+# 密钥定义
+secrets:
+  - name: OPENCLAW_LLM_API_KEY
+    description: LLM API Key（用于智能审核）
+    level: optional
+    default: ""
+
+# 插件配置
 config:
-  auto_approve_threshold: 3
-  high_value_min_score: 3
+  backend_entry: backend.py
+  quality_threshold: 0.7
+  use_ai_scoring: true

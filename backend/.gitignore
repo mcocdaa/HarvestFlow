@@ -1,1 +1,31 @@
+# 数据目录
 data/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 测试缓存
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# 临时文件
+*.log
+*.tmp
+*.bak
+*~
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 环境文件
+.env
+.venv/
+venv/

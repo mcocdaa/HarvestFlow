@@ -1,37 +1,70 @@
 # @file backend/managers/reviewer_manager.py
-# @brief 人工审核管理器
+# @brief 人工审核管理器 - 支持人工审批、拒绝和批量操作
 # @create 2026-03-18
 
 import json
 import os
 import shutil
-from typing import Dict, Optional, List
-from datetime import datetime
-from core.database import get_database
-from config import HUMAN_APPROVED_DIR
+import logging
+from typing import Dict, List
+import argparse
+
+from core import database_manager, setting_manager, hook_manager
 from managers.session_manager import session_manager
 
 
 class ReviewerManager:
+    """人工审核管理器
+
+    职责：
+    1. 人工审批/拒绝会话
+    2. 批量操作
+    3. 审计日志记录
+
+    使用流程：
+    1. register_arguments(parser) 注册参数
+    2. init(args) 初始化
+    """
+
+    @hook_manager.wrap_hooks("reviewer_manager_construct_before", "reviewer_manager_construct_after")
     def __init__(self):
-        self.db = None
+        self.logger = logging.getLogger(__name__)
+        self.data_dir: str = setting_manager.get("DATA_DIR", "./data")
 
-    def get_db(self):
-        if not self.db:
-            self.db = get_database()
-        return self.db
+    @hook_manager.wrap_hooks(after="reviewer_manager_register_arguments")
+    def register_arguments(self, parser: argparse.ArgumentParser):
+        group = parser.add_argument_group("Reviewer", "Reviewer Settings")
+        group.add_argument(
+            "--reviewer-data-dir",
+            type=str,
+            default=None,
+            help="审核数据目录"
+        )
 
-    def approve_session(self, session_id: str, notes: str = None) -> Optional[Dict]:
+    @hook_manager.wrap_hooks("reviewer_manager_init_before", "reviewer_manager_init_after")
+    def init(self, args: argparse.Namespace):
+        reviewer_data_dir_val = getattr(args, 'reviewer_data_dir', setting_manager.get("REVIEWER_DATA_DIR"))
+        if reviewer_data_dir_val:
+            self.data_dir = reviewer_data_dir_val
+
+    @property
+    def human_approved_dir(self) -> str:
+        return os.path.join(self.data_dir, "human_approved")
+
+    @hook_manager.wrap_hooks("reviewer_manager_approve_before", "reviewer_manager_approve_after")
+    def approve_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
+        """审批会话"""
         session = session_manager.get_session(session_id)
         if not session:
-            return None
+            return {"session_id": session_id, "error": "session not found"}
 
         current_status = session.get("status")
 
         if current_status == "curated" or current_status == "raw":
             source_path = session.get("file_path")
             if source_path and os.path.exists(source_path):
-                dest_path = os.path.join(HUMAN_APPROVED_DIR, f"{session_id}.json")
+                dest_path = os.path.join(self.human_approved_dir, f"{session_id}.json")
+                os.makedirs(self.human_approved_dir, exist_ok=True)
                 try:
                     shutil.copy2(source_path, dest_path)
                     session_manager.update_session(session_id, {
@@ -39,89 +72,83 @@ class ReviewerManager:
                         "status": "approved"
                     })
                 except Exception as e:
-                    print(f"[ReviewerManager] 复制文件失败: {e}")
-                    return None
+                    return {"session_id": session_id, "error": str(e)}
         else:
             session_manager.update_session(session_id, {"status": "approved"})
 
-        self._log_action(session_id, "approve", "user", notes)
+        # 更新手动评分
+        if score is not None:
+            session_manager.update_session(session_id, {"quality_manual_score": score})
+
+        database_manager.audit_log_create(session_id, "approve", "user", notes)
 
         return session_manager.get_session(session_id)
 
-    def reject_session(self, session_id: str, notes: str = None) -> Optional[Dict]:
+    @hook_manager.wrap_hooks("reviewer_manager_reject_before", "reviewer_manager_reject_after")
+    def reject_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
+        """拒绝会话"""
         session = session_manager.get_session(session_id)
         if not session:
-            return None
+            return {"session_id": session_id, "error": "session not found"}
 
         session_manager.update_session(session_id, {"status": "rejected"})
-        self._log_action(session_id, "reject", "user", notes)
+
+        # 更新手动评分
+        if score is not None:
+            session_manager.update_session(session_id, {"quality_manual_score": score})
+
+        database_manager.audit_log_create(session_id, "reject", "user", notes)
 
         return session_manager.get_session(session_id)
 
-    def update_session(self, session_id: str, updates: Dict) -> Optional[Dict]:
+    @hook_manager.wrap_hooks("reviewer_manager_update_before", "reviewer_manager_update_after")
+    def update_session(self, session_id: str, updates: Dict) -> Dict:
+        """更新会话"""
         session = session_manager.get_session(session_id)
         if not session:
-            return None
+            return {"session_id": session_id, "error": "session not found"}
 
         session_manager.update_session(session_id, updates)
-        self._log_action(session_id, "modify", "user", json.dumps(updates))
+        database_manager.audit_log_create(session_id, "modify", "user", json.dumps(updates))
 
         return session_manager.get_session(session_id)
 
+    def _batch_operation(self, session_ids: List[str], operation_func) -> Dict:
+        """批量操作的通用方法"""
+        results = []
+        for session_id in session_ids:
+            result = operation_func(session_id)
+            results.append({
+                "session_id": session_id,
+                "success": "error" not in result
+            })
+
+        return {
+            "total": len(session_ids),
+            "success": len([r for r in results if r["success"]]),
+            "failed": len([r for r in results if not r["success"]]),
+            "results": results,
+        }
+
+    @hook_manager.wrap_hooks("reviewer_manager_batch_approve_before", "reviewer_manager_batch_approve_after")
     def batch_approve(self, session_ids: List[str]) -> Dict:
-        results = []
-        for session_id in session_ids:
-            result = self.approve_session(session_id)
-            results.append({
-                "session_id": session_id,
-                "success": result is not None
-            })
+        """批量审批"""
+        return self._batch_operation(session_ids, self.approve_session)
 
-        return {
-            "total": len(session_ids),
-            "success": len([r for r in results if r["success"]]),
-            "failed": len([r for r in results if not r["success"]]),
-            "results": results,
-        }
-
+    @hook_manager.wrap_hooks("reviewer_manager_batch_reject_before", "reviewer_manager_batch_reject_after")
     def batch_reject(self, session_ids: List[str]) -> Dict:
-        results = []
-        for session_id in session_ids:
-            result = self.reject_session(session_id)
-            results.append({
-                "session_id": session_id,
-                "success": result is not None
-            })
+        """批量拒绝"""
+        return self._batch_operation(session_ids, self.reject_session)
 
-        return {
-            "total": len(session_ids),
-            "success": len([r for r in results if r["success"]]),
-            "failed": len([r for r in results if not r["success"]]),
-            "results": results,
-        }
-
+    @hook_manager.wrap_hooks("reviewer_manager_get_pending_before", "reviewer_manager_get_pending_after")
     def get_pending_sessions(self, page: int = 1, page_size: int = 20) -> Dict:
+        """获取待审核会话"""
         return session_manager.get_sessions(status="curated", page=page, page_size=page_size)
 
-    def _log_action(self, session_id: str, action: str, operator: str, details: str = None):
-        db = self.get_db()
-        db.execute(
-            "INSERT INTO audit_logs (session_id, action, operator, details) VALUES (?, ?, ?, ?)",
-            (session_id, action, operator, details)
-        )
-
+    @hook_manager.wrap_hooks("reviewer_manager_get_audit_logs_before", "reviewer_manager_get_audit_logs_after")
     def get_audit_logs(self, session_id: str = None) -> List[Dict]:
-        db = self.get_db()
-
-        if session_id:
-            rows = db.fetchall(
-                "SELECT * FROM audit_logs WHERE session_id = ? ORDER BY created_at DESC",
-                (session_id,)
-            )
-        else:
-            rows = db.fetchall("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100")
-
-        return [dict(row) for row in rows]
+        """获取审计日志"""
+        return database_manager.audit_log_get(session_id=session_id)
 
 
 reviewer_manager = ReviewerManager()

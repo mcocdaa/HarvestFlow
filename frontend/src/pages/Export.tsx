@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Select, InputNumber, Button, Table, message, Space } from 'antd';
+import { Card, Form, Select, InputNumber, Button, Table, message } from 'antd';
 import { ExportOutlined } from '@ant-design/icons';
-import { exporterApi } from '../services/api';
+import { exporterApi } from '../services';
+import type { ExportHistory, ExportParams } from '../types';
 
 const { Option } = Select;
 
 const Export: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<ExportHistory[]>([]);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -33,7 +34,7 @@ const Export: React.FC = () => {
     }
   };
 
-  const handleExport = async (values: any) => {
+  const handleExport = async (values: ExportParams) => {
     setLoading(true);
     try {
       const res = await exporterApi.exportSessions(values);

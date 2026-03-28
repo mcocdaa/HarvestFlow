@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Tag, Button, message, Tabs } from 'antd';
-import { pluginApi } from '../services/api';
+import { pluginApi } from '../services';
 
 const Plugins: React.FC = () => {
   const [plugins, setPlugins] = useState<any[]>([]);

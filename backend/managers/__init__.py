@@ -1,9 +1,23 @@
 # @file backend/managers/__init__.py
-# @brief 管理器模块导出
+# @brief 业务管理器模块
+# @create 2026-03-22
 
-from .db_manager import db_manager
-from .session_manager import session_manager
-from .collector_manager import collector_manager
-from .curator_manager import curator_manager
-from .reviewer_manager import reviewer_manager
-from .exporter_manager import exporter_manager
+# 业务管理器（领域级）
+from .session_manager import SessionManager, session_manager
+from .collector_manager import CollectorManager, collector_manager
+from .curator_manager import CuratorManager, curator_manager
+from .reviewer_manager import ReviewerManager, reviewer_manager
+from .exporter_manager import ExporterManager, exporter_manager
+
+__all__ = [
+    "SessionManager",
+    "session_manager",
+    "CollectorManager",
+    "collector_manager",
+    "CuratorManager",
+    "curator_manager",
+    "ReviewerManager",
+    "reviewer_manager",
+    "ExporterManager",
+    "exporter_manager",
+]

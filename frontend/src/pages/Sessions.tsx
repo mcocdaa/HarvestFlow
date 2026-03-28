@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, Space, Modal, Drawer } from 'antd';
-import { EyeOutlined } from '@ant-design/icons';
-import { sessionApi } from '../services/api';
+import { Typography, message } from 'antd';
+import { sessionApi } from '../services';
+import { SessionTable, SessionDrawer } from '../components/sessions';
+import type { Session, SessionContent } from '../types';
+import '../styles/Sessions.css';
+
+const { Text } = Typography;
 
 const Sessions: React.FC = () => {
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [selectedSession, setSelectedSession] = useState<any>(null);
-  const [content, setContent] = useState<any>(null);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [content, setContent] = useState<SessionContent | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
 
   useEffect(() => {
@@ -20,123 +24,71 @@ const Sessions: React.FC = () => {
   const loadSessions = async () => {
     setLoading(true);
     try {
-      const res = await sessionApi.getSessions({ page, page_size: pageSize, sort: 'recent' });
+      const params: any = { page, page_size: pageSize, sort: 'recent' };
+      const res = await sessionApi.getSessions(params);
       setSessions(res.data.sessions || []);
       setTotal(res.data.total || 0);
     } catch (error) {
       console.error('Failed to load sessions:', error);
+      message.error('加载会话列表失败');
     } finally {
       setLoading(false);
     }
   };
 
-  const viewSession = async (record: any) => {
+  const viewSession = async (record: Session) => {
     setSelectedSession(record);
     try {
       const res = await sessionApi.getSessionContent(record.session_id);
-      setContent(res.data);
-    } catch (error) {
+      console.log('Session API full response:', res);
+      console.log('Session data:', res.data);
+      console.log('Session content:', res.data?.content);
+
+      if (res.data?.success === false) {
+        message.error(res.data.error || '加载会话内容失败');
+        setContent(null);
+      } else {
+        setContent(res.data?.content || null);
+      }
+    } catch (error: any) {
       console.error('Failed to load content:', error);
+      console.error('Error details:', error.response?.data);
       setContent(null);
+      message.error('加载会话内容失败: ' + (error.response?.data?.error || error.message));
     }
     setDrawerVisible(true);
   };
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      raw: 'default',
-      curated: 'processing',
-      approved: 'success',
-      rejected: 'error',
-    };
-    return colors[status] || 'default';
+  const handlePageChange = (newPage: number, newPageSize: number) => {
+    setPage(newPage);
+    setPageSize(newPageSize);
   };
 
-  const columns = [
-    {
-      title: 'Session ID',
-      dataIndex: 'session_id',
-      key: 'session_id',
-      ellipsis: true,
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => <Tag color={getStatusColor(status)}>{status}</Tag>,
-    },
-    {
-      title: 'Auto Score',
-      dataIndex: 'quality_auto_score',
-      key: 'quality_auto_score',
-    },
-    {
-      title: 'Manual Score',
-      dataIndex: 'quality_manual_score',
-      key: 'quality_manual_score',
-    },
-    {
-      title: 'Agent Role',
-      dataIndex: 'agent_role',
-      key: 'agent_role',
-    },
-    {
-      title: 'Created At',
-      dataIndex: 'created_at',
-      key: 'created_at',
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_: any, record: any) => (
-        <Button icon={<EyeOutlined />} onClick={() => viewSession(record)}>
-          View
-        </Button>
-      ),
-    },
-  ];
-
   return (
-    <div>
-      <h1>Sessions</h1>
-      <Table
-        columns={columns}
-        dataSource={sessions}
-        rowKey="session_id"
+    <div className="sessions-page">
+      <div className="page-header">
+        <div className="header-title">
+          <h1>Sessions</h1>
+          <Text className="total-count">共 {total} 条会话</Text>
+        </div>
+      </div>
+
+      <SessionTable
+        sessions={sessions}
         loading={loading}
-        pagination={{
-          current: page,
-          pageSize,
-          total,
-          onChange: (p, ps) => {
-            setPage(p);
-            setPageSize(ps);
-          },
-        }}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onViewSession={viewSession}
       />
-      <Drawer
-        title={`Session: ${selectedSession?.session_id}`}
-        placement="right"
-        width={600}
-        open={drawerVisible}
+
+      <SessionDrawer
+        visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
-      >
-        {selectedSession && (
-          <div>
-            <p><strong>Status:</strong> <Tag color={getStatusColor(selectedSession.status)}>{selectedSession.status}</Tag></p>
-            <p><strong>Auto Score:</strong> {selectedSession.quality_auto_score}</p>
-            <p><strong>Manual Score:</strong> {selectedSession.quality_manual_score}</p>
-            <p><strong>Agent Role:</strong> {selectedSession.agent_role}</p>
-            <p><strong>Task Type:</strong> {selectedSession.task_type}</p>
-            <p><strong>Created:</strong> {selectedSession.created_at}</p>
-            <hr />
-            <h3>Content</h3>
-            <pre style={{ maxHeight: 400, overflow: 'auto', background: '#f5f5f5', padding: 10 }}>
-              {JSON.stringify(content, null, 2)}
-            </pre>
-          </div>
-        )}
-      </Drawer>
+        session={selectedSession}
+        content={content}
+      />
     </div>
   );
 };

@@ -4,8 +4,11 @@
 
 import os
 import json
-from typing import List, Dict
+import logging
+from typing import List, Dict, Optional
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class DefaultCollector:
@@ -17,6 +20,11 @@ class DefaultCollector:
         self.watch_folders = self.config.get("watch_folders", [])
 
     def scan(self) -> List[str]:
+        """扫描文件夹获取 JSON 文件列表
+
+        Returns:
+            JSON 文件路径列表
+        """
         json_files = []
         for folder in self.watch_folders:
             if not os.path.exists(folder):
@@ -27,12 +35,20 @@ class DefaultCollector:
                         json_files.append(os.path.join(root, file))
         return json_files
 
-    def parse(self, file_path: str) -> Dict:
+    def parse(self, file_path: str) -> Optional[Dict]:
+        """解析会话文件
+
+        Args:
+            file_path: 会话文件路径
+
+        Returns:
+            解析后的会话数据，失败返回 None
+        """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"[DefaultCollector] Parse error: {e}")
+            logger.error(f"[DefaultCollector] Parse error: {e}")
             return {}
 
 
@@ -40,7 +56,7 @@ collector_plugin = DefaultCollector()
 
 
 def on_load():
-    print("[DefaultCollector] Plugin loaded")
+    logger.info("[DefaultCollector] Plugin loaded")
 
 
 def get_collector():
