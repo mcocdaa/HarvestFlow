@@ -29,6 +29,7 @@ class ReviewerManager:
     @hook_manager.wrap_hooks("reviewer_manager_construct_before", "reviewer_manager_construct_after")
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.data_dir: str = setting_manager.get("DATA_DIR", "./data")
 
     @hook_manager.wrap_hooks(after="reviewer_manager_register_arguments")
     def register_arguments(self, parser: argparse.ArgumentParser):
@@ -42,17 +43,16 @@ class ReviewerManager:
 
     @hook_manager.wrap_hooks("reviewer_manager_init_before", "reviewer_manager_init_after")
     def init(self, args: argparse.Namespace):
-        if getattr(args, 'reviewer_data_dir', None):
-            self.data_dir = args.reviewer_data_dir
-        else:
-            self.data_dir = setting_manager.get("DATA_DIR", "./data")
+        reviewer_data_dir_val = getattr(args, 'reviewer_data_dir', setting_manager.get("REVIEWER_DATA_DIR"))
+        if reviewer_data_dir_val:
+            self.data_dir = reviewer_data_dir_val
 
     @property
     def human_approved_dir(self) -> str:
         return os.path.join(self.data_dir, "human_approved")
 
     @hook_manager.wrap_hooks("reviewer_manager_approve_before", "reviewer_manager_approve_after")
-    def approve_session(self, session_id: str, notes: str = None) -> Dict:
+    def approve_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
         """审批会话"""
         session = session_manager.get_session(session_id)
         if not session:
@@ -76,18 +76,27 @@ class ReviewerManager:
         else:
             session_manager.update_session(session_id, {"status": "approved"})
 
+        # 更新手动评分
+        if score is not None:
+            session_manager.update_session(session_id, {"quality_manual_score": score})
+
         database_manager.audit_log_create(session_id, "approve", "user", notes)
 
         return session_manager.get_session(session_id)
 
     @hook_manager.wrap_hooks("reviewer_manager_reject_before", "reviewer_manager_reject_after")
-    def reject_session(self, session_id: str, notes: str = None) -> Dict:
+    def reject_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
         """拒绝会话"""
         session = session_manager.get_session(session_id)
         if not session:
             return {"session_id": session_id, "error": "session not found"}
 
         session_manager.update_session(session_id, {"status": "rejected"})
+
+        # 更新手动评分
+        if score is not None:
+            session_manager.update_session(session_id, {"quality_manual_score": score})
+
         database_manager.audit_log_create(session_id, "reject", "user", notes)
 
         return session_manager.get_session(session_id)

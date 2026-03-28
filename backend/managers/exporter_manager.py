@@ -41,6 +41,7 @@ class ExporterManager:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.default_format: str = DEFAULT_FORMAT
+        self.output_dir: str = os.path.join(setting_manager.get("DATA_DIR", "./data"), "export")
 
     @hook_manager.wrap_hooks(after="exporter_manager_register_arguments")
     def register_arguments(self, parser: argparse.ArgumentParser):
@@ -61,11 +62,11 @@ class ExporterManager:
 
     @hook_manager.wrap_hooks("exporter_manager_init_before", "exporter_manager_init_after")
     def init(self, args: argparse.Namespace):
-        self.default_format = getattr(args, 'export_default_format', DEFAULT_FORMAT)
-        if getattr(args, 'export_output_dir', None):
-            self.output_dir = args.export_output_dir
-        else:
-            self.output_dir = os.path.join(setting_manager.get("DATA_DIR", "./data"), "export")
+        self.default_format = getattr(args, 'export_default_format', setting_manager.get("EXPORT_DEFAULT_FORMAT", DEFAULT_FORMAT))
+
+        export_output_dir_val = getattr(args, 'export_output_dir', setting_manager.get("EXPORT_OUTPUT_DIR"))
+        if export_output_dir_val:
+            self.output_dir = export_output_dir_val
 
     @property
     def default_output_dir(self) -> str:

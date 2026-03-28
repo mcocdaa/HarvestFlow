@@ -4,19 +4,13 @@
 
 import argparse
 
-from core.secrets_manager import SecretsManager, LocalSecretsClient, InfisicalSDKClient
+from core.secrets_manager import SecretsManager, LocalSecretsClient
 
 
 class TestSecretsManagerConstructor:
     def test_default_constructor_sets_local_client_class(self):
         manager = SecretsManager()
         assert manager._client_class == LocalSecretsClient
-        assert manager.client is None
-        assert manager.sdk_available is False
-
-    def test_infisical_client_type_sets_infisical_client_class(self):
-        manager = SecretsManager(client_type="infisical")
-        assert manager._client_class == InfisicalSDKClient
         assert manager.client is None
         assert manager.sdk_available is False
 

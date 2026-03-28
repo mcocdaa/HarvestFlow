@@ -63,3 +63,29 @@ class TestDatabaseManagerTransactionsAndErrors:
     def test_raises_if_not_initialized_audit_log(self):
         with pytest.raises(RuntimeError, match="数据库未初始化"):
             self.manager.audit_log_create("test", "action")
+
+    def test_close_connection(self, args_with_db_path):
+        self.manager.init(args_with_db_path)
+        assert self.manager.connection is not None
+
+        self.manager.close()
+        assert self.manager.connection is None
+
+        self.manager.close()
+        assert self.manager.connection is None
+
+    def test_session_delete_returns_false_when_session_not_exists(self, args_with_db_path):
+        self.manager.init(args_with_db_path)
+        result = self.manager.session_delete("nonexistent-session-id")
+        assert result is False
+
+    def test_session_delete_handles_remove_file_exception(self, args_with_db_path, monkeypatch):
+        self.manager.init(args_with_db_path)
+        session_id = "test-session-123"
+        self.manager.session_create({"session_id": session_id, "file_path": "/nonexistent/path/file.txt"})
+
+        session = self.manager.session_get(session_id)
+        assert session is not None
+
+        result = self.manager.session_delete(session_id)
+        assert result is True

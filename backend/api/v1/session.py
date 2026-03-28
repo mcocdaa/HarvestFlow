@@ -10,7 +10,7 @@ from core import database_manager
 router = APIRouter()
 
 
-@router.get("/session/{session_id}")
+@router.get("/sessions/{session_id}")
 async def get_session(session_id: str) -> dict:
     session = session_manager.get_session(session_id)
     if session:
@@ -18,7 +18,7 @@ async def get_session(session_id: str) -> dict:
     return {"success": False, "error": "Session not found"}
 
 
-@router.get("/session/{session_id}/content")
+@router.get("/sessions/{session_id}/content")
 async def get_session_content(session_id: str) -> dict:
     content = session_manager.get_session_content(session_id)
     if content:
@@ -36,7 +36,7 @@ async def get_sessions(
     return session_manager.get_sessions(status, page, page_size, sort)
 
 
-@router.patch("/session/{session_id}")
+@router.patch("/sessions/{session_id}")
 async def update_session(session_id: str, updates: Dict) -> dict:
     result = session_manager.update_session(session_id, updates)
     if result:
@@ -44,7 +44,7 @@ async def update_session(session_id: str, updates: Dict) -> dict:
     return {"success": False, "error": "Session not found"}
 
 
-@router.delete("/session/{session_id}")
+@router.delete("/sessions/{session_id}")
 async def delete_session(session_id: str) -> dict:
     success = session_manager.delete_session(session_id)
     return {"success": success}

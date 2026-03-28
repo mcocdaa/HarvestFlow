@@ -4,8 +4,15 @@
 
 import os
 import json
-from typing import List, Dict, Optional
+import logging
+from typing import List, Dict, Optional, Any
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_AGENTS_DIR = "C:/Users/20211/.openclaw/agents"
+DEFAULT_TARGET_AGENTS = ["backend_dev", "req_analyst", "qa_ops", "coord"]
+DEFAULT_MIN_MESSAGE_COUNT = 5
 
 
 class OpenClawCollector:
@@ -14,22 +21,37 @@ class OpenClawCollector:
 
     def __init__(self, config: Dict = None):
         self.config = config or {}
-        self.agents_dir = self.config.get("agents_dir", "C:/Users/20211/.openclaw/agents")
-        self.target_agents = self.config.get("target_agents", ["backend_dev", "req_analyst", "qa_ops", "coord"])
+        self.agents_dir = self.config.get("agents_dir", DEFAULT_AGENTS_DIR)
+        self.target_agents = self.config.get("target_agents", DEFAULT_TARGET_AGENTS)
         self.skip_cron = self.config.get("skip_cron_sessions", True)
-        self.min_message_count = self.config.get("min_message_count", 5)
+        self.min_message_count = self.config.get("min_message_count", DEFAULT_MIN_MESSAGE_COUNT)
 
     def scan(self) -> List[str]:
-        """扫描所有目标 agent 的 sessions.json，返回 jsonl 文件路径列表"""
+        """扫描所有目标 agent 的 sessions.json，返回 jsonl 文件路径列表
+
+        Returns:
+            jsonl 文件路径列表
+        """
         jsonl_files = []
+        logger.info(f"[OpenClawCollector] 开始扫描，agents_dir: {self.agents_dir}, target_agents: {self.target_agents}")
 
         if not os.path.exists(self.agents_dir):
-            print(f"[OpenClawCollector] agents_dir not found: {self.agents_dir}")
+            logger.warning(f"[OpenClawCollector] agents_dir not found: {self.agents_dir}")
             return jsonl_files
 
         for agent_id in self.target_agents:
+            logger.info(f"[OpenClawCollector] 扫描 agent: {agent_id}")
             agent_sessions_path = os.path.join(self.agents_dir, agent_id, "sessions", "sessions.json")
+            logger.info(f"[OpenClawCollector] sessions.json 路径：{agent_sessions_path}, 存在：{os.path.exists(agent_sessions_path)}")
             if not os.path.exists(agent_sessions_path):
+                # 如果 sessions.json 不存在，直接扫描目录中的 jsonl 文件
+                sessions_dir = os.path.join(self.agents_dir, agent_id, "sessions")
+                logger.info(f"[OpenClawCollector] sessions.json 不存在，扫描目录：{sessions_dir}")
+                if os.path.exists(sessions_dir):
+                    for file in os.listdir(sessions_dir):
+                        logger.info(f"[OpenClawCollector] 发现文件：{file}")
+                        if file.endswith('.jsonl'):
+                            jsonl_files.append(os.path.join(sessions_dir, file))
                 continue
 
             try:
@@ -37,22 +59,36 @@ class OpenClawCollector:
                     sessions_data = json.load(f)
 
                 for session_key, session_info in sessions_data.items():
-                    # 跳过 cron 会话
                     if self.skip_cron and ":cron:" in session_key:
                         continue
 
                     session_file = session_info.get("sessionFile")
                     if session_file:
-                        # sessionFile 存的是完整绝对路径
+                        # 尝试将 Windows 路径转换为 Linux 路径
+                        if 'C:' in session_file or 'c:' in session_file:
+                            # 提取文件名（处理 Windows 路径分隔符）
+                            file_name = session_file.split('\\')[-1].split('/')[-1]
+                            session_file = os.path.join(self.agents_dir, agent_id, "sessions", file_name)
+                            logger.info(f"[OpenClawCollector] 转换 Windows 路径：{session_info.get('sessionFile')} -> {session_file}")
                         if os.path.exists(session_file):
                             jsonl_files.append(session_file)
+                        else:
+                            logger.warning(f"[OpenClawCollector] 文件不存在：{session_file}")
             except Exception as e:
-                print(f"[OpenClawCollector] Error scanning {agent_id}: {e}")
+                logger.error(f"[OpenClawCollector] Error scanning {agent_id}: {e}")
 
+        logger.info(f"[OpenClawCollector] 扫描完成，找到 {len(jsonl_files)} 个文件：{jsonl_files}")
         return jsonl_files
 
-    def parse(self, file_path: str) -> Optional[Dict]:
-        """读取 jsonl 文件，解析为标准格式"""
+    def parse(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """读取 jsonl 文件，解析为标准格式
+
+        Args:
+            file_path: jsonl 文件路径
+
+        Returns:
+            解析后的会话数据，失败返回 None
+        """
         try:
             messages = []
             tools_used = set()
@@ -61,7 +97,6 @@ class OpenClawCollector:
             session_key = None
             agent_id = None
 
-            # 从路径中提取 agent_id
             parts = file_path.split(os.sep)
             if "agents" in parts:
                 idx = parts.index("agents")
@@ -82,10 +117,8 @@ class OpenClawCollector:
                     role = msg.get("role", "user")
                     content = msg.get("content", "")
 
-                    # 处理 content 为数组的情况
                     parsed_content = self._parse_content(content)
 
-                    # 提取 tool_use 和 tool_result
                     tool_calls = []
                     if isinstance(content, list):
                         for item in content:
@@ -106,18 +139,14 @@ class OpenClawCollector:
                         "tool_calls": tool_calls if tool_calls else None,
                     })
 
-                    # 从第一条消息获取 session_id
                     if not session_id:
                         session_id = msg.get("sessionId")
 
-            # 从文件路径推断 session_key
             if agent_id and session_id:
                 session_key = f"agent:{agent_id}:{session_id[:8]}"
 
-            # 提取元数据（从最后一条 assistant 消息）
             metadata = self._extract_metadata(file_path, agent_id)
 
-            # 过滤消息数
             if len(messages) < self.min_message_count:
                 return None
 
@@ -133,11 +162,18 @@ class OpenClawCollector:
             }
 
         except Exception as e:
-            print(f"[OpenClawCollector] Parse error: {e}")
+            logger.error(f"[OpenClawCollector] Parse error: {e}")
             return None
 
-    def _parse_content(self, content) -> str:
-        """解析 content，可能是字符串或数组"""
+    def _parse_content(self, content: Any) -> str:
+        """解析 content，可能是字符串或数组
+
+        Args:
+            content: 内容，可能是字符串或数组
+
+        Returns:
+            解析后的字符串
+        """
         if isinstance(content, str):
             return content
         elif isinstance(content, list):
@@ -150,15 +186,22 @@ class OpenClawCollector:
                     elif item_type == "tool_use":
                         text_parts.append(f"[tool_use: {item.get('name', 'unknown')}]")
                     elif item_type == "tool_result":
-                        # 简化 tool_result 内容
                         text_parts.append("[tool_result]")
                 elif isinstance(item, str):
                     text_parts.append(item)
             return "".join(text_parts)
         return str(content) if content else ""
 
-    def _extract_metadata(self, file_path: str, agent_id: str) -> Dict:
-        """从 sessions.json 提取元数据"""
+    def _extract_metadata(self, file_path: str, agent_id: str) -> Dict[str, Any]:
+        """从 sessions.json 提取元数据
+
+        Args:
+            file_path: 会话文件路径
+            agent_id: agent ID
+
+        Returns:
+            元数据字典
+        """
         metadata = {
             "model": "",
             "updated_at": 0,
@@ -180,7 +223,6 @@ class OpenClawCollector:
             with open(sessions_json_path, 'r', encoding='utf-8', errors='ignore') as f:
                 sessions_data = json.load(f)
 
-            # 查找匹配的 session（sessionFile 存的是完整绝对路径）
             for session_key, session_info in sessions_data.items():
                 sf = session_info.get("sessionFile", "")
                 if sf == file_path or os.path.basename(sf) == os.path.basename(file_path):
@@ -189,16 +231,30 @@ class OpenClawCollector:
                     metadata["label"] = session_info.get("label", "")
                     break
         except Exception as e:
-            print(f"[OpenClawCollector] Error extracting metadata: {e}")
+            logger.error(f"[OpenClawCollector] Error extracting metadata: {e}")
 
         return metadata
 
 
-collector_plugin = OpenClawCollector()
+collector_plugin = None
 
 
 def on_load():
-    print("[OpenClawCollector] Plugin loaded")
+    global collector_plugin
+    import os
+    import yaml
+
+    logger.info("[OpenClawCollector] Plugin loaded")
+
+    # 从 plugin.yaml 读取配置
+    plugin_yaml_path = os.path.join(os.path.dirname(__file__), 'plugin.yaml')
+    config = {}
+    if os.path.exists(plugin_yaml_path):
+        with open(plugin_yaml_path, 'r', encoding='utf-8') as f:
+            plugin_data = yaml.safe_load(f)
+            config = plugin_data.get('config', {})
+
+    collector_plugin = OpenClawCollector(config)
 
 
 def get_collector():

@@ -5,11 +5,15 @@
 # Python
 __pycache__/
 .pytest_cache/
+*.pyc
+*.pyo
 
 # frontend
 node_modules
 dist
 dist-electron
+coverage
+*.tsbuildinfo
 
 # Env files & secrets
 .env

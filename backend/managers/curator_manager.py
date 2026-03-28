@@ -57,8 +57,11 @@ class CuratorManager:
 
     @hook_manager.wrap_hooks("curator_manager_init_before", "curator_manager_init_after")
     def init(self, args: argparse.Namespace):
-        self.enabled = getattr(args, 'curator_enabled', True)
-        self.auto_approve_threshold = getattr(args, 'auto_approve_threshold', DEFAULT_AUTO_APPROVE_THRESHOLD)
+        curator_enabled_val = getattr(args, 'curator_enabled', setting_manager.get("CURATOR_ENABLED", True))
+        self.enabled = str(curator_enabled_val).lower() in ('true', '1', 'yes')
+
+        self.auto_approve_threshold = getattr(args, 'auto_approve_threshold', setting_manager.get("AUTO_APPROVE_THRESHOLD", DEFAULT_AUTO_APPROVE_THRESHOLD))
+        self.auto_approve_threshold = int(self.auto_approve_threshold)
 
     @property
     def agent_curated_dir(self) -> str:
@@ -94,6 +97,9 @@ class CuratorManager:
             "tags": tags,
             "tools_used": tools_used,
         }
+
+        # 所有评估过的会话都标记为 curated，高价值的移动到 curated 目录
+        self._mark_as_curated(session_id)
 
         if is_high_value:
             self._move_to_curated(session_id)
@@ -152,6 +158,15 @@ class CuratorManager:
         tools.extend(self._extract_tool_names_from_calls(content))
 
         return list(set(tools))
+
+    @hook_manager.wrap_hooks("curator_manager_mark_as_curated_before", "curator_manager_mark_as_curated_after")
+    def _mark_as_curated(self, session_id: str):
+        """标记为 curated 状态"""
+        session = session_manager.get_session(session_id)
+        if not session:
+            return
+
+        session_manager.update_session(session_id, {"status": "curated"})
 
     @hook_manager.wrap_hooks("curator_manager_move_to_curated_before", "curator_manager_move_to_curated_after")
     def _move_to_curated(self, session_id: str):

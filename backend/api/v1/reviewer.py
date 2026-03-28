@@ -15,16 +15,16 @@ async def get_pending_sessions(page: int = 1, page_size: int = 20) -> dict:
 
 
 @router.post("/reviewer/approve/{session_id}")
-async def approve_session(session_id: str, notes: Optional[str] = None) -> dict:
-    result = reviewer_manager.approve_session(session_id, notes)
+async def approve_session(session_id: str, notes: Optional[str] = None, score: Optional[int] = None) -> dict:
+    result = reviewer_manager.approve_session(session_id, notes, score)
     if result:
         return {"success": True, "session": result}
     return {"success": False, "error": "Session not found"}
 
 
 @router.post("/reviewer/reject/{session_id}")
-async def reject_session(session_id: str, notes: Optional[str] = None) -> dict:
-    result = reviewer_manager.reject_session(session_id, notes)
+async def reject_session(session_id: str, notes: Optional[str] = None, score: Optional[int] = None) -> dict:
+    result = reviewer_manager.reject_session(session_id, notes, score)
     if result:
         return {"success": True, "session": result}
     return {"success": False, "error": "Session not found"}

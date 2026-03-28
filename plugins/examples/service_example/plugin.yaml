@@ -1,0 +1,21 @@
+name: service_example
+type: service
+version: 1.0.0
+description: Example service plugin - demonstrates how to build a custom service
+author: Your Name
+
+# 密钥定义
+secrets:
+  - name: API_KEY
+    description: API key for external service
+    required: true
+  - name: API_SECRET
+    description: API secret for external service
+    required: true
+
+# 插件配置
+config:
+  backend_entry: backend.py
+  custom_config:
+    api_endpoint: https://api.example.com
+    timeout: 30

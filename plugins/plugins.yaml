@@ -7,13 +7,13 @@ plugins:
     enabled: true
 
   collectors/openclaw:
-    enabled: false
+    enabled: true
 
   curators/default:
     enabled: true
 
   curators/openclaw:
-    enabled: false
+    enabled: true
 
   reviewers/default:
     enabled: true

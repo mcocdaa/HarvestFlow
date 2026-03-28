@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import Dashboard from '../pages/Dashboard'
-import { statsApi } from '../services/api'
+import { statsApi } from '../services'
 
-vi.mock('../services/api', () => ({
+vi.mock('../services', () => ({
   statsApi: {
     get: vi.fn(),
   },

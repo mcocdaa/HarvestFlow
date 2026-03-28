@@ -1,17 +1,17 @@
 ---
-title: 规范与说明
-description: 项目规范与说明索引
-keywords: [规范, 说明, 指南]
-version: "1.0"
+title: 通用规范
+description: 适用于任何软件项目的通用规范
+keywords: [规范, 通用, 指南]
+version: "2.0"
 ---
 
-# 规范与说明
+# 通用规范
+
+本目录包含适用于任何软件项目的通用规范和最佳实践。
 
 ## 文件列表
 
-- [docs.md](docs.md): 文档文件夹结构与格式规范
-- [docker.md](docker/index.md): Docker 环境设置规范
-
-## 子目录
-
-- [docker](docker/index.md): Docker 环境规范
+- [docs.md](docs.md): 文档规范
+- [code.md](code.md): 代码规范
+- [api-spec.md](api-spec.md): API 规范
+- [docker.md](docker.md): Docker 部署规范

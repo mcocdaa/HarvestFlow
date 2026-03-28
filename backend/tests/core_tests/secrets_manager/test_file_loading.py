@@ -58,3 +58,36 @@ secrets:
             assert len(result) == 0
         finally:
             os.unlink(temp_path)
+
+    def test_skips_duplicate_secrets(self, args_minimal):
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False, encoding='utf-8') as f:
+            f.write("""
+secrets:
+  - name: DUPLICATE_KEY
+    description: From file
+    level: optional
+""")
+            temp_path = f.name
+
+        try:
+            args_minimal.secrets_yaml = temp_path
+            self.manager.init(args_minimal, [
+                {"name": "DUPLICATE_KEY", "level": "optional", "source": "plugin"},
+                {"name": "UNIQUE_KEY", "level": "required", "source": "plugin"},
+            ])
+            result = self.manager.list_secrets()
+
+            assert "DUPLICATE_KEY" in result
+            assert "UNIQUE_KEY" in result
+            assert len(result) == 2
+        finally:
+            os.unlink(temp_path)
+
+    def test_file_path_exists_but_not_file(self, args_minimal):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_path = os.path.join(tmpdir, "secrets.yaml")
+            open(temp_path, 'w').close()
+            args_minimal.secrets_yaml = temp_path
+            self.manager.init(args_minimal, [])
+            result = self.manager._collect_secret_defs([])
+            assert len(result) == 0

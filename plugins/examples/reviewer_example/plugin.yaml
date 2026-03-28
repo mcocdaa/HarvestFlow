@@ -1,0 +1,13 @@
+name: reviewer_example
+type: reviewer
+version: 1.0.0
+description: Example reviewer plugin - demonstrates how to build a custom reviewer
+author: Your Name
+
+# 密钥定义
+secrets: []
+
+# 插件配置
+config:
+  backend_entry: backend.py
+  frontend_entry: frontend.tsx

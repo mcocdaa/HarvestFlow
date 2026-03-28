@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Form, Select, InputNumber, Button, Table, message } from 'antd';
 import { ExportOutlined } from '@ant-design/icons';
-import { exporterApi } from '../services/api';
+import { exporterApi } from '../services';
 import type { ExportHistory, ExportParams } from '../types';
 
 const { Option } = Select;

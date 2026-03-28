@@ -65,12 +65,15 @@ class CollectorManager:
             args: 解析后的参数
         """
         self.watch_folders = []
-        if getattr(args, 'watch_folders', None):
-            for folder in args.watch_folders.split(","):
+        watch_folders_val = getattr(args, 'watch_folders', setting_manager.get("WATCH_FOLDERS", ""))
+        if watch_folders_val:
+            for folder in watch_folders_val.split(","):
                 folder = folder.strip()
                 if folder:
                     self.watch_folders.append(folder)
-        self.poll_interval = getattr(args, 'poll_interval', DEFAULT_POLL_INTERVAL)
+
+        self.poll_interval = getattr(args, 'poll_interval', setting_manager.get("POLL_INTERVAL", DEFAULT_POLL_INTERVAL))
+        self.poll_interval = int(self.poll_interval)
 
     @property
     def raw_sessions_dir(self) -> str:
@@ -111,6 +114,66 @@ class CollectorManager:
             解析后的会话数据，失败返回 None
         """
         try:
+            # 首先尝试使用 jsonl 解析器（OpenClaw 等）
+            if file_path.endswith('.jsonl'):
+                # jsonl 文件需要特殊处理，逐行读取
+                messages = []
+                session_id = None
+                agent_id = None
+
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            msg = json.loads(line)
+                            msg_type = msg.get('type', '')
+                            if msg_type == 'message':
+                                message_data = msg.get('message', {})
+                                role = message_data.get('role', 'user')
+                                content_list = message_data.get('content', [])
+
+                                # 提取文本内容
+                                text_content = ""
+                                if isinstance(content_list, list):
+                                    for item in content_list:
+                                        if isinstance(item, dict) and item.get('type') == 'text':
+                                            text_content += item.get('text', '')
+                                elif isinstance(content_list, str):
+                                    text_content = content_list
+
+                                if text_content:
+                                    messages.append({
+                                        "role": role,
+                                        "content": text_content
+                                    })
+
+                            # 提取 session_id
+                            if not session_id and msg.get('id'):
+                                session_id = msg.get('id')
+
+                        except json.JSONDecodeError:
+                            continue
+
+                if messages and session_id:
+                    # 从文件路径提取 agent_id
+                    parts = file_path.split(os.sep)
+                    if 'agents' in parts:
+                        idx = parts.index('agents')
+                        if idx + 1 < len(parts):
+                            agent_id = parts[idx + 1]
+
+                    return {
+                        "session_id": session_id,
+                        "agent_id": agent_id,
+                        "messages": messages,
+                        "message_count": len(messages),
+                        "has_tool_calls": False,
+                        "tools_used": [],
+                    }
+
+            # 默认处理：尝试作为普通 JSON 文件读取
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
@@ -151,16 +214,18 @@ class CollectorManager:
         dest_path = os.path.join(dest_dir, f"{session_id}.json")
 
         try:
-            shutil.copy2(file_path, dest_path)
+            # 保存解析后的数据，而不是复制原始文件
+            with open(dest_path, 'w', encoding='utf-8') as f:
+                json.dump(session_data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            self.logger.error(f"复制文件失败: {e}")
+            self.logger.error(f"保存文件失败：{e}")
             return None
 
         session_data["file_path"] = dest_path
         try:
             session_manager.create_session(session_data)
         except Exception as e:
-            self.logger.error(f"创建会话记录失败: {e}")
+            self.logger.error(f"创建会话记录失败：{e}")
             return None
 
         return session_id

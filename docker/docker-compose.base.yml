@@ -26,6 +26,7 @@ services:
     volumes:
       - ../backend/data:/app/data
       - ../plugins:/app/plugins:ro
+      - ../exampledatasets:/app/exampledatasets:ro
     networks:
       - harvestflow-network
     deploy:

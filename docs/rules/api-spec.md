@@ -1,15 +1,13 @@
 ---
 title: API规范
-description: RESTful API架构规范与路由自动加载机制
+description: 通用RESTful API架构规范
 keywords: [api, rest, version-control, router-loader]
-version: "1.0"
+version: "2.0"
 ---
 
 # API 规范
 
-## 概述
-
-基于 FastAPI 的 RESTful API 架构设计方案。
+本规范适用于任何软件项目的 RESTful API 架构设计。
 
 ### 特性
 

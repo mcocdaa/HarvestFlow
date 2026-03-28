@@ -119,3 +119,28 @@ class TestSettingManager:
         assert level == logging.DEBUG
 
         logging.getLogger().setLevel(original_level)
+
+    def test_load_env_when_env_file_not_exists(self):
+        import tempfile
+        from pathlib import Path
+        from core.setting_manager import SettingManager
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env_path = Path(tmpdir) / ".env"
+            assert not env_path.exists()
+
+            from importlib import reload
+            import core.setting_manager
+            original_root = core.setting_manager.ROOT_DIR
+            original_backend = core.setting_manager.BACKEND_DIR
+            core.setting_manager.ROOT_DIR = Path(tmpdir)
+            core.setting_manager.BACKEND_DIR = Path(tmpdir) / "backend"
+
+            manager = SettingManager()
+
+            assert "ROOT_DIR" in manager.config
+            assert "BACKEND_DIR" in manager.config
+            assert manager.config["API_VERSION"] == "v1"
+
+            core.setting_manager.ROOT_DIR = original_root
+            core.setting_manager.BACKEND_DIR = original_backend

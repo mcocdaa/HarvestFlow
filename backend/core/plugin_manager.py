@@ -206,7 +206,16 @@ class PluginManager:
 
     def get_all(self) -> List[Dict]:
         """获取所有已加载插件的信息"""
-        return list(self.loaded_plugins.values())
+        result = []
+        for key, info in self.loaded_plugins.items():
+            plugin_info = info.copy()
+            # 从 key 中提取 plugin_type (例如：collectors/openclaw -> collectors)
+            if '/' in key:
+                plugin_info['plugin_type'] = key.split('/')[0]
+            else:
+                plugin_info['plugin_type'] = 'unknown'
+            result.append(plugin_info)
+        return result
 
 
 

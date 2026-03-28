@@ -1,0 +1,1 @@
+# Hook manager tests package

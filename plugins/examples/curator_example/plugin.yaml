@@ -1,0 +1,15 @@
+name: curator_example
+type: curator
+version: 1.0.0
+description: Example curator plugin - demonstrates how to build a custom curator
+author: Your Name
+
+# 密钥定义
+secrets: []
+
+# 插件配置
+config:
+  backend_entry: backend.py
+  custom_config:
+    min_message_count: 2
+    max_message_length: 10000

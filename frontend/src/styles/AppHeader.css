@@ -1,0 +1,43 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: var(--flow-bg-card);
+  height: 64px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.app-logo {
+  color: var(--flow-text-title);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 0 24px;
+}
+
+.global-search {
+  max-width: 400px;
+  width: 100%;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.user-name {
+  color: var(--flow-text-primary);
+  margin-left: 8px;
+}

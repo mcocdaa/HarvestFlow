@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import api, {
+import { api,
   sessionApi,
   collectorApi,
   curatorApi,
@@ -7,7 +7,7 @@ import api, {
   exporterApi,
   pluginApi,
   statsApi,
-} from '../services/api'
+} from '../services'
 
 vi.mock('axios', () => ({
   default: {

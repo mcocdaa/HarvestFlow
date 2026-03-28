@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Statistic } from 'antd';
 import { FolderOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { statsApi } from '../services/api';
+import { statsApi } from '../services';
 import type { Stats } from '../types';
 
 const Dashboard: React.FC = () => {
@@ -46,7 +46,7 @@ const Dashboard: React.FC = () => {
               title="Raw Sessions"
               value={stats.raw_sessions || 0}
               prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: '#faad14' }}
+              valueStyle={{ color: '#F59E0B' }}
             />
           </Card>
         </Col>
@@ -56,7 +56,7 @@ const Dashboard: React.FC = () => {
               title="Approved"
               value={stats.approved_sessions || 0}
               prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#52c41a' }}
+              valueStyle={{ color: '#10B981' }}
             />
           </Card>
         </Col>
@@ -66,7 +66,7 @@ const Dashboard: React.FC = () => {
               title="Rejected"
               value={stats.rejected_sessions || 0}
               prefix={<CloseCircleOutlined />}
-              valueStyle={{ color: '#ff4d4f' }}
+              valueStyle={{ color: '#EF4444' }}
             />
           </Card>
         </Col>

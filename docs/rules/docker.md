@@ -1,13 +1,13 @@
 ---
 title: Docker 部署规范
-description: 前后端分离应用的 Docker 容器化规范
-keywords: [docker, compose, secrets, 前后端分离, 部署规范]
+description: 通用Docker容器化部署规范
+keywords: [docker, compose, secrets, 部署规范]
 version: "2.0"
 ---
 
 # Docker 部署规范
 
-> 适用于前后端分离应用的 Docker 容器化部署标准
+本规范适用于任何软件项目的 Docker 容器化部署。
 
 ## 1. 项目结构规范
 
