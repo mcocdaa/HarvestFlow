@@ -3,8 +3,6 @@
 # @create 2026-03-18
 
 import json
-import os
-import shutil
 import logging
 from typing import Dict, List
 import argparse
@@ -47,10 +45,6 @@ class ReviewerManager:
         if reviewer_data_dir_val:
             self.data_dir = reviewer_data_dir_val
 
-    @property
-    def human_approved_dir(self) -> str:
-        return os.path.join(self.data_dir, "human_approved")
-
     @hook_manager.wrap_hooks("reviewer_manager_approve_before", "reviewer_manager_approve_after")
     def approve_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
         """审批会话"""
@@ -58,23 +52,7 @@ class ReviewerManager:
         if not session:
             return {"session_id": session_id, "error": "session not found"}
 
-        current_status = session.get("status")
-
-        if current_status == "curated" or current_status == "raw":
-            source_path = session.get("file_path")
-            if source_path and os.path.exists(source_path):
-                dest_path = os.path.join(self.human_approved_dir, f"{session_id}.json")
-                os.makedirs(self.human_approved_dir, exist_ok=True)
-                try:
-                    shutil.copy2(source_path, dest_path)
-                    session_manager.update_session(session_id, {
-                        "file_path": dest_path,
-                        "status": "approved"
-                    })
-                except Exception as e:
-                    return {"session_id": session_id, "error": str(e)}
-        else:
-            session_manager.update_session(session_id, {"status": "approved"})
+        session_manager.update_session(session_id, {"status": "approved"})
 
         # 更新手动评分
         if score is not None:

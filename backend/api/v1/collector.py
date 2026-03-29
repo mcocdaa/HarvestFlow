@@ -16,8 +16,8 @@ async def scan_folder(folder_path: Optional[str] = None) -> dict:
 
 
 @router.post("/collector/import")
-async def import_session(file_path: str, target_dir: Optional[str] = None) -> dict:
-    session_id = collector_manager.import_session(file_path, target_dir)
+async def import_session(file_path: str) -> dict:
+    session_id = collector_manager.import_session(file_path)
     if session_id:
         return {"success": True, "session_id": session_id}
     return {"success": False, "error": "Failed to import session"}

@@ -2,9 +2,6 @@
 # @brief 自动审核管理器 - 评估会话质量并自动打标签
 # @create 2026-03-18
 
-import json
-import os
-import shutil
 import logging
 from typing import Dict, List
 import argparse
@@ -26,7 +23,6 @@ class CuratorManager:
     职责：
     1. 评估会话质量
     2. 自动打标签和评分
-    3. 高价值会话移动到 curated 目录
 
     使用流程：
     1. register_arguments(parser) 注册参数
@@ -63,10 +59,6 @@ class CuratorManager:
         self.auto_approve_threshold = getattr(args, 'auto_approve_threshold', setting_manager.get("AUTO_APPROVE_THRESHOLD", DEFAULT_AUTO_APPROVE_THRESHOLD))
         self.auto_approve_threshold = int(self.auto_approve_threshold)
 
-    @property
-    def agent_curated_dir(self) -> str:
-        return os.path.join(setting_manager.get("DATA_DIR", "./data"), "agent_curated")
-
     @hook_manager.wrap_hooks("curator_manager_evaluate_before", "curator_manager_evaluate_after")
     def evaluate_session(self, session_id: str) -> Dict:
         """评估单个会话"""
@@ -98,11 +90,8 @@ class CuratorManager:
             "tools_used": tools_used,
         }
 
-        # 所有评估过的会话都标记为 curated，高价值的移动到 curated 目录
+        # 所有评估过的会话都标记为 curated
         self._mark_as_curated(session_id)
-
-        if is_high_value:
-            self._move_to_curated(session_id)
 
         return result
 
@@ -167,28 +156,6 @@ class CuratorManager:
             return
 
         session_manager.update_session(session_id, {"status": "curated"})
-
-    @hook_manager.wrap_hooks("curator_manager_move_to_curated_before", "curator_manager_move_to_curated_after")
-    def _move_to_curated(self, session_id: str):
-        """移动到 curated 目录"""
-        session = session_manager.get_session(session_id)
-        if not session:
-            return
-
-        source_path = session.get("file_path")
-        if not source_path or not os.path.exists(source_path):
-            return
-
-        dest_path = os.path.join(self.agent_curated_dir, f"{session_id}.json")
-
-        try:
-            shutil.copy2(source_path, dest_path)
-            session_manager.update_session(session_id, {
-                "file_path": dest_path,
-                "status": "curated"
-            })
-        except Exception as e:
-            self.logger.error(f"移动文件失败: {e}")
 
     @hook_manager.wrap_hooks("curator_manager_evaluate_all_before", "curator_manager_evaluate_all_after")
     def evaluate_all(self) -> Dict:

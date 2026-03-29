@@ -74,7 +74,8 @@ class DatabaseManager:
         self._create_table("""
             CREATE TABLE IF NOT EXISTS sessions (
                 session_id TEXT PRIMARY KEY,
-                file_path TEXT NOT NULL,
+                file_path TEXT,
+                content TEXT,
                 status TEXT DEFAULT 'raw',
                 quality_auto_score INTEGER,
                 quality_manual_score INTEGER,
@@ -86,6 +87,13 @@ class DatabaseManager:
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # 添加 content 列（如果表已存在）
+        try:
+            self.connection.execute("ALTER TABLE sessions ADD COLUMN content TEXT")
+            self.connection.commit()
+        except sqlite3.OperationalError:
+            pass
 
         self._create_table("""
             CREATE TABLE IF NOT EXISTS audit_logs (
@@ -155,12 +163,17 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
+        content_json = None
+        if "content" in session_data:
+            content_json = json.dumps(session_data["content"])
+
         self.connection.execute(
-            """INSERT INTO sessions (session_id, file_path, status, agent_role, task_type, tools_used, tags)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO sessions (session_id, file_path, content, status, agent_role, task_type, tools_used, tags)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 session_data.get("session_id"),
                 session_data.get("file_path", ""),
+                content_json,
                 session_data.get("status", "raw"),
                 session_data.get("agent_role"),
                 session_data.get("task_type"),
@@ -432,6 +445,11 @@ class DatabaseManager:
             session["tags"] = json.loads(session["tags"])
         if session.get("tools_used"):
             session["tools_used"] = json.loads(session["tools_used"])
+        if session.get("content"):
+            try:
+                session["content"] = json.loads(session["content"])
+            except json.JSONDecodeError:
+                pass
         return session
 
 
