@@ -27,7 +27,7 @@ const AppHeader: React.FC = () => {
         />
       </div>
       <div className="header-right">
-        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+        <Dropdown menu={{ items: userMenuItems || [] }} placement="bottomRight">
           <Space style={{ cursor: 'pointer' }}>
             <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#2563EB' }} />
             <span className="user-name">Admin</span>

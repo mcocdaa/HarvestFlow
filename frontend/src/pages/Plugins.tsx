@@ -94,7 +94,7 @@ const Plugins: React.FC = () => {
         />
         <Table
           columns={columns}
-          dataSource={plugins}
+          dataSource={plugins || []}
           rowKey="name"
           loading={loading}
           pagination={false}

@@ -19,7 +19,7 @@ const Export: React.FC = () => {
   const loadHistory = async () => {
     try {
       const res = await exporterApi.getHistory();
-      setHistory(res.data || []);
+      setHistory(res.data?.exports || []);
     } catch (error) {
       console.error('Failed to load history:', error);
     }
@@ -28,7 +28,9 @@ const Export: React.FC = () => {
   const loadFormats = async () => {
     try {
       const res = await exporterApi.getFormats();
-      form.setFieldValue('format', res.data.default);
+      if (res.data?.formats && res.data.formats.length > 0) {
+        form.setFieldValue('format', res.data.formats[0]);
+      }
     } catch (error) {
       console.error('Failed to load formats:', error);
     }

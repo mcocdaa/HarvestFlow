@@ -4,7 +4,6 @@
 
 import json
 import os
-import shutil
 import logging
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -74,10 +73,6 @@ class CollectorManager:
 
         self.poll_interval = getattr(args, 'poll_interval', setting_manager.get("POLL_INTERVAL", DEFAULT_POLL_INTERVAL))
         self.poll_interval = int(self.poll_interval)
-
-    @property
-    def raw_sessions_dir(self) -> str:
-        return os.path.join(setting_manager.get("DATA_DIR", "./data"), "raw_sessions")
 
     @hook_manager.wrap_hooks("collector_manager_scan_before", "collector_manager_scan_after")
     def scan_folder(self, folder_path: str = None) -> List[str]:
@@ -188,40 +183,24 @@ class CollectorManager:
             return None
 
     @hook_manager.wrap_hooks("collector_manager_import_before", "collector_manager_import_after")
-    def import_session(self, file_path: str, target_dir: str = None) -> Optional[str]:
+    def import_session(self, file_path: str) -> Optional[str]:
         """导入单个会话
 
         Args:
             file_path: 源文件路径
-            target_dir: 目标目录，默认使用 raw_sessions_dir
 
         Returns:
             导入的会话 ID，失败返回 None
         """
-        if target_dir is None:
-            target_dir = self.raw_sessions_dir
-
         session_data = self.parse_session_file(file_path)
         if not session_data:
             return None
 
         session_id = session_data.get("session_id")
 
-        date_folder = datetime.now().strftime("%Y-%m-%d")
-        dest_dir = os.path.join(target_dir, date_folder)
-        os.makedirs(dest_dir, exist_ok=True)
+        session_data["file_path"] = file_path
+        session_data["content"] = session_data
 
-        dest_path = os.path.join(dest_dir, f"{session_id}.json")
-
-        try:
-            # 保存解析后的数据，而不是复制原始文件
-            with open(dest_path, 'w', encoding='utf-8') as f:
-                json.dump(session_data, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            self.logger.error(f"保存文件失败：{e}")
-            return None
-
-        session_data["file_path"] = dest_path
         try:
             session_manager.create_session(session_data)
         except Exception as e:

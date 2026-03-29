@@ -14,7 +14,7 @@ const SideMenu: React.FC = () => {
 
   const getMenuItems = () => {
     return MENU_ITEMS.map((item: MenuItem) => ({
-      key: item.key,
+      key: item.path,
       icon: item.icon,
       label: item.label,
       onClick: () => navigate(item.path),
@@ -30,7 +30,7 @@ const SideMenu: React.FC = () => {
       <div className="sidebar-content">
         <Menu
           mode="inline"
-          selectedKeys={[currentPath === '/' ? 'dashboard' : currentPath.substring(1)]}
+          selectedKeys={[currentPath]}
           style={{ height: '100%', borderRight: 0 }}
           items={getMenuItems()}
         />
