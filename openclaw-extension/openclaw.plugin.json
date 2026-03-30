@@ -1,0 +1,24 @@
+{
+  "name": "harvestflow",
+  "version": "1.0.0",
+  "description": "HarvestFlow integration for OpenClaw Agents",
+  "entry": "dist/index.js",
+  "tools": [
+    "harvestflow_list",
+    "harvestflow_scan_import",
+    "harvestflow_evaluate",
+    "harvestflow_review"
+  ],
+  "config": {
+    "HARVESTFLOW_API_URL": {
+      "type": "string",
+      "default": "http://localhost:3001",
+      "description": "HarvestFlow backend API URL"
+    },
+    "HARVESTFLOW_API_KEY": {
+      "type": "string",
+      "default": "",
+      "description": "API Key for authentication (optional)"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "harvestflow-openclaw-extension",
+  "version": "1.0.0",
+  "description": "OpenClaw Extension for HarvestFlow - AI Agent session data collection and curation",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["openclaw", "harvestflow", "agent", "extension"],
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}
