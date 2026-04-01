@@ -1,0 +1,3 @@
+[submodule "plugins/plugin-openclaw-to-harvestflow"]
+	path = plugins/plugin-openclaw-to-harvestflow
+	url = git@github.com:mcocdaa/plugin-openclaw-to-harvestflow.git
