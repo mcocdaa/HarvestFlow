@@ -3,10 +3,18 @@
 # @create 2026-03-18
 
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 import argparse
 
 from core import database_manager, setting_manager, hook_manager
+
+# 合法的状态流转：{当前状态: [允许转入的状态]}
+VALID_STATUS_TRANSITIONS: Dict[str, List[str]] = {
+    "raw":      ["curated"],
+    "curated":  ["approved", "rejected"],
+    "approved": ["rejected"],
+    "rejected": ["approved"],
+}
 
 
 class SessionManager:
@@ -54,14 +62,20 @@ class SessionManager:
 
     @hook_manager.wrap_hooks("session_manager_create_before", "session_manager_create_after")
     def create_session(self, session_data: Dict) -> Dict:
-        """创建会话
+        """创建会话，session_id 重复时跳过并返回已有记录
 
         Args:
             session_data: 会话数据字典
 
         Returns:
-            创建后的会话数据
+            创建后的会话数据，已存在时返回现有记录
         """
+        session_id = session_data.get("session_id")
+        if session_id:
+            existing = database_manager.session_get(session_id)
+            if existing:
+                self.logger.debug(f"Session already exists, skipping: {session_id}")
+                return existing
         return database_manager.session_create(session_data)
 
     @hook_manager.wrap_hooks("session_manager_get_before", "session_manager_get_after")
@@ -104,15 +118,28 @@ class SessionManager:
 
     @hook_manager.wrap_hooks("session_manager_update_before", "session_manager_update_after")
     def update_session(self, session_id: str, updates: Dict) -> Optional[Dict]:
-        """更新会话
+        """更新会话，包含状态流转合法性校验
 
         Args:
             session_id: 会话 ID
             updates: 更新数据字典
 
         Returns:
-            更新后的会话数据，失败返回 None
+            更新后的会话数据，状态流转非法时返回 None
         """
+        new_status = updates.get("status")
+        if new_status:
+            session = database_manager.session_get(session_id)
+            if not session:
+                return None
+            current_status = session.get("status", "raw")
+            allowed = VALID_STATUS_TRANSITIONS.get(current_status, [])
+            if new_status not in allowed:
+                self.logger.warning(
+                    f"Invalid status transition for {session_id}: "
+                    f"{current_status!r} -> {new_status!r}, allowed: {allowed}"
+                )
+                return None
         return database_manager.session_update(session_id, updates)
 
     @hook_manager.wrap_hooks("session_manager_delete_before", "session_manager_delete_after")
