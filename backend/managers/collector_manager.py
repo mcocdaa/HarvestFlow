@@ -198,8 +198,9 @@ class CollectorManager:
 
         session_id = session_data.get("session_id")
 
+        raw_content = dict(session_data)
         session_data["file_path"] = file_path
-        session_data["content"] = session_data
+        session_data["content"] = raw_content
 
         try:
             session_manager.create_session(session_data)

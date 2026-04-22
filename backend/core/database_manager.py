@@ -6,6 +6,7 @@ import os
 import sqlite3
 import json
 import logging
+import threading
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from contextlib import contextmanager
@@ -32,6 +33,7 @@ class DatabaseManager:
         self.logger = logging.getLogger(__name__)
         self.db_path: str = ""
         self.connection: Optional[sqlite3.Connection] = None
+        self._write_lock = threading.Lock()
 
     @hook_manager.wrap_hooks(after="database_manager_register_arguments")
     def register_arguments(self, parser: argparse.ArgumentParser):
@@ -62,6 +64,7 @@ class DatabaseManager:
 
         self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
+        self.connection.execute("PRAGMA journal_mode=WAL")
 
         self._initialize_tables()
         self.logger.info(f"✓ 数据库连接已建立: {self.db_path}")
@@ -88,12 +91,11 @@ class DatabaseManager:
             )
         """)
 
-        # 添加 content 列（如果表已存在）
-        try:
+        # 添加 content 列（如果不存在，兼容旧数据库）
+        existing_columns = [row[1] for row in self.connection.execute("PRAGMA table_info(sessions)").fetchall()]
+        if "content" not in existing_columns:
             self.connection.execute("ALTER TABLE sessions ADD COLUMN content TEXT")
             self.connection.commit()
-        except sqlite3.OperationalError:
-            pass
 
         self._create_table("""
             CREATE TABLE IF NOT EXISTS audit_logs (
@@ -140,16 +142,17 @@ class DatabaseManager:
 
     @contextmanager
     def transaction(self):
-        """事务上下文管理器"""
+        """事务上下文管理器（持有写锁）"""
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
-        try:
-            yield self.connection
-            self.connection.commit()
-        except Exception as e:
-            self.connection.rollback()
-            raise e
+        with self._write_lock:
+            try:
+                yield self.connection
+                self.connection.commit()
+            except Exception as e:
+                self.connection.rollback()
+                raise e
 
     def close(self):
         """关闭数据库连接"""
@@ -167,21 +170,22 @@ class DatabaseManager:
         if "content" in session_data:
             content_json = json.dumps(session_data["content"])
 
-        self.connection.execute(
-            """INSERT INTO sessions (session_id, file_path, content, status, agent_role, task_type, tools_used, tags)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                session_data.get("session_id"),
-                session_data.get("file_path", ""),
-                content_json,
-                session_data.get("status", "raw"),
-                session_data.get("agent_role"),
-                session_data.get("task_type"),
-                json.dumps(session_data.get("tools_used", [])),
-                json.dumps(session_data.get("tags", [])),
+        with self._write_lock:
+            self.connection.execute(
+                """INSERT INTO sessions (session_id, file_path, content, status, agent_role, task_type, tools_used, tags)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    session_data.get("session_id"),
+                    session_data.get("file_path", ""),
+                    content_json,
+                    session_data.get("status", "raw"),
+                    session_data.get("agent_role"),
+                    session_data.get("task_type"),
+                    json.dumps(session_data.get("tools_used", [])),
+                    json.dumps(session_data.get("tags", [])),
+                )
             )
-        )
-        self.connection.commit()
+            self.connection.commit()
         return session_data
 
     def session_get(self, session_id: str) -> Optional[Dict]:
@@ -272,8 +276,9 @@ class DatabaseManager:
         params.append(session_id)
 
         query = f"UPDATE sessions SET {', '.join(set_clauses)} WHERE session_id = ?"
-        self.connection.execute(query, tuple(params))
-        self.connection.commit()
+        with self._write_lock:
+            self.connection.execute(query, tuple(params))
+            self.connection.commit()
 
         return self.session_get(session_id)
 
@@ -292,8 +297,9 @@ class DatabaseManager:
             except Exception:
                 pass
 
-        self.connection.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
-        self.connection.commit()
+        with self._write_lock:
+            self.connection.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+            self.connection.commit()
         return True
 
     def session_get_by_status(self, status: str) -> List[Dict]:
@@ -311,11 +317,12 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
-        self.connection.execute(
-            "INSERT INTO audit_logs (session_id, action, operator, details) VALUES (?, ?, ?, ?)",
-            (session_id, action, operator, details)
-        )
-        self.connection.commit()
+        with self._write_lock:
+            self.connection.execute(
+                "INSERT INTO audit_logs (session_id, action, operator, details) VALUES (?, ?, ?, ?)",
+                (session_id, action, operator, details)
+            )
+            self.connection.commit()
 
     def audit_log_get(self, session_id: str = None, limit: int = 100) -> List[Dict]:
         """获取审计日志"""
@@ -346,13 +353,14 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
-        self.connection.execute(
-            """INSERT INTO export_records
-               (export_format, file_path, filters, record_count, version)
-               VALUES (?, ?, ?, ?, ?)""",
-            (export_format, file_path, json.dumps(filters), record_count, version)
-        )
-        self.connection.commit()
+        with self._write_lock:
+            self.connection.execute(
+                """INSERT INTO export_records
+                   (export_format, file_path, filters, record_count, version)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (export_format, file_path, json.dumps(filters), record_count, version)
+            )
+            self.connection.commit()
 
     def export_record_get_history(self, limit: int = 20) -> List[Dict]:
         """获取导出历史"""
@@ -391,19 +399,17 @@ class DatabaseManager:
             query += " AND task_type = ?"
             params.append(task_type)
 
+        if tags:
+            placeholders = ",".join("?" * len(tags))
+            query += (
+                f" AND EXISTS ("
+                f"SELECT 1 FROM json_each(sessions.tags) WHERE value IN ({placeholders})"
+                f")"
+            )
+            params.extend(tags)
+
         cursor = self.connection.execute(query, tuple(params))
-        sessions = []
-
-        for row in cursor.fetchall():
-            session = self._row_to_dict(row)
-
-            if tags:
-                session_tags = json.loads(session.get("tags", "[]")) if session.get("tags") else []
-                if not any(tag in session_tags for tag in tags):
-                    continue
-
-            sessions.append(session)
-
+        sessions = [self._row_to_dict(row) for row in cursor.fetchall()]
         return sessions
 
     def plugin_upsert(self, name: str, plugin_type: str, config: Dict) -> None:
@@ -411,13 +417,14 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
-        self.connection.execute(
-            """INSERT OR REPLACE INTO plugins
-               (name, plugin_type, is_enabled, config)
-               VALUES (?, ?, ?, ?)""",
-            (name, plugin_type, 1, json.dumps(config))
-        )
-        self.connection.commit()
+        with self._write_lock:
+            self.connection.execute(
+                """INSERT OR REPLACE INTO plugins
+                   (name, plugin_type, is_enabled, config)
+                   VALUES (?, ?, ?, ?)""",
+                (name, plugin_type, 1, json.dumps(config))
+            )
+            self.connection.commit()
 
     def plugin_get_all(self) -> List[Dict]:
         """获取所有插件"""
