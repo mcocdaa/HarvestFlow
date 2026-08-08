@@ -30,4 +30,5 @@ openclaw-extension/dist
 openclaw-extension/*.tsbuildinfo
 
 # gstack
+.gstack/
 gstack/
