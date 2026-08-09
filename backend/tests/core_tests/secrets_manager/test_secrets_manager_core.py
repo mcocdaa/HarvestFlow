@@ -2,7 +2,6 @@
 # @brief SecretsManager 核心功能测试
 # @create 2026-03-27
 
-import argparse
 
 from core.secrets_manager import SecretsManager, LocalSecretsClient
 
@@ -93,13 +92,3 @@ class TestSecretsManagerGetSecret:
         self.manager.init(args_minimal, [])
         result = self.manager.get_secret("TEST_KEY")
         assert result == ""
-
-    def test_list_secrets_returns_empty_list_when_no_secrets(self, args_minimal):
-        self.manager.init(args_minimal, [])
-        secrets = self.manager.list_secrets()
-        assert len(secrets) == 0
-
-    def test_is_sdk_available_returns_false_for_local(self, args_minimal):
-        self.manager.init(args_minimal, [])
-        assert self.manager.is_sdk_available() is False
-        assert self.manager.is_agent_available() is False

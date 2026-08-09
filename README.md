@@ -27,42 +27,38 @@ HarvestFlow/
 │   │   ├── curator.py          # 自动审核 API
 │   │   ├── reviewer.py         # 人工审核 API
 │   │   ├── exporter.py         # 导出模块 API
-│   │   └── plugin.py           # 插件管理 API
-│   ├── config/                 # 配置文件
-│   │   └── settings.py         # 项目配置
+│   │   └── plugins.py          # 插件管理 API
 │   ├── core/                   # 核心组件
-│   │   ├── database.py         # SQLite 数据库连接
-│   │   ├── router_loader.py    # 路由加载器
-│   │   └── plugin_loader.py    # 插件加载器
+│   │   ├── setting_manager.py  # 配置管理（.env + 命令行）
+│   │   ├── database_manager.py # SQLite 数据库封装
+│   │   ├── hook_manager.py     # 钩子系统
+│   │   ├── plugin_manager.py   # 插件加载器
+│   │   ├── secrets_manager.py  # 密钥管理
+│   │   └── router_loader.py    # 路由加载器
 │   ├── managers/               # 业务逻辑管理器
-│   │   ├── db_manager.py       # 数据库管理
 │   │   ├── session_manager.py  # 会话管理
 │   │   ├── collector_manager.py # 采集管理
 │   │   ├── curator_manager.py  # 审核管理
+│   │   ├── reviewer_manager.py # 人工审核管理
 │   │   └── exporter_manager.py # 导出管理
-│   ├── data/                   # 数据存储
-│   │   ├── raw_sessions/       # 原始会话数据
-│   │   ├── agent_curated/      # 自动审核后的数据
-│   │   ├── human_approved/     # 人工审核通过的数据
-│   │   └── export/             # 导出数据
-│   ├── db/                     # SQLite 数据库文件
-│   │   └── harvestflow.db
+│   ├── data/                   # 数据存储（不提交 git）
+│   │   └── db/harvestflow.db   # SQLite 数据库
+│   ├── tests/                  # 测试
 │   ├── main.py                 # 应用入口
-│   └── requirements.txt        # Python 依赖
+│   ├── requirements.txt        # 生产依赖
+│   └── requirements-dev.txt    # 开发/测试依赖
 ├── frontend/                   # 前端工作域
 │   ├── src/
 │   │   ├── components/         # 组件
 │   │   ├── pages/              # 页面
 │   │   ├── services/           # API 服务
-│   │   └── store/              # 状态管理
+│   │   └── types/              # 类型定义
 │   ├── package.json
 │   └── vite.config.ts
 ├── plugins/                    # 插件工作域
 │   ├── collectors/             # 采集插件
 │   ├── curators/               # 自动审核插件
 │   └── reviewers/              # 人工审核插件
-└── config/
-    └── config.yaml             # 全局配置
 ```
 
 ## 数据库设计
@@ -141,8 +137,11 @@ HarvestFlow/
 
 ```bash
 cd backend
-pip install -r requirements.txt
-python main.py
+pip install -r requirements-dev.txt
+
+# 从项目根启动（保证 .env 相对路径正确解析）
+cd ..
+python backend/main.py
 ```
 
 后端服务将在 `http://localhost:3000` 启动。
@@ -156,6 +155,16 @@ npm run dev
 ```
 
 前端开发服务器将在 `http://localhost:5173` 启动。
+
+### 一键启动
+
+使用 `scripts/start.sh` 管理前后端（本地/开发/生产模式）：
+
+```bash
+./scripts/start.sh local full    # 本地模式前后端
+./scripts/start.sh local backend # 仅后端
+./scripts/start.sh dev backend   # Docker Compose 后端
+```
 
 ## 插件开发
 
@@ -194,33 +203,24 @@ class ReviewerPlugin:
 
 ## 配置说明
 
-编辑 `config/config.yaml` 进行配置：
+配置通过根目录 `.env` 文件进行（参考 `.env.example`），主要项：
 
-```yaml
-app:
-  name: HarvestFlow
-  version: 1.0.0
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `HOST` / `PORT` | `0.0.0.0` / `3000` | 后端监听地址与端口 |
+| `DATA_DIR` | `./backend/data` | 数据目录 |
+| `DB_PATH` | `./backend/data/db/harvestflow.db` | SQLite 数据库路径 |
+| `PLUGINS_DIR` | `./plugins` | 插件目录（相对项目根） |
+| `WATCH_FOLDERS` | 空 | 监控文件夹列表，逗号分隔 |
+| `CURATOR_ENABLED` | `true` | 是否启用自动审核 |
+| `AUTO_APPROVE_THRESHOLD` | `4` | 自动审批阈值 |
+| `CORS_ORIGINS` | `*` | 允许的 CORS 源，逗号分隔 |
+| `SECRETS_YAML` | `./secrets/backend.yaml` | 密钥定义文件 |
 
-backend:
-  host: 0.0.0.0
-  port: 3000
-  db_path: ./backend/db/harvestflow.db
-  data_dir: ./backend/data
+所有配置也可通过命令行参数覆盖，例如：
 
-collector:
-  watch_folders: []
-  poll_interval: 60
-
-curator:
-  default_enabled: true
-  auto_approve_threshold: 4
-
-export:
-  default_format: sharegpt
-  output_dir: ./backend/data/export
-
-plugins:
-  dir: ./plugins
+```bash
+python backend/main.py --port 3001 --log-level DEBUG --watch-folders /path/to/sessions
 ```
 
 ## 许可证

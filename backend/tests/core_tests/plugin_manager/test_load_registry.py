@@ -3,11 +3,8 @@
 # @create 2026-03-27
 
 import os
-import tempfile
 import yaml
-import argparse
 
-import pytest
 
 from core import setting_manager
 from core.plugin_manager import PluginManager
@@ -26,7 +23,8 @@ class TestPluginManagerLoadRegistry:
         self.manager = PluginManager()
         self.manager.init(args_minimal)
 
-        assert self.manager.plugins_dir is not None
+        # 未配置 PLUGINS_DIR 时 plugins_dir 为 None，插件表为空
+        assert self.manager.plugins_dir is None
         assert len(self.manager.plugins) == 0
 
     def test_plugins_dir_not_exists(self, args_minimal, tmp_path):
@@ -77,7 +75,9 @@ class TestPluginManagerLoadRegistry:
         self.manager = PluginManager()
         self.manager.init(args_minimal)
 
-        assert len(self.manager.plugins) == 0
+                # 禁用插件保留在注册表（供 enable API 查找），但标记 enabled=False
+        assert len(self.manager.plugins) == 1
+        assert self.manager.plugins["collectors/test-plugin"]["enabled"] is False
 
     def test_plugin_path_does_not_exist(self, args_minimal, temp_plugins_dir):
         plugins_dir = str(temp_plugins_dir)

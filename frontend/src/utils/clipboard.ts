@@ -4,7 +4,7 @@ export const copyToClipboard = async (text: string, successMessage = '已复制�
   try {
     await navigator.clipboard.writeText(text);
     message.success(successMessage);
-  } catch (error) {
+  } catch {
     message.error('复制失败');
   }
 };

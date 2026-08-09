@@ -94,12 +94,10 @@ start_frontend_local() {
 }
 
 start_backend_local() {
-    echo "检查后端依赖..."
-    if [ ! -d "$BACKEND_DIR/__pycache__" ]; then
-        echo "后端环境检查通过..."
-    fi
     echo "启动本地后端服务..."
-    cd "$BACKEND_DIR" && python main.py &
+    # 从项目根启动，保证 .env 相对路径（DATA_DIR/DB_PATH/PLUGINS_DIR）正确解析
+    cd "$PROJECT_ROOT"
+    python backend/main.py &
     echo "✓ 本地后端已启动 (http://localhost:3000)"
 }
 

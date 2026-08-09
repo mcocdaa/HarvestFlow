@@ -33,18 +33,6 @@ class TestCuratorManagerInit:
         assert self.manager.enabled is True
         assert self.manager.auto_approve_threshold == 4
 
-    def test_agent_curated_dir_property(self, args_minimal):
-        from core.setting_manager import setting_manager
-
-        self.manager.init(args_minimal)
-        original_data = setting_manager.config.get("DATA_DIR")
-        setting_manager.config["DATA_DIR"] = "/test/data"
-
-        assert self.manager.agent_curated_dir == "/test/data/agent_curated"
-
-        if original_data is not None:
-            setting_manager.config["DATA_DIR"] = original_data
-
     def test_init_parses_boolean_values(self, args_minimal):
         cases = [
             (False, False),

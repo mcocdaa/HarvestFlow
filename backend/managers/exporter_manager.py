@@ -6,7 +6,7 @@ import json
 import os
 import logging
 from typing import Dict, List
-from datetime import datetime
+from datetime import datetime, timezone
 import argparse
 
 from core import database_manager, setting_manager, hook_manager
@@ -68,10 +68,6 @@ class ExporterManager:
         if export_output_dir_val:
             self.output_dir = export_output_dir_val
 
-    @property
-    def default_output_dir(self) -> str:
-        return os.path.join(setting_manager.get("DATA_DIR", "./data"), "export")
-
     @hook_manager.wrap_hooks("exporter_manager_export_before", "exporter_manager_export_after")
     def export(
         self,
@@ -122,7 +118,7 @@ class ExporterManager:
                 "message": f"Unsupported format: {format}",
             }
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         filename = f"{format}_{timestamp}_{version}.jsonl"
         file_path = os.path.join(self.output_dir, filename)
 

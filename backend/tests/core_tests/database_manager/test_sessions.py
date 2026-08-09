@@ -2,7 +2,6 @@
 # @brief DatabaseManager Session 操作测试
 # @create 2026-03-27
 
-import pytest
 
 from core.database_manager import DatabaseManager
 

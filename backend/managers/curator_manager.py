@@ -40,9 +40,10 @@ class CuratorManager:
         group = parser.add_argument_group("Curator", "Curator Settings")
         group.add_argument(
             "--curator-enabled",
-            type=bool,
-            default=True,
-            help="是否启用自动审核 (默认: True)"
+            type=str,
+            default="true",
+            choices=["true", "false", "1", "0", "yes", "no"],
+            help="是否启用自动审核 (默认: true)"
         )
         group.add_argument(
             "--auto-approve-threshold",
@@ -62,9 +63,15 @@ class CuratorManager:
     @hook_manager.wrap_hooks("curator_manager_evaluate_before", "curator_manager_evaluate_after")
     def evaluate_session(self, session_id: str) -> Dict:
         """评估单个会话"""
+        if not self.enabled:
+            return {"session_id": session_id, "error": "curator disabled"}
+
         session = session_manager.get_session(session_id)
         if not session:
             return {"session_id": session_id, "error": "session not found"}
+
+        if session.get("status") != "raw":
+            return {"session_id": session_id, "error": "session is not in raw status"}
 
         content = session_manager.get_session_content(session_id)
         if not content:
@@ -160,6 +167,9 @@ class CuratorManager:
     @hook_manager.wrap_hooks("curator_manager_evaluate_all_before", "curator_manager_evaluate_all_after")
     def evaluate_all(self) -> Dict:
         """评估所有 raw 会话"""
+        if not self.enabled:
+            return {"success": False, "error": "curator disabled"}
+
         raw_sessions = database_manager.session_get_by_status("raw")
 
         results = []

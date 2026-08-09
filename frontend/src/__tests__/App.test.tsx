@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import App from '../App'
 
 vi.mock('../pages/Dashboard', () => ({
@@ -22,13 +22,24 @@ vi.mock('../pages/Plugins', () => ({
   default: () => <div data-testid="plugins-page">Plugins Page</div>,
 }))
 
-vi.mock('@ant-design/icons', () => ({
-  DashboardOutlined: () => <span data-testid="dashboard-icon" />,
-  FolderOutlined: () => <span data-testid="folder-icon" />,
-  CheckSquareOutlined: () => <span data-testid="check-icon" />,
-  ExportOutlined: () => <span data-testid="export-icon" />,
-  ApiOutlined: () => <span data-testid="plugin-icon" />,
-}))
+vi.mock('@ant-design/icons', () => {
+  const stub = () => function IconStub() {
+    return null
+  }
+  return {
+    DashboardOutlined: stub(),
+    FolderOutlined: stub(),
+    CheckSquareOutlined: stub(),
+    ExportOutlined: stub(),
+    ApiOutlined: stub(),
+    SearchOutlined: stub(),
+    UserOutlined: stub(),
+    CopyOutlined: stub(),
+    EyeOutlined: stub(),
+    RiseOutlined: stub(),
+    MinusOutlined: stub(),
+  }
+})
 
 describe('App Component', () => {
   it('should render app header with title', () => {
@@ -46,19 +57,19 @@ describe('App Component', () => {
     expect(screen.getByText('Plugins')).toBeInTheDocument()
   })
 
-  it('should have correct navigation links', () => {
+  it('should navigate to pages when menu items are clicked', async () => {
     render(<App />)
 
-    const dashboardLink = screen.getByText('Dashboard').closest('a')
-    const sessionsLink = screen.getByText('Sessions').closest('a')
-    const reviewLink = screen.getByText('Review').closest('a')
-    const exportLink = screen.getByText('Export').closest('a')
-    const pluginsLink = screen.getByText('Plugins').closest('a')
+    fireEvent.click(screen.getByText('Sessions'))
+    expect(await screen.findByTestId('sessions-page')).toBeInTheDocument()
 
-    expect(dashboardLink).toHaveAttribute('href', '/')
-    expect(sessionsLink).toHaveAttribute('href', '/sessions')
-    expect(reviewLink).toHaveAttribute('href', '/review')
-    expect(exportLink).toHaveAttribute('href', '/export')
-    expect(pluginsLink).toHaveAttribute('href', '/plugins')
+    fireEvent.click(screen.getByText('Review'))
+    expect(await screen.findByTestId('review-page')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Export'))
+    expect(await screen.findByTestId('export-page')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Plugins'))
+    expect(await screen.findByTestId('plugins-page')).toBeInTheDocument()
   })
 })

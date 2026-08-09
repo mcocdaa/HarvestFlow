@@ -9,6 +9,11 @@ from .database_manager import DatabaseManager, database_manager
 from .plugin_manager import PluginManager, plugin_manager
 
 __all__ = [
+    "HookManager",
+    "SettingManager",
+    "SecretsManager",
+    "DatabaseManager",
+    "PluginManager",
     "hook_manager",
     "setting_manager",
     "secrets_manager",

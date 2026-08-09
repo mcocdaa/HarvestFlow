@@ -6,14 +6,11 @@ import json
 import os
 import logging
 from typing import List, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import argparse
 
 from core import hook_manager, setting_manager
 from managers.session_manager import session_manager
-
-
-DEFAULT_POLL_INTERVAL = 60
 
 
 class CollectorManager:
@@ -33,7 +30,6 @@ class CollectorManager:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.watch_folders: List[str] = []
-        self.poll_interval: int = DEFAULT_POLL_INTERVAL
 
     @hook_manager.wrap_hooks(after="collector_manager_register_arguments")
     def register_arguments(self, parser: argparse.ArgumentParser):
@@ -48,12 +44,6 @@ class CollectorManager:
             type=str,
             default="",
             help="监控文件夹列表，逗号分隔"
-        )
-        group.add_argument(
-            "--poll-interval",
-            type=int,
-            default=DEFAULT_POLL_INTERVAL,
-            help=f"轮询间隔（秒）(默认: {DEFAULT_POLL_INTERVAL})"
         )
 
     @hook_manager.wrap_hooks("collector_manager_init_before", "collector_manager_init_after")
@@ -70,9 +60,6 @@ class CollectorManager:
                 folder = folder.strip()
                 if folder:
                     self.watch_folders.append(folder)
-
-        self.poll_interval = getattr(args, 'poll_interval', setting_manager.get("POLL_INTERVAL", DEFAULT_POLL_INTERVAL))
-        self.poll_interval = int(self.poll_interval)
 
     @hook_manager.wrap_hooks("collector_manager_scan_before", "collector_manager_scan_after")
     def scan_folder(self, folder_path: str = None) -> List[str]:
@@ -174,7 +161,7 @@ class CollectorManager:
 
             session_id = data.get("session_id")
             if not session_id:
-                session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{os.path.basename(file_path)}"
+                session_id = f"session_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.path.basename(file_path)}"
                 data["session_id"] = session_id
 
             return data

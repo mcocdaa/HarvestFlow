@@ -1,10 +1,4 @@
-import os
-import sys
-from importlib.util import spec_from_file_location
 from fastapi import APIRouter
-from pathlib import Path
-import tempfile
-import pytest
 
 from core.router_loader import include_routers_from_directory
 

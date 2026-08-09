@@ -7,7 +7,7 @@ import logging
 from typing import Dict, List
 import argparse
 
-from core import database_manager, setting_manager, hook_manager
+from core import database_manager, hook_manager
 from managers.session_manager import session_manager
 
 
@@ -27,23 +27,19 @@ class ReviewerManager:
     @hook_manager.wrap_hooks("reviewer_manager_construct_before", "reviewer_manager_construct_after")
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.data_dir: str = setting_manager.get("DATA_DIR", "./data")
 
     @hook_manager.wrap_hooks(after="reviewer_manager_register_arguments")
     def register_arguments(self, parser: argparse.ArgumentParser):
-        group = parser.add_argument_group("Reviewer", "Reviewer Settings")
-        group.add_argument(
-            "--reviewer-data-dir",
-            type=str,
-            default=None,
-            help="审核数据目录"
-        )
+        parser.add_argument_group("Reviewer", "Reviewer Settings")
 
     @hook_manager.wrap_hooks("reviewer_manager_init_before", "reviewer_manager_init_after")
     def init(self, args: argparse.Namespace):
-        reviewer_data_dir_val = getattr(args, 'reviewer_data_dir', setting_manager.get("REVIEWER_DATA_DIR"))
-        if reviewer_data_dir_val:
-            self.data_dir = reviewer_data_dir_val
+        """初始化人工审核管理器
+
+        Args:
+            args: 解析后的参数
+        """
+        pass
 
     @hook_manager.wrap_hooks("reviewer_manager_approve_before", "reviewer_manager_approve_after")
     def approve_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
@@ -52,7 +48,9 @@ class ReviewerManager:
         if not session:
             return {"session_id": session_id, "error": "session not found"}
 
-        session_manager.update_session(session_id, {"status": "approved"})
+        updated = session_manager.update_session(session_id, {"status": "approved"})
+        if updated is None:
+            return {"session_id": session_id, "error": "invalid status transition"}
 
         # 更新手动评分
         if score is not None:
@@ -69,7 +67,9 @@ class ReviewerManager:
         if not session:
             return {"session_id": session_id, "error": "session not found"}
 
-        session_manager.update_session(session_id, {"status": "rejected"})
+        updated = session_manager.update_session(session_id, {"status": "rejected"})
+        if updated is None:
+            return {"session_id": session_id, "error": "invalid status transition"}
 
         # 更新手动评分
         if score is not None:

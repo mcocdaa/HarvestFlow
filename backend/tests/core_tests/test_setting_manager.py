@@ -129,7 +129,6 @@ class TestSettingManager:
             env_path = Path(tmpdir) / ".env"
             assert not env_path.exists()
 
-            from importlib import reload
             import core.setting_manager
             original_root = core.setting_manager.ROOT_DIR
             original_backend = core.setting_manager.BACKEND_DIR

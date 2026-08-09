@@ -40,9 +40,6 @@ const Sessions: React.FC = () => {
     setSelectedSession(record);
     try {
       const res = await sessionApi.getSessionContent(record.session_id);
-      console.log('Session API full response:', res);
-      console.log('Session data:', res.data);
-      console.log('Session content:', res.data?.content);
 
       if (res.data?.success === false) {
         message.error(res.data.error || '加载会话内容失败');
@@ -52,7 +49,6 @@ const Sessions: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Failed to load content:', error);
-      console.error('Error details:', error.response?.data);
       setContent(null);
       message.error('加载会话内容失败: ' + (error.response?.data?.error || error.message));
     }

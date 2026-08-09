@@ -108,6 +108,29 @@ plugins:
 4. 在 `plugins.yaml` 中注册插件
 5. 重启后端服务生效
 
+## 钩子语义
+
+插件通过 `@hook_manager.hook("hook_name")` 在模块级注册钩子，作用于对应 Manager 方法的 before/after 时机：
+
+- **before 钩子**：签名与被包装方法一致（实例方法含 `self`）。返回非 `None` 时短路，跳过原方法并作为方法结果返回。
+- **after 钩子**：签名 `(result, *被包装方法参数)`。返回非 `None` 时替换 `result`，多个钩子按 priority 链式传递。
+
+示例（拦截 jsonl 解析）：
+
+```python
+from core.hook_manager import hook_manager
+
+@hook_manager.hook("collector_manager_parse_before")
+def my_parse(self, file_path):
+    if file_path.endswith(".jsonl"):
+        parsed = my_parser(file_path)
+        if parsed:
+            return parsed  # 短路内置解析
+    return None
+```
+
+启用/禁用插件可通过 `POST /api/v1/plugins/enable|disable?key=<plugin_key>`（写入 `plugins.yaml`）或直接编辑 `plugins.yaml` 后重启服务。
+
 ## 现有插件
 
 ### Collectors

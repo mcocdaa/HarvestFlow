@@ -1,4 +1,3 @@
-import pytest
 import asyncio
 from core.hook_manager import hook_manager
 

@@ -52,21 +52,4 @@ async def delete_session(session_id: str) -> dict:
 
 @router.get("/stats")
 async def get_stats() -> dict:
-    raw = database_manager.session_get_by_status("raw")
-    approved = database_manager.session_get_by_status("approved")
-    rejected = database_manager.session_get_by_status("rejected")
-
-    cursor = database_manager.connection.execute(
-        "SELECT AVG(quality_auto_score) as avg_score FROM sessions WHERE quality_auto_score IS NOT NULL"
-    )
-    row = cursor.fetchone()
-    avg_score = row["avg_score"] if row and row["avg_score"] else 0
-
-    return {
-        "total_sessions": len(raw) + len(approved) + len(rejected),
-        "raw_sessions": len(raw),
-        "approved_sessions": len(approved),
-        "rejected_sessions": len(rejected),
-        "avg_auto_score": round(avg_score, 1) if avg_score else 0,
-        "curated_sessions": len(approved) + len(rejected),
-    }
+    return database_manager.stats_get()

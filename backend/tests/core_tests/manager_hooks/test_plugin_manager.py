@@ -1,5 +1,4 @@
 import argparse
-import pytest
 from core.hook_manager import hook_manager
 
 
@@ -12,7 +11,7 @@ class TestPluginManagerHooks:
         def on_construct_before(manager, args):
             call_order.append("before")
 
-        def on_construct_after(manager, args):
+        def on_construct_after(result, manager, args):
             call_order.append("after")
 
         hook_manager.register("plugin_manager_init_before", on_construct_before, priority=10)
@@ -29,7 +28,7 @@ class TestPluginManagerHooks:
 
         called = []
 
-        def on_register_after(manager, parser):
+        def on_register_after(result, manager, parser):
             called.append(True)
 
         hook_manager.register("plugin_manager_register_arguments", on_register_after, priority=10)
@@ -48,7 +47,7 @@ class TestPluginManagerHooks:
         def on_init_before(manager, args):
             call_order.append("before")
 
-        def on_init_after(manager, args):
+        def on_init_after(result, manager, args):
             call_order.append("after")
 
         hook_manager.register("plugin_manager_init_before", on_init_before, priority=10)
