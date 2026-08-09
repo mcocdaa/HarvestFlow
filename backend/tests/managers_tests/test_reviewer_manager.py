@@ -4,7 +4,6 @@
 
 import argparse
 
-import pytest
 
 from managers.reviewer_manager import ReviewerManager
 
@@ -16,7 +15,3 @@ class TestReviewerManager:
     def test_register_arguments(self):
         parser = argparse.ArgumentParser()
         self.manager.register_arguments(parser)
-
-    def test_init(self, args_minimal):
-        self.manager.init(args_minimal)
-        assert self.manager.human_approved_dir is not None

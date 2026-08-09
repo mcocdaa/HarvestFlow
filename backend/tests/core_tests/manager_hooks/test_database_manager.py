@@ -1,5 +1,4 @@
 import argparse
-import pytest
 from core.hook_manager import hook_manager
 
 
@@ -12,13 +11,13 @@ class TestDatabaseManagerHooks:
         def on_construct_before(manager):
             call_order.append("before")
 
-        def on_construct_after(manager):
+        def on_construct_after(result, manager):
             call_order.append("after")
 
         hook_manager.register("database_manager_construct_before", on_construct_before, priority=10)
         hook_manager.register("database_manager_construct_after", on_construct_after, priority=10)
 
-        manager = DatabaseManager()
+        DatabaseManager()
 
         assert "before" in call_order
         assert "after" in call_order
@@ -28,7 +27,7 @@ class TestDatabaseManagerHooks:
 
         called = []
 
-        def on_register_after(manager, parser):
+        def on_register_after(result, manager, parser):
             called.append(True)
 
         hook_manager.register("database_manager_register_arguments", on_register_after, priority=10)
@@ -47,7 +46,7 @@ class TestDatabaseManagerHooks:
         def on_init_before(manager, args):
             call_order.append("before")
 
-        def on_init_after(manager, args):
+        def on_init_after(result, manager, args):
             call_order.append("after")
 
         hook_manager.register("database_manager_initialize_before", on_init_before, priority=10)

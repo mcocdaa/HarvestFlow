@@ -9,7 +9,6 @@ import logging
 import threading
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from contextlib import contextmanager
 import argparse
 
 from core import hook_manager
@@ -120,17 +119,6 @@ class DatabaseManager:
             )
         """)
 
-        self._create_table("""
-            CREATE TABLE IF NOT EXISTS plugins (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT UNIQUE NOT NULL,
-                plugin_type TEXT NOT NULL,
-                is_enabled INTEGER DEFAULT 1,
-                config TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
         self.logger.debug("✓ 数据库表结构已初始化")
 
     def _create_table(self, sql: str):
@@ -139,20 +127,6 @@ class DatabaseManager:
             raise RuntimeError("数据库未初始化")
         self.connection.execute(sql)
         self.connection.commit()
-
-    @contextmanager
-    def transaction(self):
-        """事务上下文管理器（持有写锁）"""
-        if not self.connection:
-            raise RuntimeError("数据库未初始化")
-
-        with self._write_lock:
-            try:
-                yield self.connection
-                self.connection.commit()
-            except Exception as e:
-                self.connection.rollback()
-                raise e
 
     def close(self):
         """关闭数据库连接"""
@@ -193,10 +167,11 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
-        cursor = self.connection.execute(
-            "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
-        )
-        row = cursor.fetchone()
+        with self._write_lock:
+            cursor = self.connection.execute(
+                "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
+            )
+            row = cursor.fetchone()
         if row:
             session = self._row_to_dict(row)
             session = self._deserialize_session_fields(session)
@@ -223,18 +198,19 @@ class DatabaseManager:
         sort_order = "DESC" if sort == "recent" else "ASC"
         offset = (page - 1) * page_size
 
-        count_cursor = self.connection.execute(
-            f"SELECT COUNT(*) as total FROM sessions {where_clause}", tuple(params)
-        )
-        total = dict(count_cursor.fetchone())["total"]
+        with self._write_lock:
+            count_cursor = self.connection.execute(
+                f"SELECT COUNT(*) as total FROM sessions {where_clause}", tuple(params)
+            )
+            total = dict(count_cursor.fetchone())["total"]
 
-        query = f"""SELECT * FROM sessions {where_clause}
-                    ORDER BY created_at {sort_order}
-                    LIMIT ? OFFSET ?"""
-        params.extend([page_size, offset])
+            query = f"""SELECT * FROM sessions {where_clause}
+                        ORDER BY created_at {sort_order}
+                        LIMIT ? OFFSET ?"""
+            params.extend([page_size, offset])
 
-        cursor = self.connection.execute(query, tuple(params))
-        rows = cursor.fetchall()
+            cursor = self.connection.execute(query, tuple(params))
+            rows = cursor.fetchall()
 
         sessions = []
         for row in rows:
@@ -294,8 +270,8 @@ class DatabaseManager:
         if session.get("file_path") and os.path.exists(session["file_path"]):
             try:
                 os.remove(session["file_path"])
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.warning(f"删除会话文件失败 {session['file_path']}: {e}", exc_info=True)
 
         with self._write_lock:
             self.connection.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
@@ -307,10 +283,11 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
-        cursor = self.connection.execute(
-            "SELECT session_id FROM sessions WHERE status = ?", (status,)
-        )
-        return [dict(row) for row in cursor.fetchall()]
+        with self._write_lock:
+            cursor = self.connection.execute(
+                "SELECT session_id FROM sessions WHERE status = ?", (status,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
 
     def audit_log_create(self, session_id: str, action: str, operator: str = "system", details: str = None) -> None:
         """创建审计日志"""
@@ -329,17 +306,18 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
-        if session_id:
-            cursor = self.connection.execute(
-                "SELECT * FROM audit_logs WHERE session_id = ? ORDER BY created_at DESC",
-                (session_id,)
-            )
-        else:
-            cursor = self.connection.execute(
-                "SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?",
-                (limit,)
-            )
-        return [dict(row) for row in cursor.fetchall()]
+        with self._write_lock:
+            if session_id:
+                cursor = self.connection.execute(
+                    "SELECT * FROM audit_logs WHERE session_id = ? ORDER BY created_at DESC",
+                    (session_id,)
+                )
+            else:
+                cursor = self.connection.execute(
+                    "SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?",
+                    (limit,)
+                )
+            return [dict(row) for row in cursor.fetchall()]
 
     def export_record_create(
         self,
@@ -367,11 +345,12 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
-        cursor = self.connection.execute(
-            "SELECT * FROM export_records ORDER BY created_at DESC LIMIT ?",
-            (limit,)
-        )
-        return [dict(row) for row in cursor.fetchall()]
+        with self._write_lock:
+            cursor = self.connection.execute(
+                "SELECT * FROM export_records ORDER BY created_at DESC LIMIT ?",
+                (limit,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
 
     def session_get_for_export(
         self,
@@ -408,39 +387,39 @@ class DatabaseManager:
             )
             params.extend(tags)
 
-        cursor = self.connection.execute(query, tuple(params))
-        sessions = [self._row_to_dict(row) for row in cursor.fetchall()]
+        with self._write_lock:
+            cursor = self.connection.execute(query, tuple(params))
+            sessions = [self._row_to_dict(row) for row in cursor.fetchall()]
         return sessions
 
-    def plugin_upsert(self, name: str, plugin_type: str, config: Dict) -> None:
-        """插入或更新插件信息"""
+    def stats_get(self) -> Dict[str, Any]:
+        """获取会话统计信息"""
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
         with self._write_lock:
-            self.connection.execute(
-                """INSERT OR REPLACE INTO plugins
-                   (name, plugin_type, is_enabled, config)
-                   VALUES (?, ?, ?, ?)""",
-                (name, plugin_type, 1, json.dumps(config))
-            )
-            self.connection.commit()
+            raw = self.connection.execute(
+                "SELECT COUNT(*) AS c FROM sessions WHERE status = 'raw'"
+            ).fetchone()["c"]
+            approved = self.connection.execute(
+                "SELECT COUNT(*) AS c FROM sessions WHERE status = 'approved'"
+            ).fetchone()["c"]
+            rejected = self.connection.execute(
+                "SELECT COUNT(*) AS c FROM sessions WHERE status = 'rejected'"
+            ).fetchone()["c"]
+            avg_row = self.connection.execute(
+                "SELECT AVG(quality_auto_score) AS avg_score FROM sessions WHERE quality_auto_score IS NOT NULL"
+            ).fetchone()
 
-    def plugin_get_all(self) -> List[Dict]:
-        """获取所有插件"""
-        if not self.connection:
-            raise RuntimeError("数据库未初始化")
-
-        cursor = self.connection.execute(
-            "SELECT * FROM plugins ORDER BY plugin_type, name"
-        )
-        plugins = []
-        for row in cursor.fetchall():
-            plugin = self._row_to_dict(row)
-            if plugin.get("config"):
-                plugin["config"] = json.loads(plugin["config"])
-            plugins.append(plugin)
-        return plugins
+        avg_score = avg_row["avg_score"] if avg_row and avg_row["avg_score"] else 0
+        return {
+            "total_sessions": raw + approved + rejected,
+            "raw_sessions": raw,
+            "approved_sessions": approved,
+            "rejected_sessions": rejected,
+            "avg_auto_score": round(avg_score, 1) if avg_score else 0,
+            "curated_sessions": approved + rejected,
+        }
 
     def _row_to_dict(self, row: sqlite3.Row) -> Dict:
         """将 Row 转换为字典"""

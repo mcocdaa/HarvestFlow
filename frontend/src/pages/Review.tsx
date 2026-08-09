@@ -103,7 +103,7 @@ const Review: React.FC = () => {
       setScore(3);
       setSessionContent(null);
       loadPendingSessions();
-    } catch (error) {
+    } catch {
       message.error('通过评审失败');
     }
   };
@@ -117,7 +117,7 @@ const Review: React.FC = () => {
       setScore(3);
       setSessionContent(null);
       loadPendingSessions();
-    } catch (error) {
+    } catch {
       message.error('拒绝失败');
     }
   };

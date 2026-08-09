@@ -17,36 +17,15 @@ class TestCollectorManagerInit:
 
     def test_init_parses_watch_folders(self, args_minimal):
         args_minimal.watch_folders = "/folder1, /folder2,/folder3"
-        args_minimal.poll_interval = 30
         self.manager.init(args_minimal)
 
         assert self.manager.watch_folders == ["/folder1", "/folder2", "/folder3"]
-        assert self.manager.poll_interval == 30
 
     def test_init_empty_watch_folders(self, args_minimal):
         args_minimal.watch_folders = ""
         self.manager.init(args_minimal)
 
         assert self.manager.watch_folders == []
-
-    def test_init_uses_default_poll_interval(self, args_minimal):
-        if hasattr(args_minimal, 'poll_interval'):
-            delattr(args_minimal, 'poll_interval')
-        self.manager.init(args_minimal)
-
-        assert self.manager.poll_interval == 60
-
-    def test_raw_sessions_dir_property(self, args_minimal):
-        from core.setting_manager import setting_manager
-
-        self.manager.init(args_minimal)
-        original_data = setting_manager.config.get("DATA_DIR")
-        setting_manager.config["DATA_DIR"] = "/test/data"
-
-        assert self.manager.raw_sessions_dir == "/test/data/raw_sessions"
-
-        if original_data is not None:
-            setting_manager.config["DATA_DIR"] = original_data
 
     def test_init_skips_empty_folders_in_split(self, args_minimal):
         args_minimal.watch_folders = " /folder1,, /folder2 ,"

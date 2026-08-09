@@ -19,3 +19,19 @@ async def get_plugins_by_type(plugin_type: str) -> dict:
     plugins = plugin_manager.get_all()
     filtered = [p for p in plugins if p.get("plugin_type") == plugin_type]
     return {"plugins": filtered}
+
+
+@router.post("/plugins/enable")
+async def enable_plugin(key: str) -> dict:
+    success = plugin_manager.set_enabled(key, True)
+    if success:
+        return {"success": True}
+    return {"success": False, "error": "Plugin not found"}
+
+
+@router.post("/plugins/disable")
+async def disable_plugin(key: str) -> dict:
+    success = plugin_manager.set_enabled(key, False)
+    if success:
+        return {"success": True}
+    return {"success": False, "error": "Plugin not found"}

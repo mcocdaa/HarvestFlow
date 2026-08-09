@@ -3,8 +3,6 @@ import api from './client';
 export const pluginApi = {
   getAll: () => api.get('/plugins'),
   getByType: (pluginType: string) => api.get(`/plugins/${pluginType}`),
-  getDetails: (pluginType: string, pluginName: string) => api.get(`/plugins/${pluginType}/${pluginName}`),
-  getFrontend: (pluginType: string, pluginName: string) => api.get(`/plugins/${pluginType}/${pluginName}/frontend`),
-  enable: (pluginName: string) => api.post(`/plugins/${pluginName}/enable`),
-  disable: (pluginName: string) => api.post(`/plugins/${pluginName}/disable`),
+  enable: (pluginKey: string) => api.post('/plugins/enable', null, { params: { key: pluginKey } }),
+  disable: (pluginKey: string) => api.post('/plugins/disable', null, { params: { key: pluginKey } }),
 };

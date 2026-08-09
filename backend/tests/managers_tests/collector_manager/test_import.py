@@ -2,11 +2,8 @@
 # @brief CollectorManager 导入会话测试
 # @create 2026-03-27
 
-import os
 import json
-import tempfile
 
-import pytest
 
 from managers.collector_manager import CollectorManager
 
@@ -29,8 +26,7 @@ class TestCollectorManagerImport:
 
         monkeypatch.setattr(session_manager, "create_session", mock_create)
 
-        target_dir = tmp_path / "target"
-        result = self.manager.import_session(str(source_file), str(target_dir))
+        result = self.manager.import_session(str(source_file))
 
         assert result is not None
         assert result == "test-import"
@@ -41,21 +37,6 @@ class TestCollectorManagerImport:
         source_file = source_dir / "bad.json"
         with open(source_file, "w") as f:
             f.write("bad")
-
-        result = self.manager.import_session(str(source_file))
-        assert result is None
-
-    def test_import_session_copy_error_returns_none(self, tmp_path, monkeypatch):
-        source_dir = tmp_path / "source"
-        source_dir.mkdir()
-        source_file = source_dir / "test.json"
-        with open(source_file, "w") as f:
-            json.dump({"session_id": "test-error", "messages": []}, f)
-
-        def mock_copy2(*args):
-            raise OSError("permission denied")
-
-        monkeypatch.setattr("shutil.copy2", mock_copy2)
 
         result = self.manager.import_session(str(source_file))
         assert result is None

@@ -4,7 +4,6 @@
 
 import argparse
 
-import pytest
 
 from managers.exporter_manager import ExporterManager
 
@@ -28,7 +27,3 @@ class TestExporterManager:
 
         assert self.manager.default_format == "alpaca"
         assert self.manager.output_dir == "/custom/export"
-
-    def test_default_output_dir_property(self, args_minimal):
-        self.manager.init(args_minimal)
-        assert self.manager.default_output_dir is not None

@@ -2,7 +2,6 @@
 # @brief CuratorManager 会话评估测试
 # @create 2026-03-27
 
-import pytest
 
 from managers.curator_manager import CuratorManager
 
@@ -32,7 +31,7 @@ class TestCuratorManagerEvaluate:
         self.manager.init(args_minimal)
 
         def mock_get(session_id):
-            return {"session_id": session_id, "file_path": "/nonexistent.json"}
+            return {"session_id": session_id, "status": "raw", "file_path": "/nonexistent.json"}
 
         def mock_get_content(session_id):
             return None
@@ -57,7 +56,7 @@ class TestCuratorManagerEvaluate:
         }
 
         def mock_get(session_id):
-            return {"session_id": session_id, "file_path": "/test.json"}
+            return {"session_id": session_id, "status": "raw", "file_path": "/test.json"}
 
         def mock_get_content(session_id):
             return content
@@ -65,10 +64,9 @@ class TestCuratorManagerEvaluate:
         monkeypatch.setattr(session_manager, "get_session", mock_get)
         monkeypatch.setattr(session_manager, "get_session_content", mock_get_content)
 
-        called_updates = None
+        updates_list = []
         def mock_update(session_id, updates):
-            nonlocal called_updates
-            called_updates = updates
+            updates_list.append(updates)
             return {"session_id": session_id, **updates}
 
         monkeypatch.setattr(session_manager, "update_session", mock_update)
@@ -77,5 +75,4 @@ class TestCuratorManagerEvaluate:
 
         assert result["score"] == 5
         assert result["is_high_value"] is True
-        assert called_updates is not None
-        assert called_updates["quality_auto_score"] == 5
+        assert updates_list[0]["quality_auto_score"] == 5

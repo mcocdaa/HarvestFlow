@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core import database_manager, setting_manager
+from managers.collector_manager import collector_manager
 import argparse
 
 SESSIONS_DIR = Path(__file__).parent.parent / "sessions"
@@ -21,42 +22,6 @@ DATA_DIR = Path(__file__).parent.parent / "backend" / "data"
 RAW_SESSIONS_DIR = DATA_DIR / "raw_sessions"
 
 
-def parse_jsonl_file(file_path: str):
-    """解析 jsonl 文件"""
-    try:
-        messages = []
-        session_id = None
-        with open(file_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    msg = json.loads(line)
-                    msg_type = msg.get('type', '')
-                    if msg_type == 'message':
-                        message_data = msg.get('message', {})
-                        role = message_data.get('role', 'user')
-                        content_list = message_data.get('content', [])
-                        text_content = ""
-                        if isinstance(content_list, list):
-                            for item in content_list:
-                                if isinstance(item, dict) and item.get('type') == 'text':
-                                    text_content += item.get('text', '')
-                        elif isinstance(content_list, str):
-                            text_content = content_list
-                        if text_content:
-                            messages.append({"role": role, "content": text_content})
-                    if not session_id and msg.get('id'):
-                        session_id = msg.get('id')
-                except json.JSONDecodeError:
-                    continue
-        if not session_id:
-            session_id = Path(file_path).stem
-        return {"session_id": session_id, "messages": messages}
-    except Exception as e:
-        print(f"解析文件失败 {file_path}: {e}")
-        return None
 
 
 def import_sessions():
@@ -89,7 +54,7 @@ def import_sessions():
 
             print(f"  ✓ 已复制到: {target_path}")
 
-            parsed = parse_jsonl_file(str(target_path))
+            parsed = collector_manager.parse_session_file(str(target_path))
             if parsed:
                 session_id = parsed["session_id"]
                 print(f"  ✓ 解析会话: {session_id}")
@@ -153,7 +118,7 @@ def check_sessions():
 
         if exists:
             try:
-                parsed = parse_jsonl_file(file_path)
+                parsed = collector_manager.parse_session_file(file_path)
                 if parsed and parsed["messages"]:
                     print(f"  ✓ 有 {len(parsed['messages'])} 条消息")
                 else:

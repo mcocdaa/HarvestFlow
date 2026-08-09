@@ -1,8 +1,4 @@
-import os
-import sys
 from fastapi import APIRouter
-from pathlib import Path
-import pytest
 
 from core.router_loader import include_routers_from_directory
 

@@ -27,7 +27,7 @@ def register_routers(app: FastAPI):
     if hasattr(version_package, "router"):
         app.include_router(
             version_package.router,
-            prefix=f"/api",
+            prefix="/api",
             tags=[api_version.upper()]
         )
         logger.info(f"[Route] 已注册 API 版本: {api_version}")

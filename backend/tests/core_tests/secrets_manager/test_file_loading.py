@@ -4,7 +4,6 @@
 
 import os
 import tempfile
-import argparse
 
 from core.secrets_manager import SecretsManager
 
@@ -75,11 +74,8 @@ secrets:
                 {"name": "DUPLICATE_KEY", "level": "optional", "source": "plugin"},
                 {"name": "UNIQUE_KEY", "level": "required", "source": "plugin"},
             ])
-            result = self.manager.list_secrets()
-
-            assert "DUPLICATE_KEY" in result
-            assert "UNIQUE_KEY" in result
-            assert len(result) == 2
+            assert self.manager._get_cache("DUPLICATE_KEY") is not None
+            assert self.manager._get_cache("UNIQUE_KEY") is not None
         finally:
             os.unlink(temp_path)
 

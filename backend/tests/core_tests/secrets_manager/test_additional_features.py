@@ -2,7 +2,6 @@
 # @brief SecretsManager 额外功能测试（缓存、刷新、验证等）
 # @create 2026-03-27
 
-import time
 import base64
 
 from core.secrets_manager import SecretsManager
@@ -45,15 +44,6 @@ class TestSecretsManagerAdditionalFeatures:
         self.manager.init(args_minimal, [])
         assert self.manager._get_cache("NONEXISTENT") is None
 
-    def test_is_cache_expired_returns_true_for_nonexistent(self, args_minimal):
-        self.manager.init(args_minimal, [])
-        assert self.manager.is_cache_expired("NONEXISTENT") is True
-
-    def test_is_cache_expired_returns_false_for_fresh(self, args_minimal):
-        self.manager.init(args_minimal, [])
-        self.manager._set_cache("TEST_KEY", "test_value")
-        assert self.manager.is_cache_expired("TEST_KEY") is False
-
     def test_get_secret_returns_cached_value(self, args_minimal):
         self.manager.init(args_minimal, [])
         self.manager._set_cache("TEST_KEY", "cached_value")
@@ -62,18 +52,6 @@ class TestSecretsManagerAdditionalFeatures:
     def test_get_secret_returns_empty_for_nonexistent(self, args_minimal):
         self.manager.init(args_minimal, [])
         assert self.manager.get_secret("NONEXISTENT") == ""
-
-    def test_list_secrets_returns_all_names(self, args_minimal):
-        self.manager.init(args_minimal, [
-            {"name": "KEY1", "level": "optional"},
-            {"name": "KEY2", "level": "optional"},
-            {"name": "KEY3", "level": "optional"},
-        ])
-        result = self.manager.list_secrets()
-        assert len(result) == 3
-        assert "KEY1" in result
-        assert "KEY2" in result
-        assert "KEY3" in result
 
     def test_refresh_secret_updates_cache(self, args_minimal):
         self.manager.init(args_minimal, [{"name": "TEST_KEY", "level": "optional"}])
@@ -88,17 +66,6 @@ class TestSecretsManagerAdditionalFeatures:
 
         result = self.manager.refresh_secret("TEST_KEY")
         assert result == "cached_value"
-
-    def test_refresh_all_secrets_executes_without_error(self, args_minimal):
-        self.manager.init(args_minimal, [
-            {"name": "KEY1", "level": "optional"},
-            {"name": "KEY2", "level": "optional"},
-        ])
-        self.manager.refresh_all_secrets()
-
-    def test_get_secret_force_refresh_returns_empty_for_nonexistent(self, args_minimal):
-        self.manager.init(args_minimal, [])
-        assert self.manager.get_secret_force_refresh("NONEXISTENT") == ""
 
     def test_get_value_source_returns_correct_labels(self, args_minimal):
         self.manager.init(args_minimal, [])

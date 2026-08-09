@@ -73,6 +73,16 @@ class InfisicalSDKClient:
             help=f"Infisical 连接超时（秒）(默认: {DEFAULT_TIMEOUT})",
         )
 
+    def is_configured(self, args: argparse.Namespace = None) -> bool:
+        """检查是否已配置连接凭证（client_id + client_secret + project_id）"""
+        if args is not None:
+            client_id = getattr(args, "infisical_client_id", "") or setting_manager.get("INFISICAL_CLIENT_ID", "")
+            client_secret = getattr(args, "infisical_client_secret", "") or setting_manager.get("INFISICAL_CLIENT_SECRET", "")
+            project_id = getattr(args, "infisical_project_id", "") or setting_manager.get("INFISICAL_PROJECT_ID", "")
+        else:
+            client_id, client_secret, project_id = self.client_id, self.client_secret, self.project_id
+        return bool(client_id and client_secret and project_id)
+
     def init(self, args: argparse.Namespace) -> bool:
         """初始化客户端（尝试连接），返回是否成功"""
         self.client_id = getattr(args, "infisical_client_id", setting_manager.get("INFISICAL_CLIENT_ID", ""))
@@ -82,12 +92,8 @@ class InfisicalSDKClient:
         self.host = getattr(args, "infisical_host", setting_manager.get("INFISICAL_HOST", DEFAULT_HOST))
         self.timeout = getattr(args, "infisical_timeout", setting_manager.get("INFISICAL_TIMEOUT", DEFAULT_TIMEOUT))
 
-        if not self.client_id or not self.client_secret:
-            logger.info("Infisical SDK: 未配置 client_id 或 client_secret")
-            return False
-
-        if not self.project_id:
-            logger.info("Infisical SDK: 未配置 project_id")
+        if not self.is_configured(args):
+            logger.info("Infisical SDK: 未配置 client_id/client_secret/project_id")
             return False
 
         result = [False]

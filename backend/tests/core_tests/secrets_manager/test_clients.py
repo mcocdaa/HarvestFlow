@@ -2,7 +2,6 @@
 # @brief SecretsManager 客户端测试
 # @create 2026-03-27
 
-import argparse
 
 import pytest
 

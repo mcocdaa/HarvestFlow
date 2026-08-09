@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Tag, Button, message, Tabs } from 'antd';
+import { Card, Table, message, Tabs, Switch } from 'antd';
 import { pluginApi } from '../services';
+import type { Plugin } from '../types';
 
 const Plugins: React.FC = () => {
-  const [plugins, setPlugins] = useState<any[]>([]);
+  const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('collectors');
 
@@ -15,8 +16,8 @@ const Plugins: React.FC = () => {
     setLoading(true);
     try {
       const res = await pluginApi.getAll();
-      const allPlugins = res.data.plugins || [];
-      const filtered = allPlugins.filter((p: any) => p.plugin_type === activeTab);
+      const allPlugins = (res.data.plugins || []) as Plugin[];
+      const filtered = allPlugins.filter((p) => p.plugin_type === activeTab);
       setPlugins(filtered);
     } catch (error) {
       console.error('Failed to load plugins:', error);
@@ -25,16 +26,16 @@ const Plugins: React.FC = () => {
     }
   };
 
-  const handleToggle = async (plugin: any, enable: boolean) => {
+  const handleToggle = async (plugin: Plugin, enabled: boolean) => {
     try {
-      if (enable) {
-        await pluginApi.enable(plugin.name);
+      if (enabled) {
+        await pluginApi.enable(plugin.key!);
       } else {
-        await pluginApi.disable(plugin.name);
+        await pluginApi.disable(plugin.key!);
       }
-      message.success(`Plugin ${enable ? 'enabled' : 'disabled'}`);
+      message.success(`Plugin ${enabled ? 'enabled' : 'disabled'}`);
       loadPlugins();
-    } catch (error) {
+    } catch {
       message.error('Operation failed');
     }
   };
@@ -61,18 +62,13 @@ const Plugins: React.FC = () => {
       key: 'author',
     },
     {
-      title: 'Has Frontend',
-      dataIndex: 'frontend_entry',
-      key: 'frontend_entry',
-      render: (has: string) => has ? <Tag color="green">Yes</Tag> : <Tag>No</Tag>,
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_: any, record: any) => (
-        <Button size="small" onClick={() => handleToggle(record, false)}>
-          Disable
-        </Button>
+      title: 'Enabled',
+      key: 'enabled',
+      render: (_: unknown, record: Plugin) => (
+        <Switch
+          defaultChecked
+          onChange={(checked) => handleToggle(record, checked)}
+        />
       ),
     },
   ];
@@ -95,7 +91,7 @@ const Plugins: React.FC = () => {
         <Table
           columns={columns}
           dataSource={plugins || []}
-          rowKey="name"
+          rowKey="key"
           loading={loading}
           pagination={false}
         />

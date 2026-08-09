@@ -3,17 +3,13 @@
 # @create 2026-03-22
 
 import os
-import json
 import yaml
 import base64
 import secrets
 import logging
 import time
-import asyncio
 from abc import ABC, abstractmethod
 from pathlib import Path
-import argparse
-import threading
 
 from core import hook_manager
 from core import setting_manager
@@ -164,9 +160,19 @@ class SecretsManager:
         self.sdk_available = self.client.__class__.__name__ != "LocalSecretsClient"
 
         if not self.client.init(args):
-            self.logger.error("✗ 密钥客户端初始化失败")
-            self.logger.info("=" * 50)
-            return False
+            if self.sdk_available:
+                # SDK 客户端初始化失败（如未配置凭证）：回退本地客户端，不阻断启动
+                self.logger.warning("SDK 密钥客户端初始化失败，回退到本地密钥客户端")
+                self.client = LocalSecretsClient()
+                self.sdk_available = False
+                if not self.client.init(args):
+                    self.logger.error("✗ 本地密钥客户端初始化失败")
+                    self.logger.info("=" * 50)
+                    return False
+            else:
+                self.logger.error("✗ 密钥客户端初始化失败")
+                self.logger.info("=" * 50)
+                return False
 
         self.secret_defs = self._collect_secret_defs(plugin_secrets)
         self.logger.info(f"已注册 {len(self.secret_defs)} 个密钥定义")
@@ -319,14 +325,6 @@ class SecretsManager:
 
         return value
 
-    def is_cache_expired(self, name):
-        """检查缓存是否过期"""
-        if name not in self.secrets_cache:
-            return True
-
-        timestamp = self.secrets_cache[name][1]
-        return time.time() - timestamp > self.cache_ttl
-
     def refresh_secret(self, name):
         """强制刷新指定密钥"""
         if name in self.refreshing:
@@ -350,34 +348,10 @@ class SecretsManager:
         finally:
             self.refreshing.discard(name)
 
-    def refresh_all_secrets(self):
-        """强制刷新所有密钥"""
-        self.logger.info("刷新所有密钥...")
-        for def_ in self.secret_defs:
-            self.refresh_secret(def_["name"])
-        self.logger.info("所有密钥刷新完成")
-
     def get_secret(self, name):
         """获取密钥值（从缓存）"""
         value = self._get_cache(name)
         return value if value is not None else ""
-
-    def get_secret_force_refresh(self, name):
-        """获取密钥值（强制刷新）"""
-        value = self.refresh_secret(name)
-        return value if value is not None else ""
-
-    def is_sdk_available(self):
-        """远程 SDK 是否可用"""
-        return self.sdk_available
-
-    def is_agent_available(self):
-        """兼容性别名（已废弃，推荐使用 is_sdk_available）"""
-        return self.sdk_available
-
-    def list_secrets(self):
-        """列出所有已注册的密钥名称"""
-        return [d["name"] for d in self.secret_defs]
 
 
 secrets_manager = SecretsManager()

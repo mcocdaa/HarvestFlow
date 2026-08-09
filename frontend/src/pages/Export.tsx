@@ -46,7 +46,7 @@ const Export: React.FC = () => {
       } else {
         message.error(res.data.message || 'Export failed');
       }
-    } catch (error) {
+    } catch {
       message.error('Export failed');
     } finally {
       setLoading(false);

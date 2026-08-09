@@ -71,30 +71,3 @@ class TestDatabaseManagerOtherFeatures:
 
         history = self.manager.export_record_get_history(limit=5)
         assert len(history) == 5
-
-    def test_plugin_upsert(self, args_with_db_path):
-        self.manager.init(args_with_db_path)
-
-        config = {"version": "1.0.0", "enabled": True}
-        self.manager.plugin_upsert("test-plugin", "collector", config)
-
-        self.manager.plugin_upsert("test-plugin", "collector", {"version": "2.0.0"})
-
-    def test_plugin_get_all(self, args_with_db_path):
-        self.manager.init(args_with_db_path)
-
-        self.manager.plugin_upsert("plugin1", "collector", {"version": "1.0"})
-        self.manager.plugin_upsert("plugin2", "exporter", {"version": "2.0"})
-
-        plugins = self.manager.plugin_get_all()
-        assert len(plugins) == 2
-
-    def test_plugin_get_all_with_config(self, args_with_db_path):
-        self.manager.init(args_with_db_path)
-
-        config = {"enabled": True, "version": "1.0.0", "settings": {"key": "value"}}
-        self.manager.plugin_upsert("test-config", "collector", config)
-
-        plugins = self.manager.plugin_get_all()
-        assert len(plugins) == 1
-        assert plugins[0]["config"] == config

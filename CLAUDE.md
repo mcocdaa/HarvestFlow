@@ -88,6 +88,11 @@ plugins/collectors/my_plugin/
 2. 动态 `importlib` 导入 `__init__.py`，模块内的 `@hook_manager.hook()` 装饰器立即注册钩子
 3. 插件钩子在对应 Manager 方法的 before/after 时机执行
 
+**钩子语义（v2）**：
+- **before 钩子**：签名与被包装方法一致（实例方法含 `self`）。返回非 `None` 时**短路**——跳过原方法，该值直接作为方法结果返回（可用于替换内置解析逻辑）。
+- **after 钩子**：签名 `(result, *被包装方法参数)`。返回非 `None` 时替换 `result`，多个钩子按 priority 升序链式传递。
+- `run()` / `run_sync()` 返回 `(results, errors)`，`results` 为各钩子返回值列表（按注册顺序）。
+
 **可用钩子点**（格式：`{manager}_{method}_before/after`）：
 - `collector_manager_scan/parse/import/import_all_before/after`
 - `curator_manager_evaluate/evaluate_all/mark_as_curated_before/after`

@@ -3,18 +3,19 @@
 # @create 2026-03-22
 
 from fastapi import APIRouter
-from typing import Optional
 from managers.curator_manager import curator_manager
 
 router = APIRouter()
 
 
-@router.get("/curator/evaluate/{session_id}")
+@router.post("/curator/evaluate/{session_id}")
 async def evaluate_session(session_id: str) -> dict:
     result = curator_manager.evaluate_session(session_id)
-    if result:
-        return {"success": True, **result}
-    return {"success": False, "error": "Session not found"}
+    if not result:
+        return {"success": False, "error": "Session not found"}
+    if "error" in result:
+        return {"success": False, **result}
+    return {"success": True, **result}
 
 
 @router.post("/curator/evaluate-all")

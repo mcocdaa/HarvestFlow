@@ -6,13 +6,14 @@ import os
 import sys
 import yaml
 import logging
+import importlib
 import importlib.util
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import argparse
 
 from core import hook_manager
-from core import setting_manager, database_manager
+from core import setting_manager
 
 
 class PluginManager:
@@ -27,13 +28,23 @@ class PluginManager:
     @hook_manager.wrap_hooks("plugin_manager_construct_before", "plugin_manager_construct_after")
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.plugins_dir: Optional[Path] = Path(setting_manager.get("PLUGINS_DIR", ""))
+        self.plugins_dir: Optional[Path] = self._resolve_plugins_dir()
         self.plugins: Dict[str, Any] = self._load_registry()
         self.logger.info(f"[PluginManager] 发现 {len(self.plugins)} 个插件:")
         for key, info in self.plugins.items():
             self.logger.info(f"  - {key} ({info['type']})")
         self.loaded_plugins: Dict[str, Any] = {}
         self.plugin_modules: Dict[str, Any] = {}
+
+    def _resolve_plugins_dir(self) -> Optional[Path]:
+        """解析插件目录（相对路径基于项目根）"""
+        plugins_dir_val = setting_manager.get("PLUGINS_DIR", "") or ""
+        if not plugins_dir_val:
+            return None
+        path = Path(plugins_dir_val)
+        if not path.is_absolute():
+            path = Path(setting_manager.ROOT_DIR) / path
+        return path.resolve()
 
     @hook_manager.wrap_hooks(after="plugin_manager_register_arguments")
     def register_arguments(self, parser: argparse.ArgumentParser):
@@ -53,46 +64,31 @@ class PluginManager:
         """
 
     def register_hooks(self):
-        """注册插件钩子 - 直接从文件路径动态导入插件"""
+        """注册插件钩子 - 优先按包名导入，失败时回退按文件路径加载"""
         if not self.plugins_dir:
             self.logger.warning("插件目录未设置，跳过插件注册")
             return
 
+        self.loaded_plugins = {}
+        root = str(setting_manager.ROOT_DIR)
+        if root not in sys.path:
+            sys.path.insert(0, root)
+        plugins_parent = str(self.plugins_dir.parent)
+        if plugins_parent not in sys.path:
+            sys.path.insert(0, plugins_parent)
+
         for key, info in self.plugins.items():
+            if not info.get("enabled", True):
+                continue
+            module_name = f"plugins.{key.replace(os.sep, '.').replace('/', '.')}"
             try:
-                plugin_path = Path(info["path"])
-                if not plugin_path.is_absolute():
-                    plugin_path = (self.plugins_dir / plugin_path).resolve()
-
-                module_file = None
-                if plugin_path.is_file() and plugin_path.suffix == ".py":
-                    module_file = plugin_path
-                elif plugin_path.is_dir():
-                    init_file = plugin_path / "__init__.py"
-                    if init_file.exists():
-                        module_file = init_file
-                    else:
-                        self.logger.warning(f"插件目录 {plugin_path} 下未找到 __init__.py，跳过")
-                        continue
-                else:
-                    self.logger.warning(f"插件路径无效: {plugin_path}，跳过")
-                    continue
-
-                module_name = f"plugins.{key.replace(os.sep, '.').replace('/', '.')}"
-                self.logger.debug(f"正在从文件加载插件: {module_file}")
-
-                spec = importlib.util.spec_from_file_location(module_name, module_file)
-                if spec is None or spec.loader is None:
-                    self.logger.error(f"无法为插件创建模块规范: {key}")
-                    continue
-
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[module_name] = module
-                spec.loader.exec_module(module)
+                try:
+                    module = importlib.import_module(module_name)
+                except ModuleNotFoundError:
+                    module = self._load_from_file(info, module_name)
                 self.loaded_plugins[key] = self.plugins[key]
                 self.plugin_modules[key] = module
                 self.logger.info(f"成功加载插件: {info['name']} ({key})")
-
             except Exception as e:
                 self.logger.error(f"导入插件 {key} 失败: {e}", exc_info=True)
                 module_name = f"plugins.{key.replace(os.sep, '.').replace('/', '.')}"
@@ -100,6 +96,29 @@ class PluginManager:
                     del sys.modules[module_name]
                 if key in self.loaded_plugins:
                     del self.loaded_plugins[key]
+
+    def _load_from_file(self, info: Dict, module_name: str):
+        """按文件路径加载插件模块（适用于非项目内插件目录）"""
+        plugin_path = Path(info["path"])
+        module_file = None
+        if plugin_path.is_file() and plugin_path.suffix == ".py":
+            module_file = plugin_path
+        elif plugin_path.is_dir():
+            init_file = plugin_path / "__init__.py"
+            if init_file.exists():
+                module_file = init_file
+
+        if module_file is None:
+            raise ImportError(f"插件入口不存在: {plugin_path}")
+
+        spec = importlib.util.spec_from_file_location(module_name, module_file)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"无法为插件创建模块规范: {module_file}")
+
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        return module
 
     def _load_registry(self) -> Dict[str, Any]:
         """加载插件注册表
@@ -129,6 +148,14 @@ class PluginManager:
             if cfg is None:
                 continue
             if not cfg.get("enabled", True):
+                # 保留禁用插件到注册表（供 enable API 查找），但不加载
+                plugins[key] = {
+                    "enabled": False,
+                    "path": "",
+                    "name": key.split("/")[-1],
+                    "type": "unknown",
+                    "manifest": {},
+                }
                 self.logger.debug(f"插件 {key} 已禁用，跳过")
                 continue
 
@@ -204,11 +231,44 @@ class PluginManager:
                 })
         return secrets
 
+    def set_enabled(self, plugin_key: str, enabled: bool) -> bool:
+        """启用/禁用插件，持久化到 plugins.yaml 并重载注册表
+
+        Returns:
+            是否设置成功
+        """
+        if plugin_key not in self.plugins:
+            return False
+        if not self.plugins_dir:
+            return False
+
+        registry_path = self.plugins_dir / "plugins.yaml"
+        if not registry_path.exists():
+            return False
+
+        try:
+            with open(registry_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
+            plugin_cfg = data.setdefault("plugins", {}).setdefault(plugin_key, {})
+            plugin_cfg["enabled"] = enabled
+            # 注意：safe_dump 会重写文件，不保留注释（已知限制）
+            with open(registry_path, 'w', encoding='utf-8') as f:
+                yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+        except Exception as e:
+            self.logger.error(f"更新插件状态失败 ({plugin_key}): {e}", exc_info=True)
+            return False
+
+        self.plugins = self._load_registry()
+        self.register_hooks()
+        self.logger.info(f"插件 {plugin_key} 已{'启用' if enabled else '禁用'}")
+        return True
+
     def get_all(self) -> List[Dict]:
         """获取所有已加载插件的信息"""
         result = []
         for key, info in self.loaded_plugins.items():
             plugin_info = info.copy()
+            plugin_info["key"] = key
             # 从 key 中提取 plugin_type (例如：collectors/openclaw -> collectors)
             if '/' in key:
                 plugin_info['plugin_type'] = key.split('/')[0]

@@ -30,7 +30,8 @@ class TestWrapHooks:
 
         result = asyncio.run(wrapped_func(5))
         assert result == 10
-        assert order == ["before:5", "wrapped:5", "after:5"]
+        # after 钩子第一个参数是被包装方法的返回值
+        assert order == ["before:5", "wrapped:5", "after:10"]
 
     def test_wrap_hooks_sync_function_runs_before_after(self, fresh_hook_manager):
         order = []
@@ -38,8 +39,8 @@ class TestWrapHooks:
         def before_hook(value):
             order.append(f"before:{value}")
 
-        def after_hook(value):
-            order.append(f"after:{value}")
+        def after_hook(result, value):
+            order.append(f"after:{result}")
 
         fresh_hook_manager.register("sync_before", before_hook)
         fresh_hook_manager.register("sync_after", after_hook)
@@ -51,7 +52,8 @@ class TestWrapHooks:
 
         result = wrapped_func(10)
         assert result == 20
-        assert order == ["before:10", "wrapped:10", "after:10"]
+        # after 钩子第一个参数是被包装方法的返回值
+        assert order == ["before:10", "wrapped:10", "after:20"]
 
     def test_wrap_hooks_only_before(self, fresh_hook_manager):
         order = []
@@ -73,7 +75,7 @@ class TestWrapHooks:
     def test_wrap_hooks_only_after(self, fresh_hook_manager):
         order = []
 
-        def after():
+        def after(result):
             order.append("after")
 
         fresh_hook_manager.register("only_after", after)

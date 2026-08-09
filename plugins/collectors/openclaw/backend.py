@@ -10,7 +10,6 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_AGENTS_DIR = "C:/Users/20211/.openclaw/agents"
 DEFAULT_TARGET_AGENTS = ["backend_dev", "req_analyst", "qa_ops", "coord"]
 DEFAULT_MIN_MESSAGE_COUNT = 5
 
@@ -21,7 +20,7 @@ class OpenClawCollector:
 
     def __init__(self, config: Dict = None):
         self.config = config or {}
-        self.agents_dir = self.config.get("agents_dir", DEFAULT_AGENTS_DIR)
+        self.agents_dir = self.config.get("agents_dir", "") or ""
         self.target_agents = self.config.get("target_agents", DEFAULT_TARGET_AGENTS)
         self.skip_cron = self.config.get("skip_cron_sessions", True)
         self.min_message_count = self.config.get("min_message_count", DEFAULT_MIN_MESSAGE_COUNT)
@@ -33,25 +32,24 @@ class OpenClawCollector:
             jsonl 文件路径列表
         """
         jsonl_files = []
-        logger.info(f"[OpenClawCollector] 开始扫描，agents_dir: {self.agents_dir}, target_agents: {self.target_agents}")
+
+        if not self.agents_dir:
+            logger.warning("[OpenClawCollector] agents_dir 未配置，跳过扫描")
+            return jsonl_files
 
         if not os.path.exists(self.agents_dir):
             logger.warning(f"[OpenClawCollector] agents_dir not found: {self.agents_dir}")
             return jsonl_files
 
         for agent_id in self.target_agents:
-            logger.info(f"[OpenClawCollector] 扫描 agent: {agent_id}")
-            agent_sessions_path = os.path.join(self.agents_dir, agent_id, "sessions", "sessions.json")
-            logger.info(f"[OpenClawCollector] sessions.json 路径：{agent_sessions_path}, 存在：{os.path.exists(agent_sessions_path)}")
-            if not os.path.exists(agent_sessions_path):
+            agent_sessions_path = Path(self.agents_dir) / agent_id / "sessions" / "sessions.json"
+            if not agent_sessions_path.exists():
                 # 如果 sessions.json 不存在，直接扫描目录中的 jsonl 文件
-                sessions_dir = os.path.join(self.agents_dir, agent_id, "sessions")
-                logger.info(f"[OpenClawCollector] sessions.json 不存在，扫描目录：{sessions_dir}")
-                if os.path.exists(sessions_dir):
-                    for file in os.listdir(sessions_dir):
-                        logger.info(f"[OpenClawCollector] 发现文件：{file}")
-                        if file.endswith('.jsonl'):
-                            jsonl_files.append(os.path.join(sessions_dir, file))
+                sessions_dir = Path(self.agents_dir) / agent_id / "sessions"
+                if sessions_dir.exists():
+                    for file in sessions_dir.iterdir():
+                        if file.suffix == ".jsonl":
+                            jsonl_files.append(str(file))
                 continue
 
             try:
@@ -63,17 +61,20 @@ class OpenClawCollector:
                         continue
 
                     session_file = session_info.get("sessionFile")
-                    if session_file:
-                        # 尝试将 Windows 路径转换为 Linux 路径
-                        if 'C:' in session_file or 'c:' in session_file:
-                            # 提取文件名（处理 Windows 路径分隔符）
-                            file_name = session_file.split('\\')[-1].split('/')[-1]
-                            session_file = os.path.join(self.agents_dir, agent_id, "sessions", file_name)
-                            logger.info(f"[OpenClawCollector] 转换 Windows 路径：{session_info.get('sessionFile')} -> {session_file}")
-                        if os.path.exists(session_file):
-                            jsonl_files.append(session_file)
-                        else:
-                            logger.warning(f"[OpenClawCollector] 文件不存在：{session_file}")
+                    if not session_file:
+                        continue
+
+                    candidate = Path(session_file)
+                    if candidate.is_absolute() and candidate.exists():
+                        jsonl_files.append(str(candidate))
+                        continue
+
+                    # 绝对路径不存在（如 Windows 路径）：回退到本机 sessions 目录查找同名文件
+                    fallback = Path(self.agents_dir) / agent_id / "sessions" / candidate.name
+                    if fallback.exists():
+                        jsonl_files.append(str(fallback))
+                    else:
+                        logger.warning(f"[OpenClawCollector] 文件不存在：{session_file}")
             except Exception as e:
                 logger.error(f"[OpenClawCollector] Error scanning {agent_id}: {e}")
 

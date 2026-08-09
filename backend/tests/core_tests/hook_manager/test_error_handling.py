@@ -23,7 +23,7 @@ class TestErrorHandling:
         fresh_hook_manager.register("error_test", error_callback)
         fresh_hook_manager.register("error_test", success_callback)
 
-        errors = asyncio.run(fresh_hook_manager.run("error_test"))
+        _, errors = asyncio.run(fresh_hook_manager.run("error_test"))
 
         assert results == ["success"]
         assert len(errors) == 1
@@ -40,7 +40,7 @@ class TestErrorHandling:
         fresh_hook_manager.register("error_return_test", error1)
         fresh_hook_manager.register("error_return_test", error2)
 
-        errors = asyncio.run(fresh_hook_manager.run("error_return_test"))
+        _, errors = asyncio.run(fresh_hook_manager.run("error_return_test"))
 
         assert len(errors) == 2
         assert errors[0][0] == "error1"

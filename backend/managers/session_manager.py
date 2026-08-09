@@ -6,7 +6,7 @@ import logging
 from typing import Optional, Dict, List
 import argparse
 
-from core import database_manager, setting_manager, hook_manager
+from core import database_manager, hook_manager
 
 # 合法的状态流转：{当前状态: [允许转入的状态]}
 VALID_STATUS_TRANSITIONS: Dict[str, List[str]] = {
@@ -32,7 +32,6 @@ class SessionManager:
     @hook_manager.wrap_hooks("session_manager_construct_before", "session_manager_construct_after")
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.data_dir: str = setting_manager.get("DATA_DIR", "./data")
 
     @hook_manager.wrap_hooks(after="session_manager_register_arguments")
     def register_arguments(self, parser: argparse.ArgumentParser):
@@ -41,13 +40,7 @@ class SessionManager:
         Args:
             parser: argparse.ArgumentParser 实例
         """
-        group = parser.add_argument_group("Session", "Session Management")
-        group.add_argument(
-            "--session-data-dir",
-            type=str,
-            default=None,
-            help="会话数据目录"
-        )
+        parser.add_argument_group("Session", "Session Management")
 
     @hook_manager.wrap_hooks("session_manager_init_before", "session_manager_init_after")
     def init(self, args: argparse.Namespace):
@@ -56,9 +49,7 @@ class SessionManager:
         Args:
             args: 解析后的参数
         """
-        session_data_dir_val = getattr(args, 'session_data_dir', setting_manager.get("SESSION_DATA_DIR"))
-        if session_data_dir_val:
-            self.data_dir = session_data_dir_val
+        pass
 
     @hook_manager.wrap_hooks("session_manager_create_before", "session_manager_create_after")
     def create_session(self, session_data: Dict) -> Dict:

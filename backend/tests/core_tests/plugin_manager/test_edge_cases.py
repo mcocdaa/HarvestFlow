@@ -4,7 +4,6 @@
 
 import os
 import yaml
-import argparse
 
 from core import setting_manager
 from core.plugin_manager import PluginManager

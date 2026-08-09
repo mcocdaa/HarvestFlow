@@ -3,7 +3,7 @@
 # @create 2026-03-22
 
 from fastapi import APIRouter
-from typing import Optional, List
+from typing import Optional
 from managers.collector_manager import collector_manager
 
 router = APIRouter()
