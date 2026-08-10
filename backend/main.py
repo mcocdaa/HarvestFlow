@@ -29,8 +29,11 @@ from managers import (
     exporter_manager,
 )
 
+# ---- 应用信息 ----
 APP_TITLE = "HarvestFlow"
 APP_VERSION = "1.0.0"
+
+# ---- 日志格式 ----
 LOG_SEPARATOR_LENGTH = 50
 LOG_SEPARATOR_CHAR = "="
 
@@ -50,6 +53,8 @@ def log_separator(message: str = None):
         logger.info(separator)
 
 
+# 核心管理器列表：负责核心基础设施（配置/密钥/数据库/插件），
+# 用于统一遍历 register_arguments 与 init
 CORE_MANAGERS = [
     setting_manager,
     secrets_manager,
@@ -57,6 +62,8 @@ CORE_MANAGERS = [
     plugin_manager,
 ]
 
+# 业务管理器列表：负责业务逻辑（会话/采集/审核/评审/导出），
+# 用于统一遍历 register_arguments 与 init
 BUSINESS_MANAGERS = [
     session_manager,
     collector_manager,
@@ -64,6 +71,14 @@ BUSINESS_MANAGERS = [
     reviewer_manager,
     exporter_manager,
 ]
+
+
+async def _shutdown(app: FastAPI):
+    """应用关闭清理：执行 shutdown 钩子并关闭数据库连接"""
+    logger.info("应用关闭，执行清理...")
+    await hook_manager.run("app_lifespan_shutdown", app)
+    database_manager.close()
+    logger.info("✓ 数据库连接已关闭")
 
 
 @asynccontextmanager
@@ -76,10 +91,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    logger.info("应用关闭，执行清理...")
-    await hook_manager.run("app_lifespan_shutdown", app)
-    database_manager.close()
-    logger.info("✓ 数据库连接已关闭")
+    await _shutdown(app)
 
 
 @hook_manager.wrap_hooks(before="init_app_before", after="init_app_after")
