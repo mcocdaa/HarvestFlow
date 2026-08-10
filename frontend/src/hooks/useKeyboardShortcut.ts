@@ -7,6 +7,13 @@ export const useKeyboardShortcut = (
 ) => {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target?.tagName) return;
+      const tagName = target.tagName.toLowerCase();
+      if (tagName === 'input' || tagName === 'textarea' || target.isContentEditable || target.contentEditable === 'true') {
+        return;
+      }
+
       const matchesKey = e.key === key;
       const matchesMeta = !metaKey || (e.metaKey || e.ctrlKey);
 

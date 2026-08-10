@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Select, InputNumber, Button, Table, message } from 'antd';
+import { Card, Form, Select, Input, InputNumber, Button, Table, message } from 'antd';
 import { ExportOutlined } from '@ant-design/icons';
 import { exporterApi } from '../services';
 import type { ExportHistory, ExportParams } from '../types';
@@ -94,8 +94,8 @@ const Export: React.FC = () => {
               <Option value="alpaca">Alpaca</Option>
             </Select>
           </Form.Item>
-          <Form.Item name="version" label="Version" initialValue="v1">
-            <InputNumber min={1} style={{ width: '100%' }} />
+          <Form.Item name="version" label="Version">
+            <Input defaultValue="v1" style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="min_score" label="Min Score (optional)">
             <InputNumber min={1} max={5} style={{ width: '100%' }} />
@@ -105,6 +105,18 @@ const Export: React.FC = () => {
               <Option value="backend_dev">Backend Developer</Option>
               <Option value="req_analyst">Requirements Analyst</Option>
             </Select>
+          </Form.Item>
+          <Form.Item name="task_type" label="Task Type (optional)">
+            <Select allowClear>
+              <Option value="debugging">Debugging</Option>
+              <Option value="coding">Coding</Option>
+              <Option value="testing">Testing</Option>
+              <Option value="refactoring">Refactoring</Option>
+              <Option value="feature_dev">Feature Development</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="tags" label="Tags (optional)">
+            <Select mode="tags" placeholder="Add tags" />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={loading} icon={<ExportOutlined />}>

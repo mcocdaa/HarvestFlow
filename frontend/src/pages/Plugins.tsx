@@ -15,10 +15,8 @@ const Plugins: React.FC = () => {
   const loadPlugins = async () => {
     setLoading(true);
     try {
-      const res = await pluginApi.getAll();
-      const allPlugins = (res.data.plugins || []) as Plugin[];
-      const filtered = allPlugins.filter((p) => p.plugin_type === activeTab);
-      setPlugins(filtered);
+      const res = await pluginApi.getByType(activeTab);
+      setPlugins((res.data.plugins || []) as Plugin[]);
     } catch (error) {
       console.error('Failed to load plugins:', error);
     } finally {
@@ -29,11 +27,11 @@ const Plugins: React.FC = () => {
   const handleToggle = async (plugin: Plugin, enabled: boolean) => {
     try {
       if (enabled) {
-        await pluginApi.enable(plugin.key!);
+        await pluginApi.enable(plugin.key);
       } else {
-        await pluginApi.disable(plugin.key!);
+        await pluginApi.disable(plugin.key);
       }
-      message.success(`Plugin ${enabled ? 'enabled' : 'disabled'}`);
+      message.info(`Plugin ${plugin.name} ${enabled ? 'enabled' : 'disabled'}`);
       loadPlugins();
     } catch {
       // Interceptor handles error display
@@ -66,7 +64,7 @@ const Plugins: React.FC = () => {
       key: 'enabled',
       render: (_: unknown, record: Plugin) => (
         <Switch
-          defaultChecked
+          checked={record.enabled}
           onChange={(checked) => handleToggle(record, checked)}
         />
       ),
