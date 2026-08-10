@@ -9,7 +9,7 @@ router = APIRouter()
 
 
 @router.post("/curator/evaluate/{session_id}")
-async def evaluate_session(session_id: str) -> dict:
+def evaluate_session(session_id: str) -> dict:
     result = curator_manager.evaluate_session(session_id)
     if not result:
         raise HTTPException(404, detail="Session not found")
@@ -19,13 +19,13 @@ async def evaluate_session(session_id: str) -> dict:
 
 
 @router.post("/curator/evaluate-all")
-async def evaluate_all() -> dict:
+def evaluate_all() -> dict:
     result = curator_manager.evaluate_all()
     return result
 
 
 @router.get("/curator/status")
-async def get_curator_status() -> dict:
+def get_curator_status() -> dict:
     return {
         "enabled": curator_manager.enabled,
         "auto_approve_threshold": curator_manager.auto_approve_threshold,

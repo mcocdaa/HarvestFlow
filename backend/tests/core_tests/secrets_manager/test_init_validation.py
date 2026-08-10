@@ -54,8 +54,8 @@ class TestSecretsManagerInitValidation:
             "name": "TEST_REQUIRED",
             "level": "required",
         })
-        assert len(result) > 0
-        assert isinstance(result, str)
+        assert len(result[0]) > 0
+        assert isinstance(result[0], str)
 
     def test_resolve_returns_default_when_optional_no_client_value(self, args_minimal):
         manager = SecretsManager()
@@ -65,7 +65,7 @@ class TestSecretsManagerInitValidation:
             "level": "optional",
             "default": "my_default",
         })
-        assert result == "my_default"
+        assert result == ("my_default", "default")
 
     def test_resolve_returns_empty_when_optional_no_default_no_client_value(self, args_minimal):
         manager = SecretsManager()
@@ -74,4 +74,4 @@ class TestSecretsManagerInitValidation:
             "name": "TEST_EMPTY",
             "level": "optional",
         })
-        assert result == ""
+        assert result == ("", "default")

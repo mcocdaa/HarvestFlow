@@ -21,7 +21,7 @@ router = APIRouter()
 
 
 @router.post("/exporter/export")
-async def export_sessions(request: ExportRequest) -> dict:
+def export_sessions(request: ExportRequest) -> dict:
     result = exporter_manager.export(
         format=request.format,
         min_score=request.min_score,
@@ -34,11 +34,11 @@ async def export_sessions(request: ExportRequest) -> dict:
 
 
 @router.get("/exporter/history")
-async def get_export_history(limit: int = 20) -> dict:
+def get_export_history(limit: int = 20) -> dict:
     records = exporter_manager.get_export_history(limit)
     return {"exports": records}
 
 
 @router.get("/exporter/formats")
-async def get_supported_formats() -> dict:
+def get_supported_formats() -> dict:
     return {"formats": ["sharegpt", "alpaca"]}

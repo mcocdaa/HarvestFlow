@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 @router.get("/sessions/{session_id}")
-async def get_session(session_id: str) -> dict:
+def get_session(session_id: str) -> dict:
     session = session_manager.get_session(session_id)
     if not session:
         raise HTTPException(404, detail="Session not found")
@@ -19,7 +19,7 @@ async def get_session(session_id: str) -> dict:
 
 
 @router.get("/sessions/{session_id}/content")
-async def get_session_content(session_id: str) -> dict:
+def get_session_content(session_id: str) -> dict:
     content = session_manager.get_session_content(session_id)
     if not content:
         raise HTTPException(404, detail="Content not found")
@@ -27,7 +27,7 @@ async def get_session_content(session_id: str) -> dict:
 
 
 @router.get("/sessions")
-async def get_sessions(
+def get_sessions(
     status: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
@@ -37,7 +37,7 @@ async def get_sessions(
 
 
 @router.patch("/sessions/{session_id}")
-async def update_session(session_id: str, updates: Dict) -> dict:
+def update_session(session_id: str, updates: Dict) -> dict:
     result = session_manager.update_session(session_id, updates)
     if result is None:
         raise HTTPException(404, detail="Session not found")
@@ -45,7 +45,7 @@ async def update_session(session_id: str, updates: Dict) -> dict:
 
 
 @router.delete("/sessions/{session_id}")
-async def delete_session(session_id: str):
+def delete_session(session_id: str):
     success = session_manager.delete_session(session_id)
     if not success:
         raise HTTPException(404, detail="Session not found")
@@ -53,5 +53,5 @@ async def delete_session(session_id: str):
 
 
 @router.get("/stats")
-async def get_stats() -> dict:
+def get_stats() -> dict:
     return session_manager.get_stats()

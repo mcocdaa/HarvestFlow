@@ -62,7 +62,7 @@ class TestSecretsManagerResolveSecretValue:
             "level": "optional",
             "default": "default_value",
         })
-        assert result == "default_value"
+        assert result == ("default_value", "default")
 
     def test_returns_empty_when_no_default(self, args_minimal):
         self.manager.init(args_minimal, [])
@@ -71,7 +71,7 @@ class TestSecretsManagerResolveSecretValue:
             "name": "TEST_KEY",
             "level": "optional",
         })
-        assert result == ""
+        assert result == ("", "default")
 
     def test_generates_random_for_required_when_no_client(self, args_minimal):
         self.manager.init(args_minimal, [])
@@ -80,8 +80,8 @@ class TestSecretsManagerResolveSecretValue:
             "name": "TEST_KEY",
             "level": "required",
         })
-        assert len(result) > 0
-        assert isinstance(result, str)
+        assert len(result[0]) > 0
+        assert isinstance(result[0], str)
 
 
 class TestSecretsManagerGetSecret:
