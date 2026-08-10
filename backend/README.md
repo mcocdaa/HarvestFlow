@@ -28,8 +28,7 @@ backend/
 │   └── exporter_manager.py # 导出管理
 ├── tests/                  # 测试目录
 │   ├── core_tests/        # 核心模块测试
-│   ├── managers_tests/    # 管理器测试
-│   └── api_tests/         # API 测试
+│   └── managers_tests/    # 管理器测试
 ├── data/                   # 数据目录（不提交到 git）
 │   ├── db/                # 数据库文件
 │   ├── raw_sessions/      # 原始会话数据
@@ -64,15 +63,6 @@ docker build -t harvestflow-backend .
 docker compose -f ../docker/docker-compose.backend.yml up
 ```
 
-## 清理命令
-
-使用清理脚本清除临时文件和缓存：
-
-```bash
-# 从项目根目录运行
-bash scripts/cleanup_backend.sh
-```
-
 ## 主要功能模块
 
 ### 1. API 层 (`api/`)
@@ -93,9 +83,8 @@ bash scripts/cleanup_backend.sh
 - 数据导出
 
 ### 4. 测试 (`tests/`)
-- 单元测试
-- 集成测试
-- API 测试
+- `core_tests/`: 核心模块单元测试
+- `managers_tests/`: 业务管理器测试
 
 ## 数据目录说明
 
@@ -133,8 +122,5 @@ pytest
 pytest --cov=backend --cov-report=html
 
 # 检查代码格式
-flake8 .
-
-# 清理缓存
-bash ../scripts/cleanup_backend.sh
+ruff check .
 ```
