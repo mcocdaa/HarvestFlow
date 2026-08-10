@@ -77,7 +77,7 @@ const SessionDrawer: React.FC<SessionDrawerProps> = ({
       width={480}
       open={visible}
       onClose={onClose}
-      destroyOnClose
+      destroyOnHidden
     >
       {session && (
         <div className="drawer-content">
