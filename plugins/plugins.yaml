@@ -1,7 +1,10 @@
+# HarvestFlow 插件注册表
+# - 插件 key 为相对 plugins/ 的路径；enabled 控制是否加载
+# - 插件类型：collector（采集）/ curator（自动审核）/ reviewer（人工审核）/ service（服务）
 plugins:
-  collectors/openclaw:
+  collectors/openclaw:   # OpenClaw 会话采集器
     enabled: true
-  curators/openclaw:
+  curators/openclaw:     # OpenClaw 自动审核（注意：入口未实现，当前加载无效果）
     enabled: true
-  services/infisical:
+  services/infisical:    # Infisical 密钥服务
     enabled: true
