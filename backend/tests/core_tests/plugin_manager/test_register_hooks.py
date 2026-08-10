@@ -126,3 +126,21 @@ class TestPluginManagerRegisterHooks:
         self.manager.register_hooks()
 
         assert len(self.manager.loaded_plugins) == 0
+
+    def test_get_all_includes_disabled_plugins(self, args_minimal, tmp_path):
+        """get_all 应包含禁用的插件，并标记 enabled=False"""
+        from core import setting_manager as sm
+        sm.set("PLUGINS_DIR", "")
+        pm = PluginManager()
+        pm.plugins["test/disabled"] = {
+            "enabled": False,
+            "path": str(tmp_path),
+            "name": "Disabled Plugin",
+            "type": "collector",
+            "manifest": {"name": "Disabled Plugin", "version": "0.1", "description": "test"},
+        }
+        all_plugins = pm.get_all()
+        disabled = [p for p in all_plugins if p["key"] == "test/disabled"]
+        assert len(disabled) == 1
+        assert disabled[0]["enabled"] is False
+        assert disabled[0]["version"] == "0.1"
