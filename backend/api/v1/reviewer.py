@@ -3,8 +3,9 @@
 # @create 2026-03-22
 
 from fastapi import APIRouter, HTTPException
-from typing import Optional, List, Dict
+from typing import Optional, List
 from managers.reviewer_manager import reviewer_manager
+from api.v1.session import SessionUpdate
 
 router = APIRouter()
 
@@ -35,8 +36,8 @@ def reject_session(session_id: str, notes: Optional[str] = None, score: Optional
 
 
 @router.patch("/reviewer/session/{session_id}")
-def update_session(session_id: str, updates: Dict) -> dict:
-    result = reviewer_manager.update_session(session_id, updates)
+def update_session(session_id: str, updates: SessionUpdate) -> dict:
+    result = reviewer_manager.update_session(session_id, updates.model_dump(exclude_none=True))
     if not result:
         raise HTTPException(404, detail="Session not found")
     if "error" in result:

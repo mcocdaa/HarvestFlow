@@ -41,24 +41,28 @@ class CuratorManager:
         group.add_argument(
             "--curator-enabled",
             type=str,
-            default="true",
+            default=None,
             choices=["true", "false", "1", "0", "yes", "no"],
             help="是否启用自动审核 (默认: true)"
         )
         group.add_argument(
             "--auto-approve-threshold",
             type=int,
-            default=DEFAULT_AUTO_APPROVE_THRESHOLD,
+            default=None,
             help=f"自动审批阈值 (默认: {DEFAULT_AUTO_APPROVE_THRESHOLD})"
         )
 
     @hook_manager.wrap_hooks("curator_manager_init_before", "curator_manager_init_after")
     def init(self, args: argparse.Namespace):
-        curator_enabled_val = getattr(args, 'curator_enabled', setting_manager.get("CURATOR_ENABLED", True))
+        curator_enabled_val = getattr(args, 'curator_enabled', None)
+        if curator_enabled_val is None:
+            curator_enabled_val = setting_manager.get("CURATOR_ENABLED", True)
         self.enabled = str(curator_enabled_val).lower() in ('true', '1', 'yes')
 
-        self.auto_approve_threshold = getattr(args, 'auto_approve_threshold', setting_manager.get("AUTO_APPROVE_THRESHOLD", DEFAULT_AUTO_APPROVE_THRESHOLD))
-        self.auto_approve_threshold = int(self.auto_approve_threshold)
+        threshold_val = getattr(args, 'auto_approve_threshold', None)
+        if threshold_val is None:
+            threshold_val = setting_manager.get("AUTO_APPROVE_THRESHOLD", DEFAULT_AUTO_APPROVE_THRESHOLD)
+        self.auto_approve_threshold = int(threshold_val)
 
     @hook_manager.wrap_hooks("curator_manager_evaluate_before", "curator_manager_evaluate_after")
     def evaluate_session(self, session_id: str) -> Dict:
@@ -153,15 +157,6 @@ class CuratorManager:
         tools.extend(tool_names if tool_names is not None else self._extract_tool_names_from_calls(content))
 
         return list(set(tools))
-
-    @hook_manager.wrap_hooks("curator_manager_mark_as_curated_before", "curator_manager_mark_as_curated_after")
-    def _mark_as_curated(self, session_id: str):
-        """标记为 curated 状态"""
-        session = session_manager.get_session(session_id)
-        if not session:
-            return
-
-        session_manager.update_session(session_id, {"status": "curated"})
 
     @hook_manager.wrap_hooks("curator_manager_evaluate_all_before", "curator_manager_evaluate_all_after")
     def evaluate_all(self) -> Dict:

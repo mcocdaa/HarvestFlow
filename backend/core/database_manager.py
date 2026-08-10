@@ -75,7 +75,7 @@ class DatabaseManager:
 
         self._create_table("""
             CREATE TABLE IF NOT EXISTS sessions (
-                session_id TEXT PRIMARY KEY,
+                session_id TEXT PRIMARY KEY NOT NULL,
                 file_path TEXT,
                 content TEXT,
                 status TEXT DEFAULT 'raw',
@@ -140,6 +140,9 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
+        if not session_data.get("session_id"):
+            return None
+
         content_json = None
         if "content" in session_data:
             content_json = json.dumps(session_data["content"])
@@ -188,8 +191,9 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
-        # clamp page_size to prevent unbounded queries
-        page_size = min(page_size, 100)
+        # clamp page_size and page to prevent unbounded queries
+        page_size = max(1, min(page_size, 100))
+        page = max(1, page)
 
         where_clause = ""
         params = []
@@ -310,6 +314,8 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
+        limit = max(1, min(limit, 100))
+
         if session_id:
             cursor = self.connection.execute(
                 "SELECT * FROM audit_logs WHERE session_id = ? ORDER BY created_at DESC LIMIT ?",
@@ -369,6 +375,8 @@ class DatabaseManager:
         """获取导出历史"""
         if not self.connection:
             raise RuntimeError("数据库未初始化")
+
+        limit = max(1, min(limit, 100))
 
         with self._write_lock:
             cursor = self.connection.execute(
@@ -455,9 +463,15 @@ class DatabaseManager:
     def _deserialize_session_fields(self, session: Dict) -> Dict:
         """反序列化会话的 JSON 字段"""
         if session.get("tags"):
-            session["tags"] = json.loads(session["tags"])
+            try:
+                session["tags"] = json.loads(session["tags"])
+            except json.JSONDecodeError:
+                pass
         if session.get("tools_used"):
-            session["tools_used"] = json.loads(session["tools_used"])
+            try:
+                session["tools_used"] = json.loads(session["tools_used"])
+            except json.JSONDecodeError:
+                pass
         if session.get("content"):
             try:
                 session["content"] = json.loads(session["content"])
