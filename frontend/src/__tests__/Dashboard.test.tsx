@@ -40,6 +40,7 @@ describe('Dashboard Component', () => {
       rejected_sessions: 10,
       avg_auto_score: 8.5,
       curated_sessions: 70,
+      reviewed_sessions: 70,
     }
     vi.mocked(statsApi.get).mockResolvedValue({ data: mockStats } as any)
 
@@ -91,6 +92,18 @@ describe('Dashboard Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Curated Sessions')).toBeInTheDocument()
+    })
+  })
+
+  it('should display reviewed sessions card', async () => {
+    vi.mocked(statsApi.get).mockResolvedValue({
+      data: { reviewed_sessions: 50 },
+    } as any)
+
+    render(<Dashboard />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Reviewed Sessions')).toBeInTheDocument()
     })
   })
 })

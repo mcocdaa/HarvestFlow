@@ -56,13 +56,9 @@ class TestCuratorManagerEvaluate:
         }
 
         def mock_get(session_id):
-            return {"session_id": session_id, "status": "raw", "file_path": "/test.json"}
-
-        def mock_get_content(session_id):
-            return content
+            return {"session_id": session_id, "status": "raw", "file_path": "/test.json", "content": content}
 
         monkeypatch.setattr(session_manager, "get_session", mock_get)
-        monkeypatch.setattr(session_manager, "get_session_content", mock_get_content)
 
         updates_list = []
         def mock_update(session_id, updates):

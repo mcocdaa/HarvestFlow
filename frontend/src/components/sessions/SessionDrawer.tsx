@@ -2,7 +2,8 @@ import React from 'react';
 import { Drawer, Typography, Collapse } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
 import { getStatusColor, copyToClipboard } from '../../utils';
-import type { Session, SessionContent, Message } from '../../types';
+import type { Session, SessionContent } from '../../types';
+import { MessageBubble } from '../common';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -20,7 +21,7 @@ const SessionDrawer: React.FC<SessionDrawerProps> = ({
   session,
   content,
 }) => {
-  const getFirstMessageSummary = (_sessionId: string): string => {
+  const getFirstMessageSummary = (): string => {
     if (!session?.task_type) return '无摘要信息';
     return session.task_type;
   };
@@ -32,15 +33,8 @@ const SessionDrawer: React.FC<SessionDrawerProps> = ({
 
     return (
       <div className="message-timeline">
-        {content.messages.map((msg: Message, index: number) => (
-          <div key={index} className={`message-bubble ${msg.role}`}>
-            <div className="message-header">
-              <Text className="message-role">{msg.role === 'user' ? '用户' : 'AI'}</Text>
-            </div>
-            <div className="message-content">
-              {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content, null, 2)}
-            </div>
-          </div>
+        {content.messages.map((msg, index) => (
+          <MessageBubble key={index} message={msg} index={index} />
         ))}
       </div>
     );
@@ -94,7 +88,7 @@ const SessionDrawer: React.FC<SessionDrawerProps> = ({
               <span className="status-badge-text">{session.status}</span>
             </div>
             <div className="drawer-title">
-              <h2>{getFirstMessageSummary(session.session_id)}</h2>
+              <h2>{getFirstMessageSummary()}</h2>
               <div className="drawer-subtitle">
                 <Text className="session-full-id" onClick={() => copyToClipboard(session.session_id)}>
                   ID: {session.session_id} <CopyOutlined />

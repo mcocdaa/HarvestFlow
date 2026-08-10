@@ -1,7 +1,8 @@
 import api from './client';
+import type { SessionListParams } from '../types/session';
 
 export const sessionApi = {
-  getSessions: (params?: { status?: string; page?: number; page_size?: number; sort?: string }) =>
+  getSessions: (params?: SessionListParams) =>
     api.get('/sessions', { params }),
   getSessionContent: (sessionId: string) => api.get(`/sessions/${sessionId}/content`),
 };

@@ -5,38 +5,41 @@
 
 import sys
 import os
-import json
 import sqlite3
+import argparse
 from pathlib import Path
-from typing import List, Dict, Optional
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core import database_manager, setting_manager
 from managers.collector_manager import collector_manager
-import argparse
 
-SESSIONS_DIR = Path(__file__).parent.parent / "sessions"
+SESSIONS_DIR = Path(__file__).parent.parent / "backend" / "data" / "raw_sessions"
 DATA_DIR = Path(__file__).parent.parent / "backend" / "data"
 RAW_SESSIONS_DIR = DATA_DIR / "raw_sessions"
 
 
-
-
-def import_sessions():
+def import_sessions(dry_run=False):
     """导入会话"""
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=dry_run,
+        help="Scan sessions without actually importing them",
+    )
     setting_manager.register_arguments(parser)
     database_manager.register_arguments(parser)
-    args = parser.parse_args([])
+    args = parser.parse_args()
+    dry_run = args.dry_run
 
     setting_manager.init(args)
     database_manager.init(args)
 
     RAW_SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"=== 开始导入会话 ===")
+    print(f"=== 开始导入会话 {'(dry-run)' if dry_run else ''} ===")
     print(f"SESSIONS_DIR: {SESSIONS_DIR}")
     print(f"RAW_SESSIONS_DIR: {RAW_SESSIONS_DIR}")
 
@@ -49,10 +52,12 @@ def import_sessions():
         print(f"\n处理文件: {jsonl_file.name}")
 
         try:
-            with open(jsonl_file, 'rb') as fsrc, open(target_path, 'wb') as fdst:
-                fdst.write(fsrc.read())
-
-            print(f"  ✓ 已复制到: {target_path}")
+            if dry_run:
+                print(f"  [dry-run] 将复制到: {target_path}")
+            else:
+                with open(jsonl_file, 'rb') as fsrc, open(target_path, 'wb') as fdst:
+                    fdst.write(fsrc.read())
+                print(f"  ✓ 已复制到: {target_path}")
 
             parsed = collector_manager.parse_session_file(str(target_path))
             if parsed:
@@ -62,6 +67,11 @@ def import_sessions():
                 existing = database_manager.session_get(session_id)
                 if existing:
                     print(f"  - 会话已存在，跳过: {session_id}")
+                    continue
+
+                if dry_run:
+                    print(f"  [dry-run] 将创建会话记录: {session_id}")
+                    imported_count += 1
                     continue
 
                 session_data = {
@@ -99,7 +109,7 @@ def check_sessions():
     parser = argparse.ArgumentParser()
     setting_manager.register_arguments(parser)
     database_manager.register_arguments(parser)
-    args = parser.parse_args([])
+    args = parser.parse_args()
 
     setting_manager.init(args)
     database_manager.init(args)

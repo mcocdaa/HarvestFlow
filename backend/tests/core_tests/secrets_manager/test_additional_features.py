@@ -71,11 +71,11 @@ class TestSecretsManagerAdditionalFeatures:
         self.manager.init(args_minimal, [])
 
         self.manager.client.set_secret("EXISTS", "value")
-        assert self.manager._get_value_source({"name": "EXISTS", "level": "optional"}) == "远程服务"
+        assert self.manager._get_value_source({"name": "EXISTS", "level": "optional"}) == "config"
 
-        assert self.manager._get_value_source({"name": "MISSING", "level": "required"}) == "随机生成"
-        assert self.manager._get_value_source({"name": "DEF", "level": "optional", "default": "abc"}) == "默认值"
-        assert self.manager._get_value_source({"name": "EMPTY", "level": "optional"}) == "空值"
+        assert self.manager._get_value_source({"name": "MISSING", "level": "required"}) == "generated"
+        assert self.manager._get_value_source({"name": "DEF", "level": "optional", "default": "abc"}) == "default"
+        assert self.manager._get_value_source({"name": "EMPTY", "level": "optional"}) == "default"
 
     def test_load_all_secrets_populates_cache(self, args_minimal):
         self.manager.init(args_minimal, [])
@@ -94,7 +94,7 @@ class TestSecretsManagerAdditionalFeatures:
             "name": "TEST_KEY",
             "level": "optional",
         })
-        assert result == "client_value"
+        assert result == ("client_value", "config")
 
     def test_resolve_secret_value_returns_random_for_required_no_client(self, args_minimal):
         self.manager.init(args_minimal, [])
@@ -102,8 +102,8 @@ class TestSecretsManagerAdditionalFeatures:
             "name": "TEST_KEY",
             "level": "required",
         })
-        assert len(result) > 0
-        assert isinstance(result, str)
+        assert len(result[0]) > 0
+        assert isinstance(result[0], str)
 
     def test_resolve_secret_value_required_generates_random_when_upload_fails(self, args_minimal, monkeypatch):
         self.manager.init(args_minimal, [])
@@ -121,8 +121,8 @@ class TestSecretsManagerAdditionalFeatures:
             "level": "required",
         })
         assert called
-        assert len(result) > 0
-        assert isinstance(result, str)
+        assert len(result[0]) > 0
+        assert isinstance(result[0], str)
 
     def test_resolve_secret_value_returns_default_when_no_client_no_value(self, args_minimal):
         self.manager.init(args_minimal, [])
@@ -131,7 +131,7 @@ class TestSecretsManagerAdditionalFeatures:
             "level": "optional",
             "default": "my_default",
         })
-        assert result == "my_default"
+        assert result == ("my_default", "default")
 
     def test_resolve_secret_value_returns_empty_when_no_client_no_default(self, args_minimal):
         self.manager.init(args_minimal, [])
@@ -139,4 +139,4 @@ class TestSecretsManagerAdditionalFeatures:
             "name": "TEST_KEY",
             "level": "optional",
         })
-        assert result == ""
+        assert result == ("", "default")

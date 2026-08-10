@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 import argparse
 
 from core import database_manager, setting_manager, hook_manager
-from managers.session_manager import session_manager
 
 
 DEFAULT_FORMAT = "sharegpt"
@@ -103,11 +102,6 @@ class ExporterManager:
                 "record_count": 0,
             }
 
-        for session in sessions:
-            content = session_manager.get_session_content(session["session_id"])
-            if content:
-                session["content"] = content
-
         if format == FORMAT_SHAREGPT:
             data = self._convert_to_sharegpt(sessions)
         elif format == FORMAT_ALPACA:
@@ -128,19 +122,22 @@ class ExporterManager:
             with open(file_path, 'w', encoding='utf-8') as f:
                 for item in data:
                     f.write(json.dumps(item, ensure_ascii=False) + '\n')
+
+            try:
+                database_manager.export_record_create(
+                    export_format=format,
+                    file_path=file_path,
+                    filters=filters,
+                    record_count=len(data),
+                    version=version
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to create export record: {e}", exc_info=True)
         except Exception as e:
             return {
                 "success": False,
                 "message": f"Failed to write file: {str(e)}",
             }
-
-        database_manager.export_record_create(
-            export_format=format,
-            file_path=file_path,
-            filters=filters,
-            record_count=len(data),
-            version=version
-        )
 
         return {
             "success": True,
@@ -155,7 +152,9 @@ class ExporterManager:
         """转换为 ShareGPT 格式"""
         result = []
         for session in sessions:
-            content = session.get("content", {})
+            content = session.get("content")
+            if not content or not isinstance(content, dict):
+                continue
 
             messages = content.get("messages", [])
             if not messages:
@@ -188,7 +187,9 @@ class ExporterManager:
         """转换为 Alpaca 格式"""
         result = []
         for session in sessions:
-            content = session.get("content", {})
+            content = session.get("content")
+            if not content or not isinstance(content, dict):
+                continue
 
             messages = content.get("messages", [])
             if not messages:

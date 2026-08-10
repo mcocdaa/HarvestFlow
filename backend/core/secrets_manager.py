@@ -235,14 +235,13 @@ class SecretsManager:
 
         for def_ in self.secret_defs:
             name = def_["name"]
-            value = self._resolve_secret_value(def_)
+            value, source = self._resolve_secret_value(def_)
             self._set_cache(name, value)
 
-            source = self._get_value_source(def_)
             self.logger.info(f"  [{def_['level']:8}] {name}: {source}")
 
     def _resolve_secret_value(self, def_):
-        """解析密钥值"""
+        """解析密钥值，返回 (value, source) 元组"""
         name = def_["name"]
         level = def_.get("level", "optional")
         default = def_.get("default")
@@ -250,7 +249,8 @@ class SecretsManager:
         if self.client and self.client.is_available():
             secret_value = self.client.get_secret(name)
             if secret_value is not None:
-                return secret_value
+                source = "infisical" if self.sdk_available else "config"
+                return secret_value, source
 
             if level == "required":
                 random_value = self._generate_random_secret()
@@ -258,35 +258,22 @@ class SecretsManager:
                     self.logger.info(f"  {name}: required 密钥已上传到服务")
                 else:
                     self.logger.warning(f"  {name}: required 密钥上传失败，使用本地随机值")
-                return random_value
+                return random_value, "generated"
 
         if level == "required":
             random_value = self._generate_random_secret()
             self.logger.warning(f"  {name}: required 密钥未配置，已自动生成随机值")
-            return random_value
+            return random_value, "generated"
 
         if default is not None:
-            return str(default)
+            return str(default), "default"
 
-        return ""
+        return "", "default"
 
     def _get_value_source(self, def_):
-        """获取值的来源描述"""
-        name = def_["name"]
-        level = def_.get("level", "optional")
-
-        if self.client and self.client.is_available():
-            secret_value = self.client.get_secret(name)
-            if secret_value is not None:
-                return "远程服务"
-
-        if level == "required":
-            return "随机生成"
-
-        if def_.get("default") is not None:
-            return "默认值"
-
-        return "空值"
+        """获取值的来源描述（委托给 _resolve_secret_value，避免重复远程调用）"""
+        _, source = self._resolve_secret_value(def_)
+        return source
 
     def _generate_random_secret(self):
         """生成 32 位 URL-safe base64 随机字符串"""

@@ -27,3 +27,23 @@ class TestExporterManager:
 
         assert self.manager.default_format == "alpaca"
         assert self.manager.output_dir == "/custom/export"
+
+    def test_convert_sharegpt_skips_null_content(self):
+        """P1.5: _convert_to_sharegpt skips sessions with null/empty content."""
+        sessions = [
+            {"session_id": "1", "content": None},
+            {"session_id": "2", "content": {}},
+            {"session_id": "3", "content": {"messages": [{"role": "user", "content": "hello"}]}},
+        ]
+        result = self.manager._convert_to_sharegpt(sessions)
+        assert len(result) == 1
+
+    def test_convert_alpaca_skips_null_content(self):
+        """P1.5: _convert_to_alpaca skips sessions with null/empty content."""
+        sessions = [
+            {"session_id": "1", "content": None},
+            {"session_id": "2", "content": {}},
+            {"session_id": "3", "content": {"messages": [{"role": "assistant", "content": "output"}]}},
+        ]
+        result = self.manager._convert_to_alpaca(sessions)
+        assert len(result) == 1

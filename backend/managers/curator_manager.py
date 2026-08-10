@@ -73,20 +73,22 @@ class CuratorManager:
         if session.get("status") != "raw":
             return {"session_id": session_id, "error": "session is not in raw status"}
 
-        content = session_manager.get_session_content(session_id)
+        content = session.get("content")
         if not content:
             return {"session_id": session_id, "error": "content not found"}
 
         score = self._calculate_score(content)
         is_high_value = score >= self.auto_approve_threshold
 
-        tags = self._extract_tags(content)
-        tools_used = self._extract_tools(content)
+        tool_names = self._extract_tool_names_from_calls(content)
+        tags = self._extract_tags(content, tool_names)
+        tools_used = self._extract_tools(content, tool_names)
 
         session_manager.update_session(session_id, {
             "quality_auto_score": score,
             "tags": tags,
             "tools_used": tools_used,
+            "status": "curated",
         })
 
         result = {
@@ -96,9 +98,6 @@ class CuratorManager:
             "tags": tags,
             "tools_used": tools_used,
         }
-
-        # 所有评估过的会话都标记为 curated
-        self._mark_as_curated(session_id)
 
         return result
 
@@ -130,7 +129,7 @@ class CuratorManager:
                     tool_names.append(tool_call.get("name"))
         return tool_names
 
-    def _extract_tags(self, content: Dict) -> List[str]:
+    def _extract_tags(self, content: Dict, tool_names: List[str] = None) -> List[str]:
         """提取标签"""
         tags = []
 
@@ -140,18 +139,18 @@ class CuratorManager:
         if content.get("agent_role"):
             tags.append(content.get("agent_role"))
 
-        tags.extend(self._extract_tool_names_from_calls(content))
+        tags.extend(tool_names if tool_names is not None else self._extract_tool_names_from_calls(content))
 
         return list(set(tags))
 
-    def _extract_tools(self, content: Dict) -> List[str]:
+    def _extract_tools(self, content: Dict, tool_names: List[str] = None) -> List[str]:
         """提取使用的工具"""
         tools = []
 
         if content.get("tools_used"):
             tools.extend(content.get("tools_used", []))
 
-        tools.extend(self._extract_tool_names_from_calls(content))
+        tools.extend(tool_names if tool_names is not None else self._extract_tool_names_from_calls(content))
 
         return list(set(tools))
 
@@ -178,10 +177,11 @@ class CuratorManager:
             result = self.evaluate_session(session_id)
             results.append(result)
 
+        success_results = [r for r in results if "error" not in r]
         return {
             "total": len(results),
-            "high_value": len([r for r in results if r.get("is_high_value")]),
-            "low_value": len([r for r in results if not r.get("is_high_value")]),
+            "high_value": len([r for r in success_results if r.get("is_high_value")]),
+            "low_value": len([r for r in success_results if not r.get("is_high_value")]),
             "results": results,
         }
 

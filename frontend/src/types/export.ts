@@ -12,4 +12,6 @@ export interface ExportParams {
   version?: string;
   min_score?: number;
   agent_role?: string;
+  task_type?: string;
+  tags?: string[];
 }

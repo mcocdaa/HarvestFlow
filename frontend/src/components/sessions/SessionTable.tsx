@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Table, Tag, Button, Typography, Space } from 'antd';
 import { EyeOutlined, CopyOutlined, RiseOutlined, MinusOutlined } from '@ant-design/icons';
 import { getStatusColor, truncateString, copyToClipboard } from '../../utils';
@@ -25,33 +25,28 @@ const SessionTable: React.FC<SessionTableProps> = ({
   onPageChange,
   onViewSession,
 }) => {
-  const getSessionSummary = (sessionId: string): string => {
-    const session = sessions.find(s => s.session_id === sessionId);
-    if (!session) return sessionId;
-
-    return truncateString(sessionId, 8, 4);
+  const getSessionSummary = (session: Session): string => {
+    return truncateString(session.session_id, 8, 4);
   };
 
-  const getFirstMessageSummary = (sessionId: string): string => {
-    const session = sessions.find(s => s.session_id === sessionId);
-    if (!session?.task_type) return '无摘要信息';
-    return session.task_type;
+  const getFirstMessageSummary = (session: Session): string => {
+    return session.task_type || '无摘要信息';
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       title: '会话摘要',
       dataIndex: 'session_id',
       key: 'summary',
       width: 280,
       fixed: 'left' as const,
-      render: (sessionId: string, record: Session) => (
+      render: (_sessionId: string, record: Session) => (
         <div className="session-summary">
           <div className="summary-title" onClick={() => onViewSession(record)}>
-            {getFirstMessageSummary(sessionId)}
+            {getFirstMessageSummary(record)}
           </div>
-          <Text className="session-id" onClick={() => copyToClipboard(sessionId)}>
-            {getSessionSummary(sessionId)} <CopyOutlined style={{ fontSize: 12, marginLeft: 4 }} />
+          <Text className="session-id" onClick={() => copyToClipboard(record.session_id)}>
+            {getSessionSummary(record)} <CopyOutlined style={{ fontSize: 12, marginLeft: 4 }} />
           </Text>
         </div>
       ),
@@ -138,7 +133,7 @@ const SessionTable: React.FC<SessionTableProps> = ({
       key: 'actions',
       width: 100,
       fixed: 'right' as const,
-      render: (_: any, record: Session) => (
+      render: (_: unknown, record: Session) => (
         <Button
           className="view-btn"
           icon={<EyeOutlined />}
@@ -149,7 +144,7 @@ const SessionTable: React.FC<SessionTableProps> = ({
         </Button>
       ),
     },
-  ];
+  ], [onViewSession]);
 
   return (
     <Table

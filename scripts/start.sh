@@ -75,8 +75,8 @@ stop_docker_services() {
         echo "等待服务移除..."
         sleep 5
     else
-        # Docker Compose 模式
-        docker compose -p harvestflow -f "$DOCKER_DIR/docker-compose.base.yml" down 2>/dev/null || true
+        # Docker Compose 模式 — include all service files so previously-started frontend/backend containers are also stopped
+        docker compose -p harvestflow -f "$DOCKER_DIR/docker-compose.base.yml" -f "$DOCKER_DIR/docker-compose.backend.yml" -f "$DOCKER_DIR/docker-compose.frontend.yml" down 2>/dev/null || true
     fi
     echo "✓ Docker 服务已停止"
 }
@@ -103,7 +103,9 @@ start_backend_local() {
 
 load_env() {
     if [ -f "$PROJECT_ROOT/.env" ]; then
-        export $(grep -v '^#' "$PROJECT_ROOT/.env" | xargs)
+        set -a
+        . "$PROJECT_ROOT/.env"
+        set +a
     fi
 }
 
@@ -210,6 +212,7 @@ case "$MODE" in
                 ;;
             full)
                 load_env
+                trap 'kill $(jobs -p) 2>/dev/null' EXIT
                 echo "启动本地后端..."
                 start_backend_local
                 sleep 2

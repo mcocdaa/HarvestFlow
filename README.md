@@ -13,7 +13,7 @@ HarvestFlow 是一个本地化的 Agent 会话数据采集与审核系统，用�
 ## 技术栈
 
 - **后端**: Python + FastAPI + SQLite
-- **前端**: React + Redux + Ant Design + Vite
+- **前端**: React + Ant Design + Vite
 - **数据库**: SQLite (元数据) + 本地文件 (JSON)
 
 ## 项目结构
@@ -115,91 +115,54 @@ HarvestFlow/
 |------|------|------|
 | GET | /api/v1/sessions | 获取会话列表 |
 | GET | /api/v1/sessions/{id} | 获取会话详情 |
-| POST | /api/v1/collector/scan | 触发扫描 |
+| GET | /api/v1/sessions/{id}/content | 获取会话原始内容 |
+| DELETE | /api/v1/sessions/{id} | 删除会话 |
+| GET | /api/v1/collector/scan | 触发扫描 |
 | POST | /api/v1/collector/import | 导入单个会话 |
-| POST | /api/v1/collector/import/all | 批量导入 |
+| POST | /api/v1/collector/import-all | 批量导入 |
 | POST | /api/v1/curator/evaluate/{id} | 评估会话 |
-| POST | /api/v1/curator/evaluate/all | 批量评估 |
+| POST | /api/v1/curator/evaluate-all | 批量评估 |
 | POST | /api/v1/reviewer/approve/{id} | 通过审核 |
 | POST | /api/v1/reviewer/reject/{id} | 驳回审核 |
-| POST | /api/v1/reviewer/batch | 批量审核 |
-| PUT | /api/v1/reviewer/update/{id} | 更新会话标注 |
-| POST | /api/v1/export | 导出数据 |
+| POST | /api/v1/reviewer/batch-approve | 批量审核通过 |
+| POST | /api/v1/reviewer/batch-reject | 批量审核驳回 |
+| PATCH | /api/v1/reviewer/session/{id} | 更新会话标注 |
+| GET | /api/v1/reviewer/audit-logs | 获取审核日志 |
+| POST | /api/v1/exporter/export | 导出数据 (JSON body) |
+| GET | /api/v1/exporter/formats | 获取支持的导出格式 |
+| GET | /api/v1/exporter/history | 获取导出历史 |
 | GET | /api/v1/stats | 获取统计信息 |
 | GET | /api/v1/plugins | 获取插件列表 |
 | GET | /api/v1/plugins/{type} | 获取指定类型插件 |
-| POST | /api/v1/plugins/{name}/enable | 启用插件 |
-| POST | /api/v1/plugins/{name}/disable | 禁用插件 |
+| POST | /api/v1/plugins/enable?key= | 启用插件 |
+| POST | /api/v1/plugins/disable?key= | 禁用插件 |
 
 ## 快速开始
 
-### 后端启动
+### 本地开发
+
+**启动方式必须通过 `scripts/start.sh` 脚本（项目规范要求）：**
 
 ```bash
-cd backend
-pip install -r requirements-dev.txt
-
-# 从项目根启动（保证 .env 相对路径正确解析）
-cd ..
-python backend/main.py
+./scripts/start.sh local full     # 本地模式启动前后端
+./scripts/start.sh local backend  # 仅后端
+./scripts/start.sh local frontend # 仅前端
 ```
 
-后端服务将在 `http://localhost:3000` 启动。
+后端服务在 `http://localhost:3000`，前端开发服务器在 `http://localhost:5173`。
 
-### 前端启动
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-前端开发服务器将在 `http://localhost:5173` 启动。
-
-### 一键启动
+### Docker 开发
 
 使用 `scripts/start.sh` 管理前后端（本地/开发/生产模式）：
 
 ```bash
-./scripts/start.sh local full    # 本地模式前后端
-./scripts/start.sh local backend # 仅后端
-./scripts/start.sh dev backend   # Docker Compose 后端
+./scripts/start.sh dev full     # Docker Compose 前后端
+./scripts/start.sh dev backend  # Docker Compose 后端
 ```
 
 ## 插件开发
 
-### 采集插件接口
-
-```python
-class CollectorPlugin:
-    name: str
-    description: str
-
-    def scan() -> List[str]:        # 返回文件路径列表
-    def parse(file_path: str) -> dict:  # 解析文件内容
-```
-
-### 审核插件接口
-
-```python
-class CuratorPlugin:
-    name: str
-    description: str
-
-    def evaluate(session: dict) -> dict:  # 返回评分结果
-    # 必需字段: score, is_high_value, tags
-```
-
-### 人工审核插件接口
-
-```python
-class ReviewerPlugin:
-    name: str
-    description: str
-
-    def get_extra_fields() -> List[dict]:  # 返回额外字段定义
-    def validate(session: dict) -> bool:   # 验证会话
-```
+HarvestFlow 支持可扩展的插件架构，包含 Collector（采集）、Curator（自动审核）、Reviewer（人工审核）和 Service 四种插件类型。完整的接口定义、开发指南和配置说明请参见 [plugins/README.md](plugins/README.md)。
 
 ## 配置说明
 

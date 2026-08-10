@@ -48,17 +48,12 @@ class ReviewerManager:
         if not session:
             return {"session_id": session_id, "error": "session not found"}
 
-        updated = session_manager.update_session(session_id, {"status": "approved"})
-        if updated is None:
+        current_status = session.get("status", "raw")
+        if current_status != "curated":
             return {"session_id": session_id, "error": "invalid status transition"}
 
-        # 更新手动评分
-        if score is not None:
-            session_manager.update_session(session_id, {"quality_manual_score": score})
-
-        database_manager.audit_log_create(session_id, "approve", "user", notes)
-
-        return session_manager.get_session(session_id)
+        manual_score = score if score is not None else session.get("quality_manual_score", 0)
+        return database_manager.session_review_apply(session_id, "approved", manual_score, "approve", notes)
 
     @hook_manager.wrap_hooks("reviewer_manager_reject_before", "reviewer_manager_reject_after")
     def reject_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
@@ -67,17 +62,12 @@ class ReviewerManager:
         if not session:
             return {"session_id": session_id, "error": "session not found"}
 
-        updated = session_manager.update_session(session_id, {"status": "rejected"})
-        if updated is None:
+        current_status = session.get("status", "raw")
+        if current_status != "curated":
             return {"session_id": session_id, "error": "invalid status transition"}
 
-        # 更新手动评分
-        if score is not None:
-            session_manager.update_session(session_id, {"quality_manual_score": score})
-
-        database_manager.audit_log_create(session_id, "reject", "user", notes)
-
-        return session_manager.get_session(session_id)
+        manual_score = score if score is not None else session.get("quality_manual_score", 0)
+        return database_manager.session_review_apply(session_id, "rejected", manual_score, "reject", notes)
 
     @hook_manager.wrap_hooks("reviewer_manager_update_before", "reviewer_manager_update_after")
     def update_session(self, session_id: str, updates: Dict) -> Dict:
@@ -86,7 +76,10 @@ class ReviewerManager:
         if not session:
             return {"session_id": session_id, "error": "session not found"}
 
-        session_manager.update_session(session_id, updates)
+        updated = session_manager.update_session(session_id, updates)
+        if updated is None:
+            return {"session_id": session_id, "error": "invalid status transition"}
+
         database_manager.audit_log_create(session_id, "modify", "user", json.dumps(updates))
 
         return session_manager.get_session(session_id)
