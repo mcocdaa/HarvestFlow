@@ -4,6 +4,7 @@ import Sessions from '../pages/Sessions';
 import Review from '../pages/Review';
 import Export from '../pages/Export';
 import Plugins from '../pages/Plugins';
+import NotFound from '../pages/NotFound';
 
 export interface RouteConfig {
   path: string;
@@ -16,4 +17,5 @@ export const routes: RouteConfig[] = [
   { path: '/review', element: <Review /> },
   { path: '/export', element: <Export /> },
   { path: '/plugins', element: <Plugins /> },
+  { path: '*', element: <NotFound /> },
 ];

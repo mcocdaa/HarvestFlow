@@ -167,6 +167,33 @@ describe('API Service', () => {
     })
   })
 
+  describe('request interceptor', () => {
+    it('should attach Bearer header when VITE_API_KEY is set', async () => {
+      // client.ts reads import.meta.env at module load; re-import via fresh query
+      vi.stubEnv('VITE_API_KEY', 'test-secret')
+      // Force fresh module evaluation
+      const fresh = await import(`../services/client?key=${Date.now()}`)
+      expect(requestInterceptorHandlers.length).toBeGreaterThan(0)
+      const onRequest = requestInterceptorHandlers[requestInterceptorHandlers.length - 1]
+      const config = { headers: {} as Record<string, string> }
+      const result = onRequest(config)
+      expect(result).toBe(config)
+      expect(config.headers.Authorization).toBe('Bearer test-secret')
+      vi.unstubAllEnvs()
+      void fresh
+    })
+
+    it('should not attach Authorization header when VITE_API_KEY is empty', async () => {
+      vi.stubEnv('VITE_API_KEY', '')
+      await import(`../services/client?empty=${Date.now()}`)
+      const onRequest = requestInterceptorHandlers[requestInterceptorHandlers.length - 1]
+      const config = { headers: {} as Record<string, string> }
+      onRequest(config)
+      expect(config.headers.Authorization).toBeUndefined()
+      vi.unstubAllEnvs()
+    })
+  })
+
   describe('response error interceptor', () => {
     it('should show string detail message on error', async () => {
       // Re-import client to trigger interceptor registration (cached module)

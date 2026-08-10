@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import Dashboard from '../pages/Dashboard'
 import { statsApi } from '../services'
 import type { Stats } from '../types'
@@ -73,6 +73,26 @@ describe('Dashboard Component', () => {
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
     consoleSpy.mockRestore()
+  })
+
+  it('should show loading state while fetching stats', async () => {
+    let resolveGet: (value: unknown) => void
+    vi.mocked(statsApi.get).mockReturnValue(
+      new Promise((resolve) => {
+        resolveGet = resolve
+      }) as never
+    )
+
+    render(<Dashboard />)
+
+    // Cards should be in loading state before the API resolves
+    expect(document.querySelector('.ant-card-loading')).toBeTruthy()
+
+    await act(async () => {
+      resolveGet({ data: {} })
+    })
+
+    expect(document.querySelector('.ant-card-loading')).toBeFalsy()
   })
 
   it('should display average auto score card', async () => {
