@@ -13,8 +13,14 @@ def evaluate_session(session_id: str) -> dict:
     result = curator_manager.evaluate_session(session_id)
     if not result:
         raise HTTPException(404, detail="Session not found")
-    if "error" in result:
-        raise HTTPException(400, detail=result["error"])
+    error = result.get("error")
+    if error:
+        if error == "session not found":
+            raise HTTPException(404, detail=error)
+        elif "not in raw" in error or "disabled" in error:
+            raise HTTPException(409, detail=error)
+        else:
+            raise HTTPException(400, detail=error)
     return {"success": True, **result}
 
 

@@ -67,16 +67,6 @@ class TestSecretsManagerAdditionalFeatures:
         result = self.manager.refresh_secret("TEST_KEY")
         assert result == "cached_value"
 
-    def test_get_value_source_returns_correct_labels(self, args_minimal):
-        self.manager.init(args_minimal, [])
-
-        self.manager.client.set_secret("EXISTS", "value")
-        assert self.manager._get_value_source({"name": "EXISTS", "level": "optional"}) == "config"
-
-        assert self.manager._get_value_source({"name": "MISSING", "level": "required"}) == "generated"
-        assert self.manager._get_value_source({"name": "DEF", "level": "optional", "default": "abc"}) == "default"
-        assert self.manager._get_value_source({"name": "EMPTY", "level": "optional"}) == "default"
-
     def test_load_all_secrets_populates_cache(self, args_minimal):
         self.manager.init(args_minimal, [])
         self.manager.secret_defs = [

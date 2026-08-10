@@ -4,6 +4,7 @@
 
 import json
 import os
+import uuid
 import logging
 from typing import Dict, List
 from datetime import datetime, timezone
@@ -48,7 +49,7 @@ class ExporterManager:
         group.add_argument(
             "--export-default-format",
             type=str,
-            default=DEFAULT_FORMAT,
+            default=None,
             choices=[FORMAT_SHAREGPT, FORMAT_ALPACA],
             help=f"默认导出格式 (默认: {DEFAULT_FORMAT})"
         )
@@ -61,7 +62,9 @@ class ExporterManager:
 
     @hook_manager.wrap_hooks("exporter_manager_init_before", "exporter_manager_init_after")
     def init(self, args: argparse.Namespace):
-        self.default_format = getattr(args, 'export_default_format', setting_manager.get("EXPORT_DEFAULT_FORMAT", DEFAULT_FORMAT))
+        self.default_format = getattr(args, 'export_default_format', None)
+        if self.default_format is None:
+            self.default_format = setting_manager.get("EXPORT_DEFAULT_FORMAT", DEFAULT_FORMAT)
 
         export_output_dir_val = getattr(args, 'export_output_dir', setting_manager.get("EXPORT_OUTPUT_DIR"))
         if export_output_dir_val:
@@ -113,7 +116,8 @@ class ExporterManager:
             }
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        filename = f"{format}_{timestamp}_{version}.jsonl"
+        random_suffix = uuid.uuid4().hex[:8]
+        filename = f"{format}_{timestamp}_{version}_{random_suffix}.jsonl"
         file_path = os.path.join(self.output_dir, filename)
 
         os.makedirs(self.output_dir, exist_ok=True)

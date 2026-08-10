@@ -42,7 +42,7 @@ class CollectorManager:
         group.add_argument(
             "--watch-folders",
             type=str,
-            default="",
+            default=None,
             help="监控文件夹列表，逗号分隔"
         )
 
@@ -54,7 +54,9 @@ class CollectorManager:
             args: 解析后的参数
         """
         self.watch_folders = []
-        watch_folders_val = getattr(args, 'watch_folders', setting_manager.get("WATCH_FOLDERS", ""))
+        watch_folders_val = getattr(args, 'watch_folders', None)
+        if watch_folders_val is None:
+            watch_folders_val = setting_manager.get("WATCH_FOLDERS", "")
         if watch_folders_val:
             for folder in watch_folders_val.split(","):
                 folder = folder.strip()
@@ -211,19 +213,38 @@ class CollectorManager:
 
         imported = []
         failed = []
+        skipped = []
 
         for file_path in files:
-            session_id = self.import_session(file_path)
-            if session_id:
-                imported.append(session_id)
-            else:
+            session_data = self.parse_session_file(file_path)
+            if not session_data:
                 failed.append(file_path)
+                continue
+
+            session_id = session_data.get("session_id")
+            if session_id and session_manager.get_session(session_id):
+                skipped.append(session_id)
+                continue
+
+            raw_content = dict(session_data)
+            session_data["file_path"] = file_path
+            session_data["content"] = raw_content
+
+            try:
+                session_manager.create_session(session_data)
+            except Exception as e:
+                self.logger.error(f"创建会话记录失败：{e}")
+                failed.append(file_path)
+                continue
+            imported.append(session_id)
 
         return {
             "total": len(files),
             "imported": len(imported),
+            "skipped": len(skipped),
             "failed": len(failed),
             "session_ids": imported,
+            "skipped_ids": skipped,
             "failed_files": failed,
         }
 

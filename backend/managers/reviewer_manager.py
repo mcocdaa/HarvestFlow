@@ -8,7 +8,7 @@ from typing import Dict, List
 import argparse
 
 from core import database_manager, hook_manager
-from managers.session_manager import session_manager
+from managers.session_manager import session_manager, VALID_STATUS_TRANSITIONS
 
 
 class ReviewerManager:
@@ -49,7 +49,7 @@ class ReviewerManager:
             return {"session_id": session_id, "error": "session not found"}
 
         current_status = session.get("status", "raw")
-        if current_status != "curated":
+        if "approved" not in VALID_STATUS_TRANSITIONS.get(current_status, []):
             return {"session_id": session_id, "error": "invalid status transition"}
 
         manual_score = score if score is not None else session.get("quality_manual_score", 0)
@@ -63,7 +63,7 @@ class ReviewerManager:
             return {"session_id": session_id, "error": "session not found"}
 
         current_status = session.get("status", "raw")
-        if current_status != "curated":
+        if "rejected" not in VALID_STATUS_TRANSITIONS.get(current_status, []):
             return {"session_id": session_id, "error": "invalid status transition"}
 
         manual_score = score if score is not None else session.get("quality_manual_score", 0)
@@ -76,7 +76,10 @@ class ReviewerManager:
         if not session:
             return {"session_id": session_id, "error": "session not found"}
 
-        updated = session_manager.update_session(session_id, updates)
+        try:
+            updated = session_manager.update_session(session_id, updates)
+        except ValueError:
+            return {"session_id": session_id, "error": "invalid status transition"}
         if updated is None:
             return {"session_id": session_id, "error": "invalid status transition"}
 

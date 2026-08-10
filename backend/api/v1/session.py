@@ -4,8 +4,19 @@
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
-from typing import Optional, Dict
+from typing import Optional, List
+from pydantic import BaseModel
 from managers.session_manager import session_manager
+
+
+class SessionUpdate(BaseModel):
+    status: Optional[str] = None
+    quality_auto_score: Optional[int] = None
+    quality_manual_score: Optional[int] = None
+    agent_role: Optional[str] = None
+    task_type: Optional[str] = None
+    tools_used: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
 
 router = APIRouter()
 
@@ -37,8 +48,11 @@ def get_sessions(
 
 
 @router.patch("/sessions/{session_id}")
-def update_session(session_id: str, updates: Dict) -> dict:
-    result = session_manager.update_session(session_id, updates)
+def update_session(session_id: str, updates: SessionUpdate) -> dict:
+    try:
+        result = session_manager.update_session(session_id, updates.model_dump(exclude_none=True))
+    except ValueError:
+        raise HTTPException(409, detail="Invalid status transition")
     if result is None:
         raise HTTPException(404, detail="Session not found")
     return {"success": True, "session": result}

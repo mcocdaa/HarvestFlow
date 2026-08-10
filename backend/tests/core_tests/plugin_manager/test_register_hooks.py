@@ -23,16 +23,28 @@ class TestPluginManagerRegisterHooks:
         parser = argparse.ArgumentParser()
         self.manager.register_arguments(parser)
 
-    def test_get_all_returns_loaded_plugins(self, args_minimal):
+    def test_get_all_returns_all_plugins(self, args_minimal):
         setting_manager.set("PLUGINS_DIR", "")
         manager = PluginManager()
-        manager.loaded_plugins = {
-            "test1": {"name": "Test 1", "enabled": True},
-            "test2": {"name": "Test 2", "enabled": True}
+        manager.plugins = {
+            "collectors/test1": {
+                "name": "Test 1", "enabled": True,
+                "manifest": {"name": "Test Plugin 1", "type": "collector", "version": "1.0", "description": "desc1", "author": "author1"}
+            },
+            "services/test2": {
+                "name": "Test 2", "enabled": False,
+                "manifest": {"name": "Test Plugin 2", "type": "service", "version": "2.0", "description": "desc2", "author": "author2"}
+            }
         }
 
         result = manager.get_all()
         assert len(result) == 2
+        assert result[0]["key"] == "collectors/test1"
+        assert result[0]["plugin_type"] == "collectors"
+        assert result[0]["enabled"]
+        assert result[0]["name"] == "Test Plugin 1"
+        assert result[1]["key"] == "services/test2"
+        assert not result[1]["enabled"]
 
     def test_register_hooks_no_plugins_dir(self, args_minimal):
         setting_manager.set("PLUGINS_DIR", "")
@@ -114,3 +126,21 @@ class TestPluginManagerRegisterHooks:
         self.manager.register_hooks()
 
         assert len(self.manager.loaded_plugins) == 0
+
+    def test_get_all_includes_disabled_plugins(self, args_minimal, tmp_path):
+        """get_all 应包含禁用的插件，并标记 enabled=False"""
+        from core import setting_manager as sm
+        sm.set("PLUGINS_DIR", "")
+        pm = PluginManager()
+        pm.plugins["test/disabled"] = {
+            "enabled": False,
+            "path": str(tmp_path),
+            "name": "Disabled Plugin",
+            "type": "collector",
+            "manifest": {"name": "Disabled Plugin", "version": "0.1", "description": "test"},
+        }
+        all_plugins = pm.get_all()
+        disabled = [p for p in all_plugins if p["key"] == "test/disabled"]
+        assert len(disabled) == 1
+        assert disabled[0]["enabled"] is False
+        assert disabled[0]["version"] == "0.1"

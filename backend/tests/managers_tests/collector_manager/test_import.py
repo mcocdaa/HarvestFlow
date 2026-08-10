@@ -54,12 +54,14 @@ class TestCollectorManagerImport:
             return session_data
 
         monkeypatch.setattr(session_manager, "create_session", mock_create)
+        monkeypatch.setattr(session_manager, "get_session", lambda sid: None)
 
         result = self.manager.import_all(str(source_dir))
 
         assert result["total"] == 3
         assert result["imported"] == 3
         assert result["failed"] == 0
+        assert result["skipped"] == 0
 
     def test_import_all_mixed_success_and_failure(self, tmp_path, monkeypatch):
         from managers import session_manager
@@ -76,12 +78,14 @@ class TestCollectorManagerImport:
             return session_data
 
         monkeypatch.setattr(session_manager, "create_session", mock_create)
+        monkeypatch.setattr(session_manager, "get_session", lambda sid: None)
 
         result = self.manager.import_all(str(source_dir))
 
         assert result["total"] == 3
         assert result["imported"] == 2
         assert result["failed"] == 1
+        assert result["skipped"] == 0
 
     def test_import_all_no_files_returns_zero(self, tmp_path):
         source_dir = tmp_path / "empty"
@@ -92,6 +96,7 @@ class TestCollectorManagerImport:
         assert result["total"] == 0
         assert result["imported"] == 0
         assert result["failed"] == 0
+        assert result["skipped"] == 0
 
     def test_import_all_includes_session_ids_and_failed_files(self, tmp_path, monkeypatch):
         from managers import session_manager
@@ -108,12 +113,14 @@ class TestCollectorManagerImport:
             return session_data
 
         monkeypatch.setattr(session_manager, "create_session", mock_create)
+        monkeypatch.setattr(session_manager, "get_session", lambda sid: None)
 
         result = self.manager.import_all(str(source_dir))
 
         assert len(result["session_ids"]) == 2
         assert len(result["failed_files"]) == 1
         assert "bad.json" in result["failed_files"][0]
+        assert len(result.get("skipped_ids", [])) == 0
 
     def test_import_session_returns_none_when_create_fails(self, tmp_path, monkeypatch):
         from managers import session_manager

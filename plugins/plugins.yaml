@@ -1,13 +1,7 @@
 plugins:
-  collectors/default:
-    enabled: true
   collectors/openclaw:
     enabled: true
-  curators/default:
-    enabled: true
   curators/openclaw:
-    enabled: true
-  reviewers/default:
     enabled: true
   services/infisical:
     enabled: true

@@ -137,6 +137,10 @@ HarvestFlow/
 | POST | /api/v1/plugins/enable?key= | 启用插件 |
 | POST | /api/v1/plugins/disable?key= | 禁用插件 |
 
+> **鉴权**: API 支持可选的 Bearer token 鉴权，通过 `.env` 的 `HARVESTFLOW_API_KEY` 配置（留空则关闭）。
+>
+> **自动审批**: curator evaluate 时，若评分 >= `AUTO_APPROVE_THRESHOLD`（.env 配置，默认 4），会话将自动标记为 approved。
+
 ## 快速开始
 
 ### 本地开发

@@ -270,11 +270,6 @@ class SecretsManager:
 
         return "", "default"
 
-    def _get_value_source(self, def_):
-        """获取值的来源描述（委托给 _resolve_secret_value，避免重复远程调用）"""
-        _, source = self._resolve_secret_value(def_)
-        return source
-
     def _generate_random_secret(self):
         """生成 32 位 URL-safe base64 随机字符串"""
         return base64.urlsafe_b64encode(secrets.token_bytes(SECRET_TOKEN_BYTES)).decode("ascii")

@@ -2,7 +2,7 @@
 # @brief Exporter API 路由
 # @create 2026-03-22
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from typing import Optional, List
 from pydantic import BaseModel
 from managers.exporter_manager import exporter_manager
@@ -30,6 +30,8 @@ def export_sessions(request: ExportRequest) -> dict:
         tags=request.tags,
         version=request.version
     )
+    if not result.get("success"):
+        raise HTTPException(400, detail=result.get("message", "Export failed"))
     return result
 
 

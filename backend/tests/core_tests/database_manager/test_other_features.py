@@ -100,3 +100,13 @@ class TestDatabaseManagerOtherFeatures:
         assert stats["rejected_sessions"] == 1
         assert stats["reviewed_sessions"] == 2
         assert "avg_auto_score" in stats
+
+    def test_deserialize_tolerates_bad_json(self):
+        """_deserialize_session_fields 不应在非 JSON 标签上崩溃"""
+        from core.database_manager import database_manager
+
+        session = {"tags": "not-json", "tools_used": "[1,2,3]", "content": None}
+        result = database_manager._deserialize_session_fields(session)
+        assert result["tags"] == "not-json"  # kept as string
+        assert result["tools_used"] == [1, 2, 3]  # valid JSON still parsed
+        assert result["content"] is None

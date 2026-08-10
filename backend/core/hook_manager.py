@@ -39,6 +39,25 @@ class HookManager:
         self._hooks[hook_name].append((priority, callback))
         self._hooks[hook_name].sort(key=lambda x: x[0])
 
+    def unregister(self, hook_name: str, callback: Callable):
+        """注销指定钩子的指定回调"""
+        if hook_name in self._hooks:
+            self._hooks[hook_name] = [
+                (p, cb) for p, cb in self._hooks[hook_name] if cb is not callback
+            ]
+            if not self._hooks[hook_name]:
+                del self._hooks[hook_name]
+
+    def unregister_by_module(self, module_name: str):
+        """注销指定模块注册的所有钩子（按 callback.__module__ 匹配）"""
+        for hook_name in list(self._hooks.keys()):
+            self._hooks[hook_name] = [
+                (p, cb) for p, cb in self._hooks[hook_name]
+                if not (cb.__module__ == module_name or cb.__module__.startswith(module_name + "."))
+            ]
+            if not self._hooks[hook_name]:
+                del self._hooks[hook_name]
+
     async def run(self, hook_name: str, *args, **kwargs) -> HookResult:
         """异步执行所有已注册的钩子
 
@@ -138,6 +157,7 @@ class HookManager:
                     results, _ = await self.run(before, *args, **kwargs)
                     short = self._short_circuit(results)
                     if short is not None:
+                        logger.warning(f"[{before}] 钩子返回非 None，原方法被短路")
                         return short
                 result = await func(*args, **kwargs)
                 if after:
@@ -151,6 +171,7 @@ class HookManager:
                     results, _ = self.run_sync(before, *args, **kwargs)
                     short = self._short_circuit(results)
                     if short is not None:
+                        logger.warning(f"[{before}] 钩子返回非 None，原方法被短路")
                         return short
                 result = func(*args, **kwargs)
                 if after:

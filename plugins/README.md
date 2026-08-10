@@ -129,20 +129,19 @@ def my_parse(self, file_path):
     return None
 ```
 
+**注意**: 钩子通过 `hooks.py` 中的 `@hook_manager.hook` 装饰器注册，`plugin.yaml` 中的 `hooks:` 字段仅为文档说明，不会被系统读取。
+
 启用/禁用插件可通过 `POST /api/v1/plugins/enable|disable?key=<plugin_key>`（写入 `plugins.yaml`）或直接编辑 `plugins.yaml` 后重启服务。
 
 ## 现有插件
 
 ### Collectors
-- **default**: 默认文件系统采集器
 - **openclaw**: OpenClaw 格式采集器
 
 ### Curators
-- **default**: 默认规则审核器
 - **openclaw**: OpenClaw 审核器
 
 ### Reviewers
-- **default**: 默认审核界面
 
 ### Services
 - **infisical**: Infisical 密钥管理服务

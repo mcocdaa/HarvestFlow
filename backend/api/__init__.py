@@ -4,8 +4,9 @@
 
 import importlib
 import logging
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from core import setting_manager
+from core.auth import require_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,8 @@ def register_routers(app: FastAPI):
         app.include_router(
             version_package.router,
             prefix="/api",
-            tags=[api_version.upper()]
+            tags=[api_version.upper()],
+            dependencies=[Depends(require_api_key)],
         )
         logger.info(f"[Route] 已注册 API 版本: {api_version}")
     else:

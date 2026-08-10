@@ -151,3 +151,11 @@ class TestDatabaseManagerSessions:
         assert len(logs) == 1
         assert logs[0]["action"] == "approve"
         assert logs[0]["details"] == "Approved by test"
+
+    def test_get_all_clamps_negative_page_size(self, args_with_db_path):
+        """负的 page_size 应被 clamp 到 1"""
+        self.manager.init(args_with_db_path)
+
+        # Should not raise with negative page_size
+        result = self.manager.session_get_all(page_size=-5)
+        assert result["page_size"] == 1  # clamped to 1

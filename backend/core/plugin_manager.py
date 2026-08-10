@@ -3,9 +3,11 @@
 # @create 2026-03-26
 
 import os
+import re
 import sys
 import yaml
 import logging
+import threading
 import importlib
 import importlib.util
 from pathlib import Path
@@ -35,6 +37,7 @@ class PluginManager:
             self.logger.info(f"  - {key} ({info['type']})")
         self.loaded_plugins: Dict[str, Any] = {}
         self.plugin_modules: Dict[str, Any] = {}
+        self._registry_lock = threading.Lock()
 
     def _resolve_plugins_dir(self) -> Optional[Path]:
         """解析插件目录（相对路径基于项目根）"""
@@ -70,6 +73,7 @@ class PluginManager:
             return
 
         self.loaded_plugins = {}
+        self.plugin_modules = {}
         root = str(setting_manager.ROOT_DIR)
         if root not in sys.path:
             sys.path.insert(0, root)
@@ -94,8 +98,7 @@ class PluginManager:
                 module_name = f"plugins.{key.replace(os.sep, '.').replace('/', '.')}"
                 if module_name in sys.modules:
                     del sys.modules[module_name]
-                if key in self.loaded_plugins:
-                    del self.loaded_plugins[key]
+                self.plugin_modules.pop(key, None)
 
     def _load_from_file(self, info: Dict, module_name: str):
         """按文件路径加载插件模块（适用于非项目内插件目录）"""
@@ -222,14 +225,52 @@ class PluginManager:
         for key, info in self.plugins.items():
             manifest = info.get("manifest", {})
             for secret in manifest.get("secrets", []):
+                name = secret.get("name")
+                if not name:
+                    continue
                 secrets.append({
-                    "name": secret["name"],
+                    "name": name,
                     "description": secret.get("description", ""),
                     "level": secret.get("level", "optional"),
                     "default": secret.get("default", None),
                     "source": info["name"],
                 })
         return secrets
+
+    def _set_enabled_in_yaml(self, key: str, enabled: bool) -> bool:
+        """Update enabled field in plugins.yaml using line-level replacement (preserves comments)."""
+        registry_path = self.plugins_dir / "plugins.yaml"
+        if not registry_path.exists():
+            return False
+
+        with self._registry_lock:
+            try:
+                with open(registry_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except Exception as e:
+                self.logger.error(f"读取插件注册表失败: {e}")
+                return False
+
+            # Match the plugin key block and replace its enabled line
+            escaped_key = re.escape(key)
+            # Pattern: the key line followed by the enabled line (with any indentation)
+            pattern = rf'^(\s*{escaped_key}\s*:\s*\n\s+enabled\s*:\s*)\w+'
+            new_enabled = "true" if enabled else "false"
+
+            if re.search(pattern, content, re.MULTILINE):
+                new_content = re.sub(pattern, rf'\1{new_enabled}', content, flags=re.MULTILINE)
+            else:
+                self.logger.warning(f"未找到插件 {key} 的 enabled 字段，跳过")
+                return False
+
+            try:
+                with open(registry_path, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+            except Exception as e:
+                self.logger.error(f"写入插件注册表失败: {e}")
+                return False
+
+            return True
 
     def set_enabled(self, plugin_key: str, enabled: bool) -> bool:
         """启用/禁用插件，持久化到 plugins.yaml 并重载注册表
@@ -246,35 +287,46 @@ class PluginManager:
         if not registry_path.exists():
             return False
 
-        try:
-            with open(registry_path, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f) or {}
-            plugin_cfg = data.setdefault("plugins", {}).setdefault(plugin_key, {})
-            plugin_cfg["enabled"] = enabled
-            # 注意：safe_dump 会重写文件，不保留注释（已知限制）
-            with open(registry_path, 'w', encoding='utf-8') as f:
-                yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
-        except Exception as e:
-            self.logger.error(f"更新插件状态失败 ({plugin_key}): {e}", exc_info=True)
+        if not self._set_enabled_in_yaml(plugin_key, enabled):
             return False
 
+        if not enabled:
+            module_name = f"plugins.{plugin_key.replace(os.sep, '.').replace('/', '.')}"
+            hook_manager.unregister_by_module(module_name)
+            to_remove = [m for m in sys.modules if m == module_name or m.startswith(module_name + ".")]
+            for m in to_remove:
+                del sys.modules[m]
+            self.plugin_modules.pop(plugin_key, None)
+            self.loaded_plugins.pop(plugin_key, None)
+
         self.plugins = self._load_registry()
-        self.register_hooks()
+
+        if enabled:
+            self.register_hooks()
+
         self.logger.info(f"插件 {plugin_key} 已{'启用' if enabled else '禁用'}")
         return True
 
     def get_all(self) -> List[Dict]:
-        """获取所有已加载插件的信息"""
+        """获取所有已注册插件的信息（包括禁用插件），展开 manifest 字段"""
         result = []
-        for key, info in self.loaded_plugins.items():
-            plugin_info = info.copy()
-            plugin_info["key"] = key
-            # 从 key 中提取 plugin_type (例如：collectors/openclaw -> collectors)
+        for key, info in self.plugins.items():
+            manifest = info.get("manifest", {})
             if '/' in key:
-                plugin_info['plugin_type'] = key.split('/')[0]
+                plugin_type = key.split('/')[0]
             else:
-                plugin_info['plugin_type'] = 'unknown'
-            result.append(plugin_info)
+                plugin_type = manifest.get("type", "unknown")
+
+            result.append({
+                "key": key,
+                "plugin_type": plugin_type,
+                "enabled": info.get("enabled", True),
+                "name": manifest.get("name", key.split("/")[-1] if "/" in key else key),
+                "version": manifest.get("version", ""),
+                "description": manifest.get("description", ""),
+                "author": manifest.get("author", ""),
+                "type": manifest.get("type", "unknown"),
+            })
         return result
 
 
