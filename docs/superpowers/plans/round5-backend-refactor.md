@@ -16,13 +16,13 @@ main.py lifespan），全部既有测试保持绿色，新抽象补测试。
 - API 响应形状抽查与改造前逐字一致
 - 每个 Task 提交可独立回滚
 
-## Task 0：基线验证
+## Task 0：基线验证 ✅ 已完成（249 passed / ruff 0 error）
 
 - **目标**：记录当前测试基线，确认实施起点干净
 - **命令**：`cd backend && pytest -q 2>&1 | tail -5`（记录通过数与耗时）；`ruff check .`
 - **完成标准**：全部测试通过，基线数字记录于 Task 8 对比
 
-## Task 1：B1 BaseManager 基类
+## Task 1：B1 BaseManager 基类 ✅ 已完成（4c520f5）
 
 - **新增**：`backend/managers/base.py`
 - **修改**：`backend/managers/{session,collector,curator,reviewer,exporter}_manager.py`
@@ -52,7 +52,7 @@ main.py lifespan），全部既有测试保持绿色，新抽象补测试。
   - `pytest tests/managers_tests/test_base_manager.py -q`
 - **完成标准**：5 个 manager 继承基类；单例实例化方式未动；新测试通过；既有测试全绿
 
-## Task 2：B2 会话解析职责拆分
+## Task 2：B2 会话解析职责拆分 ✅ 已完成（b81131f）
 
 - **新增**：`backend/core/parsers.py`
 - **修改**：`backend/managers/collector_manager.py`（`parse_session_file` 收缩为委托）
@@ -89,7 +89,7 @@ main.py lifespan），全部既有测试保持绿色，新抽象补测试。
   - `pytest tests/core_tests/parsers/ tests/managers_tests/collector_manager/test_parsing.py -q`
 - **完成标准**：既有 parsing 测试全绿（等价性证明）；新测试全绿；openclaw 插件短路未动
 
-## Task 3：B3 import 记录构造提取
+## Task 3：B3 import 记录构造提取 ✅ 已完成（921cb39）
 
 - **修改**：`backend/managers/collector_manager.py`
 - **实现要点**：
@@ -118,7 +118,7 @@ main.py lifespan），全部既有测试保持绿色，新抽象补测试。
   - `pytest tests/managers_tests/collector_manager/ -q`（含既有 test_import.py）
 - **完成标准**：既有 import 测试全绿；新测试全绿
 
-## Task 4：B4 plugin_manager 瘦身
+## Task 4：B4 plugin_manager 瘦身 ✅ 已完成（c79cd27）
 
 - **修改**：`backend/core/plugin_manager.py`
 - **实现要点**：
@@ -157,7 +157,7 @@ main.py lifespan），全部既有测试保持绿色，新抽象补测试。
   - `pytest tests/core_tests/plugin_manager/ -q`
 - **完成标准**：既有 plugin_manager 测试全绿；新测试全绿；3 处模块名构造收敛
 
-## Task 5：B5 hook_manager 执行循环去重
+## Task 5：B5 hook_manager 执行循环去重 ✅ 已完成（8d9954e）
 
 - **修改**：`backend/core/hook_manager.py`
 - **实现要点**：
@@ -183,7 +183,7 @@ main.py lifespan），全部既有测试保持绿色，新抽象补测试。
   - `pytest tests/core_tests/hook_manager/ -q`（既有 test_run_sync/test_error_handling/test_wrap_hooks 全绿为等价证明）
 - **完成标准**：既有 hook 测试全绿；warning 文案逐字未变；新测试全绿
 
-## Task 6：B6 API 统一辅助
+## Task 6：B6 API 统一辅助 ✅ 已完成（529d605）
 
 - **新增**：`backend/api/v1/common.py`
 - **修改**：`backend/api/v1/{session,reviewer,collector,curator,plugins}.py`（exporter.py 不动）
@@ -214,7 +214,7 @@ main.py lifespan），全部既有测试保持绿色，新抽象补测试。
   - `pytest tests/core_tests/test_api_common.py -q`；既有测试全绿
 - **完成标准**：对照表全部落实；exporter.py 未动；无残留未使用导入（ruff 检查）
 
-## Task 7：B7 main.py 整理
+## Task 7：B7 main.py 整理 ✅ 已完成（23f8b7b）
 
 - **修改**：`backend/main.py`
 - **实现要点**：
@@ -225,8 +225,20 @@ main.py lifespan），全部既有测试保持绿色，新抽象补测试。
 - **验证**：`python -c "import sys; sys.path.insert(0, 'backend'); import main"` 无错误（在 backend 目录下 `python -c "import main"`）；`pytest -q` 全绿
 - **完成标准**：main.py 可导入；既有测试全绿
 
-## Task 8：全量回归
+## Task 8：全量回归 ✅ 已完成（299 passed / ruff 0 error / 响应形状逐字一致）
 
 - **命令**：`cd backend && pytest -q 2>&1 | tail -5`；`ruff check backend/`；git status 干净
 - **抽查**：改造前后响应形状对照（读改造后代码确认 `ok()` 展开 == 原 dict）
 - **完成标准**：全部测试通过（数量 ≥ 基线 + 新增）、ruff 0 error、无未提交变更
+
+## 实施记录
+
+- 全部 Task 已完成，commit：4c520f5（B1）、b81131f（B2）、921cb39（B3）、c79cd27（B4）、
+  8d9954e（B5）、529d605（B6）、23f8b7b（B7）
+- B5 实现偏差说明：spec 原设计为同步 `_dispatch` 注入 execute，但同步循环无法 await
+  异步钩子（Python 语义限制），且 `run_sync` 改用 `asyncio.run` 会破坏同步/异步上下文
+  混合场景（running loop 中抛 RuntimeError）。最终实现：`_dispatch` 为 async（run 共享），
+  `run_sync` 保留独立同步循环（warning 语义逐字保留）。行为经既有 hook 测试全部验证等价。
+- B4 实现偏差说明：`_read_yaml` 读取失败返回 None（而非 {}），`_load_entry` 见 None 跳过
+  插件——保持原"坏 yaml 跳过插件"语义（既有 test_edge_cases 验证）。
+- 全量：299 passed（基线 249 + 新增 50），ruff 0 error。
