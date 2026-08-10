@@ -7,6 +7,7 @@ from typing import Optional, Dict, List
 import argparse
 
 from core import database_manager, hook_manager
+from managers.base import BaseManager
 
 # 合法的状态流转：{当前状态: [允许转入的状态]}
 VALID_STATUS_TRANSITIONS: Dict[str, List[str]] = {
@@ -17,7 +18,7 @@ VALID_STATUS_TRANSITIONS: Dict[str, List[str]] = {
 }
 
 
-class SessionManager:
+class SessionManager(BaseManager):
     """会话管理器
 
     职责：

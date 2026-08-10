@@ -10,10 +10,11 @@ from datetime import datetime, timezone
 import argparse
 
 from core import hook_manager, setting_manager
+from managers.base import BaseManager
 from managers.session_manager import session_manager
 
 
-class CollectorManager:
+class CollectorManager(BaseManager):
     """采集管理器
 
     职责：

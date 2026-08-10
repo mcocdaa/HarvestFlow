@@ -7,6 +7,7 @@ from typing import Dict, List
 import argparse
 
 from core import database_manager, setting_manager, hook_manager
+from managers.base import BaseManager
 from managers.session_manager import session_manager
 
 
@@ -17,7 +18,7 @@ MESSAGE_COUNT_THRESHOLD_2 = 20
 MAX_SCORE = 5
 
 
-class CuratorManager:
+class CuratorManager(BaseManager):
     """自动审核管理器
 
     职责：

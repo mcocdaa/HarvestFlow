@@ -8,10 +8,11 @@ from typing import Dict, List
 import argparse
 
 from core import database_manager, hook_manager
+from managers.base import BaseManager
 from managers.session_manager import session_manager, VALID_STATUS_TRANSITIONS
 
 
-class ReviewerManager:
+class ReviewerManager(BaseManager):
     """人工审核管理器
 
     职责：
