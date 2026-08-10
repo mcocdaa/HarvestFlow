@@ -255,6 +255,9 @@ def on_load():
             plugin_data = yaml.safe_load(f)
             config = plugin_data.get('config', {})
 
+    agents_dir = os.getenv("OPENCLAW_AGENTS_DIR") or config.get("agents_dir", "")
+    if agents_dir:
+        config["agents_dir"] = agents_dir
     collector_plugin = OpenClawCollector(config)
 
 

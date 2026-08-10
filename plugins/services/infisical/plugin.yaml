@@ -16,6 +16,3 @@ secrets:
   - name: INFISICAL_PROJECT_ID
     description: Infisical Project ID
     level: optional
-
-hooks:
-  - secrets_manager_register_arguments
