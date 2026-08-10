@@ -74,7 +74,6 @@ const Plugins: React.FC = () => {
   const tabItems = [
     { key: 'collectors', label: 'Collectors' },
     { key: 'curators', label: 'Curators' },
-    { key: 'reviewers', label: 'Reviewers' },
   ];
 
   return (

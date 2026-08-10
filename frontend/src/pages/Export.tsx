@@ -87,7 +87,7 @@ const Export: React.FC = () => {
     <div>
       <h1>Export</h1>
       <Card title="Export Settings" style={{ marginBottom: 16 }}>
-        <Form form={form} layout="vertical" onFinish={handleExport}>
+        <Form form={form} layout="vertical" onFinish={handleExport} initialValues={{ version: 'v1' }}>
           <Form.Item name="format" label="Format" rules={[{ required: true }]}>
             <Select>
               <Option value="sharegpt">ShareGPT</Option>
@@ -95,7 +95,7 @@ const Export: React.FC = () => {
             </Select>
           </Form.Item>
           <Form.Item name="version" label="Version">
-            <Input defaultValue="v1" style={{ width: '100%' }} />
+            <Input style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="min_score" label="Min Score (optional)">
             <InputNumber min={1} max={5} style={{ width: '100%' }} />
