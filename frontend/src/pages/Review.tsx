@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Card, Button, Tag, Rate, Input, message, Progress, Space, Tooltip, Popconfirm, Collapse } from 'antd';
 import {
   CheckOutlined,
@@ -29,24 +29,36 @@ const Review: React.FC = () => {
   const [sessionContent, setSessionContent] = useState<SessionContent | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     loadPendingSessions();
   }, []);
 
-  useEffect(() => {
-    if (sessions[selectedIndex]) {
-      loadSessionContent(sessions[selectedIndex].session_id);
+  const selectSession = (index: number, sessionsOverride?: Session[]) => {
+    const list = sessionsOverride ?? sessions;
+    if (list.length === 0) {
+      setSessionContent(null);
+      setSelectedIndex(0);
+      return;
     }
-  }, [selectedIndex]);
+    const clamped = Math.max(0, Math.min(index, list.length - 1));
+    setSelectedIndex(clamped);
+    loadSessionContent(list[clamped].session_id);
+  };
 
   const loadPendingSessions = async () => {
     setLoading(true);
     try {
       const res = await reviewerApi.getPending(1, 20);
-      setSessions(res.data.sessions || []);
-      if (res.data.sessions?.length > 0 && !sessionContent) {
-        loadSessionContent(res.data.sessions[0].session_id);
+      const newSessions = res.data.sessions || [];
+      setSessions(newSessions);
+      if (newSessions.length > 0) {
+        selectSession(0, newSessions);
+      } else {
+        setSessionContent(null);
+        setSelectedIndex(0);
       }
     } catch (error) {
       console.error('Failed to load pending sessions:', error);
@@ -69,30 +81,38 @@ const Review: React.FC = () => {
   };
 
   const handleApprove = async () => {
-    if (!sessions[selectedIndex]) return;
+    if (!sessions[selectedIndex] || submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
     try {
       await reviewerApi.approveSession(sessions[selectedIndex].session_id, notes, score);
       message.success('Session 已通过评审');
       setNotes('');
       setScore(3);
-      setSessionContent(null);
-      loadPendingSessions();
+      await loadPendingSessions();
     } catch {
       // Interceptor handles error display
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
   const handleReject = async () => {
-    if (!sessions[selectedIndex]) return;
+    if (!sessions[selectedIndex] || submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
     try {
       await reviewerApi.rejectSession(sessions[selectedIndex].session_id, notes, score);
       message.success('Session 已拒绝');
       setNotes('');
       setScore(3);
-      setSessionContent(null);
-      loadPendingSessions();
+      await loadPendingSessions();
     } catch {
       // Interceptor handles error display
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -103,12 +123,14 @@ const Review: React.FC = () => {
   };
 
   useKeyboardShortcut('Enter', () => {
+    if (submittingRef.current) return;
     if (sessions[selectedIndex] && score) {
       handleApprove();
     }
   }, true);
 
   useKeyboardShortcut('Backspace', () => {
+    if (submittingRef.current) return;
     if (sessions[selectedIndex]) {
       handleReject();
     }
@@ -125,13 +147,13 @@ const Review: React.FC = () => {
 
   const goToPrevious = () => {
     if (selectedIndex > 0) {
-      setSelectedIndex(selectedIndex - 1);
+      selectSession(selectedIndex - 1);
     }
   };
 
   const goToNext = () => {
     if (selectedIndex < sessions.length - 1) {
-      setSelectedIndex(selectedIndex + 1);
+      selectSession(selectedIndex + 1);
     }
   };
 
@@ -307,7 +329,7 @@ const Review: React.FC = () => {
                 size="large"
                 icon={<CloseOutlined />}
                 block
-                disabled={!currentSession}
+                disabled={!currentSession || submitting}
               >
                 拒绝
               </Button>
@@ -318,7 +340,7 @@ const Review: React.FC = () => {
               size="large"
               icon={<CheckOutlined />}
               onClick={handleApprove}
-              disabled={!currentSession || !score}
+              disabled={!currentSession || !score || submitting}
               block
             >
               通过评审
