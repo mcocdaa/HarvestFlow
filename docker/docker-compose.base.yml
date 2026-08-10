@@ -8,6 +8,7 @@ networks:
 
 services:
   harvestflow-backend:
+    image: harvestflow-backend:latest
     build:
       context: ../backend
       dockerfile: Dockerfile
@@ -24,6 +25,8 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
       - SECRET_FALLBACK_MODE=${SECRET_FALLBACK_MODE:-default}
     volumes:
+      # NOTE: For Docker Swarm (prod), relative paths are not supported.
+      # Replace with absolute host paths, e.g. /srv/harvestflow/backend/data:/app/data
       - ../backend/data:/app/data
       - ../plugins:/app/plugins:ro
     networks:
