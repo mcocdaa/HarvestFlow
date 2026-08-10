@@ -75,7 +75,6 @@ const Review: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to load pending sessions:', error);
-      message.error('加载待评审列表失败');
     } finally {
       setLoading(false);
     }
@@ -104,7 +103,7 @@ const Review: React.FC = () => {
       setSessionContent(null);
       loadPendingSessions();
     } catch {
-      message.error('通过评审失败');
+      // Interceptor handles error display
     }
   };
 
@@ -118,7 +117,7 @@ const Review: React.FC = () => {
       setSessionContent(null);
       loadPendingSessions();
     } catch {
-      message.error('拒绝失败');
+      // Interceptor handles error display
     }
   };
 

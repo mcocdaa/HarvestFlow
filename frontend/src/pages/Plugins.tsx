@@ -36,7 +36,7 @@ const Plugins: React.FC = () => {
       message.success(`Plugin ${enabled ? 'enabled' : 'disabled'}`);
       loadPlugins();
     } catch {
-      message.error('Operation failed');
+      // Interceptor handles error display
     }
   };
 

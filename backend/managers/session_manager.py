@@ -167,5 +167,10 @@ class SessionManager:
         self.logger.warning(f"No content in database for session: {session_id}")
         return None
 
+    @hook_manager.wrap_hooks("session_manager_stats_get_before", "session_manager_stats_get_after")
+    def get_stats(self) -> Dict:
+        """获取会话统计信息，委托给 DatabaseManager"""
+        return database_manager.stats_get()
+
 
 session_manager = SessionManager()

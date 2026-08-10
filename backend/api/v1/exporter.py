@@ -4,27 +4,31 @@
 
 from fastapi import APIRouter
 from typing import Optional, List
+from pydantic import BaseModel
 from managers.exporter_manager import exporter_manager
+
+
+class ExportRequest(BaseModel):
+    format: Optional[str] = None
+    min_score: Optional[int] = None
+    agent_role: Optional[str] = None
+    task_type: Optional[str] = None
+    tags: Optional[List[str]] = None
+    version: Optional[str] = "v1"
+
 
 router = APIRouter()
 
 
 @router.post("/exporter/export")
-async def export_sessions(
-    format: Optional[str] = None,
-    min_score: Optional[int] = None,
-    agent_role: Optional[str] = None,
-    task_type: Optional[str] = None,
-    tags: Optional[List[str]] = None,
-    version: Optional[str] = "v1"
-) -> dict:
+async def export_sessions(request: ExportRequest) -> dict:
     result = exporter_manager.export(
-        format=format,
-        min_score=min_score,
-        agent_role=agent_role,
-        task_type=task_type,
-        tags=tags,
-        version=version
+        format=request.format,
+        min_score=request.min_score,
+        agent_role=request.agent_role,
+        task_type=request.task_type,
+        tags=request.tags,
+        version=request.version
     )
     return result
 

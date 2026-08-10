@@ -2,7 +2,7 @@
 # @brief Reviewer API 路由
 # @create 2026-03-22
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from typing import Optional, List, Dict
 from managers.reviewer_manager import reviewer_manager
 
@@ -18,9 +18,9 @@ async def get_pending_sessions(page: int = 1, page_size: int = 20) -> dict:
 async def approve_session(session_id: str, notes: Optional[str] = None, score: Optional[int] = None) -> dict:
     result = reviewer_manager.approve_session(session_id, notes, score)
     if not result:
-        return {"success": False, "error": "Session not found"}
+        raise HTTPException(404, detail="Session not found")
     if "error" in result:
-        return {"success": False, "error": result["error"]}
+        raise HTTPException(400, detail=result["error"])
     return {"success": True, "session": result}
 
 
@@ -28,17 +28,19 @@ async def approve_session(session_id: str, notes: Optional[str] = None, score: O
 async def reject_session(session_id: str, notes: Optional[str] = None, score: Optional[int] = None) -> dict:
     result = reviewer_manager.reject_session(session_id, notes, score)
     if not result:
-        return {"success": False, "error": "Session not found"}
+        raise HTTPException(404, detail="Session not found")
     if "error" in result:
-        return {"success": False, "error": result["error"]}
+        raise HTTPException(400, detail=result["error"])
     return {"success": True, "session": result}
 
 
 @router.patch("/reviewer/session/{session_id}")
 async def update_session(session_id: str, updates: Dict) -> dict:
     result = reviewer_manager.update_session(session_id, updates)
+    if not result:
+        raise HTTPException(404, detail="Session not found")
     if "error" in result:
-        return {"success": False, "error": result["error"]}
+        raise HTTPException(400, detail=result["error"])
     return {"success": True, "session": result}
 
 

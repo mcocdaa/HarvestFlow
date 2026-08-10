@@ -7,4 +7,16 @@ const api = axios.create({
   timeout: 30000,
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const detail = error.response?.data?.detail;
+    if (detail) {
+      // Use dynamic import to avoid circular dependency on antd message
+      import('antd').then(({ message }) => message.error(detail));
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

@@ -40,14 +40,10 @@ const Export: React.FC = () => {
     setLoading(true);
     try {
       const res = await exporterApi.exportSessions(values);
-      if (res.data.success) {
-        message.success(`Exported ${res.data.record_count} sessions to ${res.data.filename}`);
-        loadHistory();
-      } else {
-        message.error(res.data.message || 'Export failed');
-      }
+      message.success(`Exported ${res.data.record_count} sessions to ${res.data.filename}`);
+      loadHistory();
     } catch {
-      message.error('Export failed');
+      // Interceptor handles error display
     } finally {
       setLoading(false);
     }

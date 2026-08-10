@@ -2,7 +2,7 @@
 # @brief Curator API 路由
 # @create 2026-03-22
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from managers.curator_manager import curator_manager
 
 router = APIRouter()
@@ -12,9 +12,9 @@ router = APIRouter()
 async def evaluate_session(session_id: str) -> dict:
     result = curator_manager.evaluate_session(session_id)
     if not result:
-        return {"success": False, "error": "Session not found"}
+        raise HTTPException(404, detail="Session not found")
     if "error" in result:
-        return {"success": False, **result}
+        raise HTTPException(400, detail=result["error"])
     return {"success": True, **result}
 
 
