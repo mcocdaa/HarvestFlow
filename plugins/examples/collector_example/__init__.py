@@ -2,4 +2,4 @@
 # @brief Example collector plugin entry
 # @create 2026-03-28
 
-from plugins.examples.collector_example.hooks import *
+from plugins.examples.collector_example.hooks import *  # noqa: F403

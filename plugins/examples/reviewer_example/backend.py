@@ -3,7 +3,7 @@
 # @create 2026-03-28
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class ExampleReviewer:
             是否验证通过
         """
         try:
-            logger.debug(f"[ExampleReviewer] Validating session")
+            logger.debug("[ExampleReviewer] Validating session")
 
             # 验证规则1：必须有消息
             messages = session.get('content', {}).get('messages', [])
@@ -91,7 +91,7 @@ class ExampleReviewer:
         Returns:
             修改后的会话数据
         """
-        logger.info(f"[ExampleReviewer] Before approve hook called")
+        logger.info("[ExampleReviewer] Before approve hook called")
 
         # 可以在这里添加审批前的逻辑
         # 例如：添加元数据、记录时间戳等
@@ -114,7 +114,7 @@ class ExampleReviewer:
         Returns:
             修改后的会话数据
         """
-        logger.info(f"[ExampleReviewer] Before reject hook called")
+        logger.info("[ExampleReviewer] Before reject hook called")
 
         if 'metadata' not in session:
             session['metadata'] = {}

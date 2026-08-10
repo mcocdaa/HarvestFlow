@@ -2,7 +2,7 @@
 # @brief OpenClaw 采集器插件入口
 # @create 2026-03-27
 
-from plugins.collectors.openclaw.hooks import *
+from plugins.collectors.openclaw.hooks import *  # noqa: F403
 from plugins.collectors.openclaw.backend import on_load
 from plugins.common import call_on_load
 
