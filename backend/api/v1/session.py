@@ -49,7 +49,10 @@ def get_sessions(
 
 @router.patch("/sessions/{session_id}")
 def update_session(session_id: str, updates: SessionUpdate) -> dict:
-    result = session_manager.update_session(session_id, updates.model_dump(exclude_none=True))
+    try:
+        result = session_manager.update_session(session_id, updates.model_dump(exclude_none=True))
+    except ValueError:
+        raise HTTPException(409, detail="Invalid status transition")
     if result is None:
         raise HTTPException(404, detail="Session not found")
     return {"success": True, "session": result}

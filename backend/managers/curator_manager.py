@@ -95,12 +95,22 @@ class CuratorManager:
             "status": "curated",
         })
 
+        # Auto-approve high-value sessions
+        auto_approved = False
+        if is_high_value:
+            database_manager.session_review_apply(
+                session_id, "approved", score, "auto_approve",
+                f"score {score} >= threshold {self.auto_approve_threshold}"
+            )
+            auto_approved = True
+
         result = {
             "session_id": session_id,
             "score": score,
             "is_high_value": is_high_value,
             "tags": tags,
             "tools_used": tools_used,
+            "auto_approved": auto_approved,
         }
 
         return result

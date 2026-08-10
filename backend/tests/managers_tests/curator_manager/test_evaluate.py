@@ -46,6 +46,7 @@ class TestCuratorManagerEvaluate:
 
     def test_evaluate_session_calculates_score(self, args_minimal, monkeypatch):
         from managers import session_manager
+        from core import database_manager
 
         self.manager.init(args_minimal)
 
@@ -66,6 +67,7 @@ class TestCuratorManagerEvaluate:
             return {"session_id": session_id, **updates}
 
         monkeypatch.setattr(session_manager, "update_session", mock_update)
+        monkeypatch.setattr(database_manager, "session_review_apply", lambda *args, **kwargs: None)
 
         result = self.manager.evaluate_session("test")
 

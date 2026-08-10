@@ -62,7 +62,7 @@ class TestReviewerManager:
         assert result["session_id"] == "test-session"
 
     def test_approve_session_invalid_status(self, args_minimal, monkeypatch):
-        """P1.2: approve should reject sessions not in 'curated' status."""
+        """P1.2: approve should reject sessions where transition is not in flow table."""
         from managers import session_manager
 
         self.manager.init(args_minimal)
@@ -76,13 +76,13 @@ class TestReviewerManager:
         assert result["error"] == "invalid status transition"
 
     def test_reject_session_invalid_status(self, args_minimal, monkeypatch):
-        """P1.2: reject should reject sessions not in 'curated' status."""
+        """P1.2: reject should reject sessions where transition is not in flow table."""
         from managers import session_manager
 
         self.manager.init(args_minimal)
 
         monkeypatch.setattr(session_manager, "get_session",
-                            lambda sid: {"session_id": sid, "status": "approved"})
+                            lambda sid: {"session_id": sid, "status": "raw"})
 
         result = self.manager.reject_session("test-session")
 

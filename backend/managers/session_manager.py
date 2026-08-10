@@ -116,9 +116,12 @@ class SessionManager:
             updates: 更新数据字典
 
         Returns:
-            更新后的会话数据，状态流转非法时返回 None
+            更新后的会话数据，会话不存在返回 None
+        Raises:
+            ValueError: 状态流转非法
         """
         new_status = updates.get("status")
+        session = None
         if new_status:
             session = database_manager.session_get(session_id)
             if not session:
@@ -130,8 +133,12 @@ class SessionManager:
                     f"Invalid status transition for {session_id}: "
                     f"{current_status!r} -> {new_status!r}, allowed: {allowed}"
                 )
-                return None
-        return database_manager.session_update(session_id, updates)
+                raise ValueError("invalid status transition")
+        result = database_manager.session_update(session_id, updates)
+        if result is None and not new_status:
+            # empty update: return existing session
+            return session or database_manager.session_get(session_id)
+        return result
 
     @hook_manager.wrap_hooks("session_manager_delete_before", "session_manager_delete_after")
     def delete_session(self, session_id: str) -> bool:
