@@ -2,8 +2,9 @@
 # @brief Plugins API 路由
 # @create 2026-03-25
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from core import plugin_manager
+from api.v1.common import ok, not_found
 
 router = APIRouter()
 
@@ -25,13 +26,13 @@ def get_plugins_by_type(plugin_type: str) -> dict:
 def enable_plugin(key: str) -> dict:
     success = plugin_manager.set_enabled(key, True)
     if not success:
-        raise HTTPException(404, detail="Plugin not found")
-    return {"success": True}
+        raise not_found("Plugin not found")
+    return ok()
 
 
 @router.post("/plugins/disable")
 def disable_plugin(key: str) -> dict:
     success = plugin_manager.set_enabled(key, False)
     if not success:
-        raise HTTPException(404, detail="Plugin not found")
-    return {"success": True}
+        raise not_found("Plugin not found")
+    return ok()

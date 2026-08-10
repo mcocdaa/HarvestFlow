@@ -2,9 +2,10 @@
 # @brief Collector API 路由
 # @create 2026-03-22
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from typing import Optional
 from managers.collector_manager import collector_manager
+from api.v1.common import ok, bad_request
 
 router = APIRouter()
 
@@ -19,8 +20,8 @@ def scan_folder(folder_path: Optional[str] = None) -> dict:
 def import_session(file_path: str) -> dict:
     session_id = collector_manager.import_session(file_path)
     if not session_id:
-        raise HTTPException(400, detail="Failed to import session")
-    return {"success": True, "session_id": session_id}
+        raise bad_request("Failed to import session")
+    return ok(session_id=session_id)
 
 
 @router.post("/collector/import-all")
@@ -32,13 +33,13 @@ def import_all(folder_path: Optional[str] = None) -> dict:
 @router.post("/collector/watch-folder")
 def add_watch_folder(folder_path: str) -> dict:
     collector_manager.add_watch_folder(folder_path)
-    return {"success": True, "watch_folders": collector_manager.watch_folders}
+    return ok(watch_folders=collector_manager.watch_folders)
 
 
 @router.delete("/collector/watch-folder")
 def remove_watch_folder(folder_path: str) -> dict:
     collector_manager.remove_watch_folder(folder_path)
-    return {"success": True, "watch_folders": collector_manager.watch_folders}
+    return ok(watch_folders=collector_manager.watch_folders)
 
 
 @router.get("/collector/watch-folders")
