@@ -2,14 +2,12 @@
 # @brief 采集管理器 - 负责扫描文件夹和导入会话
 # @create 2026-03-18
 
-import json
 import os
 import logging
 from typing import List, Dict, Optional
-from datetime import datetime, timezone
 import argparse
 
-from core import hook_manager, setting_manager
+from core import hook_manager, setting_manager, parsers
 from managers.base import BaseManager
 from managers.session_manager import session_manager
 
@@ -98,79 +96,9 @@ class CollectorManager(BaseManager):
         Returns:
             解析后的会话数据，失败返回 None
         """
-        try:
-            # 首先尝试使用 jsonl 解析器（OpenClaw 等）
-            if file_path.endswith('.jsonl'):
-                # jsonl 文件需要特殊处理，逐行读取
-                messages = []
-                session_id = None
-                agent_id = None
-
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            msg = json.loads(line)
-                            msg_type = msg.get('type', '')
-                            if msg_type == 'message':
-                                message_data = msg.get('message', {})
-                                role = message_data.get('role', 'user')
-                                content_list = message_data.get('content', [])
-
-                                # 提取文本内容
-                                text_content = ""
-                                if isinstance(content_list, list):
-                                    for item in content_list:
-                                        if isinstance(item, dict) and item.get('type') == 'text':
-                                            text_content += item.get('text', '')
-                                elif isinstance(content_list, str):
-                                    text_content = content_list
-
-                                if text_content:
-                                    messages.append({
-                                        "role": role,
-                                        "content": text_content
-                                    })
-
-                            # 提取 session_id
-                            if not session_id and msg.get('id'):
-                                session_id = msg.get('id')
-
-                        except json.JSONDecodeError:
-                            continue
-
-                if messages and session_id:
-                    # 从文件路径提取 agent_id
-                    parts = file_path.split(os.sep)
-                    if 'agents' in parts:
-                        idx = parts.index('agents')
-                        if idx + 1 < len(parts):
-                            agent_id = parts[idx + 1]
-
-                    return {
-                        "session_id": session_id,
-                        "agent_id": agent_id,
-                        "messages": messages,
-                        "message_count": len(messages),
-                        "has_tool_calls": False,
-                        "tools_used": [],
-                    }
-
-            # 默认处理：尝试作为普通 JSON 文件读取
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-
-            session_id = data.get("session_id")
-            if not session_id:
-                session_id = f"session_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.path.basename(file_path)}"
-                data["session_id"] = session_id
-
-            return data
-        except Exception as e:
-            self.logger.error(f"解析文件失败 {file_path}: {e}")
-            return None
+        if file_path.endswith('.jsonl'):
+            return parsers.parse_jsonl_file(file_path)
+        return parsers.parse_json_file(file_path)
 
     @hook_manager.wrap_hooks("collector_manager_import_before", "collector_manager_import_after")
     def import_session(self, file_path: str) -> Optional[str]:
