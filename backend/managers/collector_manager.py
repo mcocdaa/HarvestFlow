@@ -100,6 +100,22 @@ class CollectorManager(BaseManager):
             return parsers.parse_jsonl_file(file_path)
         return parsers.parse_json_file(file_path)
 
+    def _build_session_record(self, file_path: str, session_data: Dict) -> Dict:
+        """构造入库记录：content 保存原始数据快照，file_path 附加来源路径"""
+        record = dict(session_data)
+        record["file_path"] = file_path
+        record["content"] = dict(session_data)
+        return record
+
+    def _create_session(self, record: Dict) -> Optional[str]:
+        """调用 session_manager 创建会话，返回 session_id，失败记录日志返回 None"""
+        try:
+            session_manager.create_session(record)
+        except Exception as e:
+            self.logger.error(f"创建会话记录失败：{e}")
+            return None
+        return record.get("session_id")
+
     @hook_manager.wrap_hooks("collector_manager_import_before", "collector_manager_import_after")
     def import_session(self, file_path: str) -> Optional[str]:
         """导入单个会话
@@ -113,20 +129,8 @@ class CollectorManager(BaseManager):
         session_data = self.parse_session_file(file_path)
         if not session_data:
             return None
-
-        session_id = session_data.get("session_id")
-
-        raw_content = dict(session_data)
-        session_data["file_path"] = file_path
-        session_data["content"] = raw_content
-
-        try:
-            session_manager.create_session(session_data)
-        except Exception as e:
-            self.logger.error(f"创建会话记录失败：{e}")
-            return None
-
-        return session_id
+        record = self._build_session_record(file_path, session_data)
+        return self._create_session(record)
 
     @hook_manager.wrap_hooks("collector_manager_import_all_before", "collector_manager_import_all_after")
     def import_all(self, folder_path: str = None) -> Dict:
@@ -155,14 +159,8 @@ class CollectorManager(BaseManager):
                 skipped.append(session_id)
                 continue
 
-            raw_content = dict(session_data)
-            session_data["file_path"] = file_path
-            session_data["content"] = raw_content
-
-            try:
-                session_manager.create_session(session_data)
-            except Exception as e:
-                self.logger.error(f"创建会话记录失败：{e}")
+            record = self._build_session_record(file_path, session_data)
+            if self._create_session(record) is None:
                 failed.append(file_path)
                 continue
             imported.append(session_id)
