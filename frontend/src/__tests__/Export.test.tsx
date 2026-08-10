@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import Export from '../pages/Export';
 
 vi.mock('../services', () => ({
@@ -58,5 +58,26 @@ describe('Export Page', () => {
     await waitFor(() => {
       expect(screen.getByText('Tags (optional)')).toBeInTheDocument();
     });
+  });
+
+  it('should submit payload with default version v1', async () => {
+    setupMocks();
+    (exporterApi.exportSessions as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { success: true, record_count: 5, filename: 'sharegpt_v1_x.jsonl' },
+    });
+    render(<Export />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Export Settings')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Export Sessions'));
+
+    await waitFor(() => {
+      expect(exporterApi.exportSessions).toHaveBeenCalledTimes(1);
+    });
+    const payload = vi.mocked(exporterApi.exportSessions).mock.calls[0][0] as unknown as Record<string, unknown>;
+    expect(payload.version).toBe('v1');
+    expect(payload.format).toBe('sharegpt');
   });
 });

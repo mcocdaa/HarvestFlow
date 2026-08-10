@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import Dashboard from '../pages/Dashboard'
 import { statsApi } from '../services'
+import type { Stats } from '../types'
 
 vi.mock('../services', () => ({
   statsApi: {
@@ -9,19 +10,22 @@ vi.mock('../services', () => ({
   },
 }))
 
+// Mock axios response shape (status/headers/config are not needed by components)
+const mockResponse = (data: Partial<Stats>) => ({ data }) as never
+
 describe('Dashboard Component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it('should render dashboard title', () => {
-    vi.mocked(statsApi.get).mockResolvedValue({ data: {} } as any)
+    vi.mocked(statsApi.get).mockResolvedValue(mockResponse({}))
     render(<Dashboard />)
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
   })
 
   it('should display statistics cards with default values', async () => {
-    vi.mocked(statsApi.get).mockResolvedValue({ data: {} } as any)
+    vi.mocked(statsApi.get).mockResolvedValue(mockResponse({}))
     render(<Dashboard />)
 
     await waitFor(() => {
@@ -42,7 +46,7 @@ describe('Dashboard Component', () => {
       curated_sessions: 70,
       reviewed_sessions: 70,
     }
-    vi.mocked(statsApi.get).mockResolvedValue({ data: mockStats } as any)
+    vi.mocked(statsApi.get).mockResolvedValue(mockResponse(mockStats))
 
     render(<Dashboard />)
 
@@ -71,10 +75,28 @@ describe('Dashboard Component', () => {
     consoleSpy.mockRestore()
   })
 
+  it('should show loading state while fetching stats', async () => {
+    let resolveGet: (value: unknown) => void
+    vi.mocked(statsApi.get).mockReturnValue(
+      new Promise((resolve) => {
+        resolveGet = resolve
+      }) as never
+    )
+
+    render(<Dashboard />)
+
+    // Cards should be in loading state before the API resolves
+    expect(document.querySelector('.ant-card-loading')).toBeTruthy()
+
+    await act(async () => {
+      resolveGet({ data: {} })
+    })
+
+    expect(document.querySelector('.ant-card-loading')).toBeFalsy()
+  })
+
   it('should display average auto score card', async () => {
-    vi.mocked(statsApi.get).mockResolvedValue({
-      data: { avg_auto_score: 7.8 },
-    } as any)
+    vi.mocked(statsApi.get).mockResolvedValue(mockResponse({ avg_auto_score: 7.8 }))
 
     render(<Dashboard />)
 
@@ -84,9 +106,7 @@ describe('Dashboard Component', () => {
   })
 
   it('should display curated sessions card', async () => {
-    vi.mocked(statsApi.get).mockResolvedValue({
-      data: { curated_sessions: 50 },
-    } as any)
+    vi.mocked(statsApi.get).mockResolvedValue(mockResponse({ curated_sessions: 50 }))
 
     render(<Dashboard />)
 
@@ -96,9 +116,7 @@ describe('Dashboard Component', () => {
   })
 
   it('should display reviewed sessions card', async () => {
-    vi.mocked(statsApi.get).mockResolvedValue({
-      data: { reviewed_sessions: 50 },
-    } as any)
+    vi.mocked(statsApi.get).mockResolvedValue(mockResponse({ reviewed_sessions: 50 }))
 
     render(<Dashboard />)
 

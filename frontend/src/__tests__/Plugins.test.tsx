@@ -83,4 +83,20 @@ describe('Plugins Page', () => {
       expect(pluginApi.getByType).toHaveBeenCalledWith('collectors');
     });
   });
+
+  it('should render only collectors and curators tabs', async () => {
+    (pluginApi.getByType as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { plugins: [] },
+    });
+
+    render(<Plugins />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Collectors')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Curators')).toBeInTheDocument();
+    // reviewers tab was removed since backend has no reviewer plugins
+    expect(screen.queryByText('Reviewers')).not.toBeInTheDocument();
+  });
 });

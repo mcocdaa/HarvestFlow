@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Table, message, Tabs, Switch } from 'antd';
 import { pluginApi } from '../services';
 import type { Plugin } from '../types';
@@ -8,11 +8,7 @@ const Plugins: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('collectors');
 
-  useEffect(() => {
-    loadPlugins();
-  }, [activeTab]);
-
-  const loadPlugins = async () => {
+  const loadPlugins = useCallback(async () => {
     setLoading(true);
     try {
       const res = await pluginApi.getByType(activeTab);
@@ -22,7 +18,11 @@ const Plugins: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
+
+  useEffect(() => {
+    loadPlugins();
+  }, [loadPlugins]);
 
   const handleToggle = async (plugin: Plugin, enabled: boolean) => {
     try {
@@ -74,7 +74,6 @@ const Plugins: React.FC = () => {
   const tabItems = [
     { key: 'collectors', label: 'Collectors' },
     { key: 'curators', label: 'Curators' },
-    { key: 'reviewers', label: 'Reviewers' },
   ];
 
   return (

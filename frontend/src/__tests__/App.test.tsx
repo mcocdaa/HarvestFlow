@@ -22,6 +22,10 @@ vi.mock('../pages/Plugins', () => ({
   default: () => <div data-testid="plugins-page">Plugins Page</div>,
 }))
 
+vi.mock('../pages/NotFound', () => ({
+  default: () => <div data-testid="notfound-page">404 Not Found</div>,
+}))
+
 vi.mock('@ant-design/icons', () => {
   const stub = () => function IconStub() {
     return null
@@ -71,5 +75,13 @@ describe('App Component', () => {
 
     fireEvent.click(screen.getByText('Plugins'))
     expect(await screen.findByTestId('plugins-page')).toBeInTheDocument()
+  })
+
+  it('should render 404 page for unknown routes', async () => {
+    window.history.pushState({}, '', '/unknown-route')
+
+    render(<App />)
+
+    expect(await screen.findByTestId('notfound-page')).toBeInTheDocument()
   })
 })

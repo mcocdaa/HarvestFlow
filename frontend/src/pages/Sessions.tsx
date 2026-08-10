@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Typography } from 'antd';
 import { sessionApi } from '../services';
 import { SessionTable, SessionDrawer } from '../components/sessions';
@@ -17,11 +17,7 @@ const Sessions: React.FC = () => {
   const [content, setContent] = useState<SessionContent | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
 
-  useEffect(() => {
-    loadSessions();
-  }, [page, pageSize]);
-
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     setLoading(true);
     try {
       const params: SessionListParams = { page, page_size: pageSize, sort: 'recent' };
@@ -33,7 +29,11 @@ const Sessions: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize]);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
 
   const viewSession = async (record: Session) => {
     setSelectedSession(record);

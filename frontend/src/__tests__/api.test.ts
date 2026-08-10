@@ -7,6 +7,21 @@ import {
   statsApi,
 } from '../services'
 
+// Capture interceptor handlers registered on the mock axios instance
+const { requestInterceptorHandlers, responseInterceptorHandlers, mockMessageError } = vi.hoisted(() => ({
+  requestInterceptorHandlers: [] as Array<(config: unknown) => unknown>,
+  responseInterceptorHandlers: [] as Array<(error: unknown) => unknown>,
+  mockMessageError: vi.fn(),
+}))
+
+vi.mock('antd', () => ({
+  message: {
+    error: (...args: unknown[]) => mockMessageError(...args),
+    success: vi.fn(),
+    info: vi.fn(),
+  },
+}))
+
 vi.mock('axios', () => ({
   default: {
     create: vi.fn(() => ({
@@ -16,24 +31,33 @@ vi.mock('axios', () => ({
       delete: vi.fn(),
       interceptors: {
         request: {
-          use: vi.fn(),
+          use: (fn: (config: unknown) => unknown) => {
+            requestInterceptorHandlers.push(fn)
+            return 0
+          },
         },
         response: {
-          use: vi.fn(),
+          use: (
+            _onFulfilled: unknown,
+            onRejected: (error: unknown) => unknown
+          ) => {
+            responseInterceptorHandlers.push(onRejected)
+            return 0
+          },
         },
       },
     })),
   },
 }))
 
+const mockGet = vi.fn()
+const mockPost = vi.fn()
+
+beforeEach(() => {
+  vi.clearAllMocks()
+})
+
 describe('API Service', () => {
-  const mockGet = vi.fn()
-  const mockPost = vi.fn()
-
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   describe('sessionApi', () => {
     it('should call getSessions with correct parameters', async () => {
       const { api } = await import('../services')
@@ -140,6 +164,74 @@ describe('API Service', () => {
       api.get = mockGet
       await statsApi.get()
       expect(mockGet).toHaveBeenCalledWith('/stats')
+    })
+  })
+
+  describe('request interceptor', () => {
+    it('should attach Bearer header when VITE_API_KEY is set', async () => {
+      // client.ts reads import.meta.env at module load; re-import via fresh query
+      vi.stubEnv('VITE_API_KEY', 'test-secret')
+      // Force fresh module evaluation
+      const fresh = await import(`../services/client?key=${Date.now()}`)
+      expect(requestInterceptorHandlers.length).toBeGreaterThan(0)
+      const onRequest = requestInterceptorHandlers[requestInterceptorHandlers.length - 1]
+      const config = { headers: {} as Record<string, string> }
+      const result = onRequest(config)
+      expect(result).toBe(config)
+      expect(config.headers.Authorization).toBe('Bearer test-secret')
+      vi.unstubAllEnvs()
+      void fresh
+    })
+
+    it('should not attach Authorization header when VITE_API_KEY is empty', async () => {
+      vi.stubEnv('VITE_API_KEY', '')
+      await import(`../services/client?empty=${Date.now()}`)
+      const onRequest = requestInterceptorHandlers[requestInterceptorHandlers.length - 1]
+      const config = { headers: {} as Record<string, string> }
+      onRequest(config)
+      expect(config.headers.Authorization).toBeUndefined()
+      vi.unstubAllEnvs()
+    })
+  })
+
+  describe('response error interceptor', () => {
+    it('should show string detail message on error', async () => {
+      // Re-import client to trigger interceptor registration (cached module)
+      await import('../services/client')
+      expect(responseInterceptorHandlers.length).toBeGreaterThan(0)
+      const onRejected = responseInterceptorHandlers[0]
+
+      const error = { response: { status: 400, data: { detail: 'Bad request' } } }
+      await expect(onRejected(error)).rejects.toBe(error)
+      expect(mockMessageError).toHaveBeenCalledWith('Bad request')
+    })
+
+    it('should join array detail (pydantic validation) messages', async () => {
+      await import('../services/client')
+      const onRejected = responseInterceptorHandlers[0]
+
+      const error = {
+        response: {
+          status: 422,
+          data: {
+            detail: [
+              { msg: 'field required', loc: ['body', 'tags'] },
+              { msg: 'too long', loc: ['body', 'notes'] },
+            ],
+          },
+        },
+      }
+      await expect(onRejected(error)).rejects.toBe(error)
+      expect(mockMessageError).toHaveBeenCalledWith('field required; too long')
+    })
+
+    it('should fall back to status-based text when detail is missing', async () => {
+      await import('../services/client')
+      const onRejected = responseInterceptorHandlers[0]
+
+      const error = { response: { status: 401, data: {} } }
+      await expect(onRejected(error)).rejects.toBe(error)
+      expect(mockMessageError).toHaveBeenCalledWith('认证失败')
     })
   })
 })

@@ -40,13 +40,15 @@ const SessionDrawer: React.FC<SessionDrawerProps> = ({
     );
   };
 
+  const METADATA_KEYS = ['agent_role', 'task_type', 'created_at', 'tools_used', 'tags'];
+
   const renderMetadata = () => {
     if (!content || Object.keys(content).length === 0) {
       return <Text className="empty-value">暂无元数据</Text>;
     }
 
-    const metadataKeys = Object.keys(content).filter(key =>
-      key !== 'messages' && key !== 'metadata'
+    const metadataKeys = METADATA_KEYS.filter(key =>
+      content[key] !== undefined && content[key] !== null && content[key] !== ''
     );
 
     return (
@@ -75,7 +77,7 @@ const SessionDrawer: React.FC<SessionDrawerProps> = ({
       width={480}
       open={visible}
       onClose={onClose}
-      destroyOnClose
+      destroyOnHidden
     >
       {session && (
         <div className="drawer-content">
