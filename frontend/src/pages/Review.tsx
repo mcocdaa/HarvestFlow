@@ -123,6 +123,7 @@ const Review: React.FC = () => {
   };
 
   useKeyboardShortcut('Enter', () => {
+    if (document.activeElement?.tagName === 'BUTTON') return;
     if (submittingRef.current) return;
     if (sessions[selectedIndex] && score) {
       handleApprove();
@@ -130,6 +131,7 @@ const Review: React.FC = () => {
   }, true);
 
   useKeyboardShortcut('Backspace', () => {
+    if (document.activeElement?.tagName === 'BUTTON') return;
     if (submittingRef.current) return;
     if (sessions[selectedIndex]) {
       handleReject();

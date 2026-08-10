@@ -75,6 +75,20 @@ describe('useKeyboardShortcut', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it('should not call handler when target is a button element', () => {
+    const handler = vi.fn();
+    renderHook(() => useKeyboardShortcut('Enter', handler, true));
+
+    const button = document.createElement('button');
+    document.body.appendChild(button);
+
+    act(() => {
+      dispatchKeyDown(button, { key: 'Enter', metaKey: true });
+    });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it('should not call handler when target is contentEditable', () => {
     const handler = vi.fn();
     renderHook(() => useKeyboardShortcut('Enter', handler, true));

@@ -10,7 +10,7 @@ export const useKeyboardShortcut = (
       const target = e.target as HTMLElement | null;
       if (!target?.tagName) return;
       const tagName = target.tagName.toLowerCase();
-      if (tagName === 'input' || tagName === 'textarea' || target.isContentEditable || target.contentEditable === 'true') {
+      if (tagName === 'input' || tagName === 'textarea' || tagName === 'button' || target.isContentEditable || target.contentEditable === 'true') {
         return;
       }
 
