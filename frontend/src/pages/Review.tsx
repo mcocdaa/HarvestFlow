@@ -32,8 +32,10 @@ const Review: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
 
+  // Load once on mount; refresh is triggered explicitly by handleApprove/handleReject
   useEffect(() => {
     loadPendingSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectSession = (index: number, sessionsOverride?: Session[]) => {

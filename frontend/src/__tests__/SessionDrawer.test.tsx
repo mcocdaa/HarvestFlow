@@ -5,7 +5,7 @@ import SessionDrawer from '../components/sessions/SessionDrawer';
 describe('SessionDrawer', () => {
   const baseSession = {
     session_id: 's1',
-    status: 'approved',
+    status: 'approved' as const,
     quality_auto_score: 4,
     quality_manual_score: 5,
     agent_role: 'backend_dev',
@@ -16,7 +16,7 @@ describe('SessionDrawer', () => {
   it('should render session info and whitelisted metadata keys', () => {
     const content = {
       session_id: 's1',
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user' as const, content: 'Hello' }],
       metadata: { tokens: 100 },
       agent_role: 'backend_dev',
       task_type: 'coding',

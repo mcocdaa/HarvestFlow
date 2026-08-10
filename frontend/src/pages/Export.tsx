@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Form, Select, Input, InputNumber, Button, Table, message } from 'antd';
 import { ExportOutlined } from '@ant-design/icons';
 import { exporterApi } from '../services';
@@ -11,21 +11,16 @@ const Export: React.FC = () => {
   const [history, setHistory] = useState<ExportHistory[]>([]);
   const [form] = Form.useForm();
 
-  useEffect(() => {
-    loadHistory();
-    loadFormats();
-  }, []);
-
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     try {
       const res = await exporterApi.getHistory();
       setHistory(res.data?.exports || []);
     } catch (error) {
       console.error('Failed to load history:', error);
     }
-  };
+  }, []);
 
-  const loadFormats = async () => {
+  const loadFormats = useCallback(async () => {
     try {
       const res = await exporterApi.getFormats();
       if (res.data?.formats && res.data.formats.length > 0) {
@@ -34,7 +29,12 @@ const Export: React.FC = () => {
     } catch (error) {
       console.error('Failed to load formats:', error);
     }
-  };
+  }, [form]);
+
+  useEffect(() => {
+    loadHistory();
+    loadFormats();
+  }, [loadHistory, loadFormats]);
 
   const handleExport = async (values: ExportParams) => {
     setLoading(true);

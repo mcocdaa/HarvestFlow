@@ -76,7 +76,7 @@ describe('Export Page', () => {
     await waitFor(() => {
       expect(exporterApi.exportSessions).toHaveBeenCalledTimes(1);
     });
-    const payload = vi.mocked(exporterApi.exportSessions).mock.calls[0][0] as Record<string, unknown>;
+    const payload = vi.mocked(exporterApi.exportSessions).mock.calls[0][0] as unknown as Record<string, unknown>;
     expect(payload.version).toBe('v1');
     expect(payload.format).toBe('sharegpt');
   });

@@ -12,13 +12,13 @@ export interface Session {
 
 export interface Message {
   role: 'user' | 'assistant' | 'system';
-  content: string | any;
+  content: string | unknown;
 }
 
 export interface SessionContent {
   messages?: Message[];
-  metadata?: Record<string, any>;
-  [key: string]: any;
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface SessionListParams {

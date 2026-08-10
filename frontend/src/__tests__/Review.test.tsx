@@ -15,6 +15,9 @@ vi.mock('../services', () => ({
 
 import { reviewerApi, sessionApi } from '../services';
 
+// Mock axios response shape (status/headers/config are not needed by components)
+const mockResponse = <T,>(data: T) => ({ data }) as never;
+
 // Simulate clipboard API
 Object.defineProperty(navigator, 'clipboard', {
   writable: true,
@@ -46,12 +49,8 @@ describe('Review Component', () => {
   });
 
   it('should render review page with session list and approve button', async () => {
-    vi.mocked(reviewerApi.getPending).mockResolvedValue({
-      data: { sessions: [mockSession('s1'), mockSession('s2'), mockSession('s3')] },
-    } as any);
-    vi.mocked(sessionApi.getSessionContent).mockResolvedValue({
-      data: { content: mockContent },
-    } as any);
+    vi.mocked(reviewerApi.getPending).mockResolvedValue(mockResponse({ sessions: [mockSession('s1'), mockSession('s2'), mockSession('s3')] }));
+    vi.mocked(sessionApi.getSessionContent).mockResolvedValue(mockResponse({ content: mockContent }));
 
     render(<Review />);
 
@@ -65,17 +64,13 @@ describe('Review Component', () => {
   it('should call approveSession once and reload the list, loading new first session content', async () => {
     // First load: 3 sessions
     vi.mocked(reviewerApi.getPending)
-      .mockResolvedValueOnce({
-        data: { sessions: [mockSession('s1'), mockSession('s2'), mockSession('s3')] },
-      } as any)
+      .mockResolvedValueOnce(mockResponse({ sessions: [mockSession('s1'), mockSession('s2'), mockSession('s3')] }))
       // After approve: 2 sessions remain (s1 removed)
-      .mockResolvedValueOnce({
-        data: { sessions: [mockSession('s2'), mockSession('s3')] },
-      } as any);
+      .mockResolvedValueOnce(mockResponse({ sessions: [mockSession('s2'), mockSession('s3')] }));
     vi.mocked(sessionApi.getSessionContent)
-      .mockResolvedValue({ data: { content: mockContent } } as any);
+      .mockResolvedValue(mockResponse({ content: mockContent }));
     vi.mocked(reviewerApi.approveSession)
-      .mockResolvedValue({ data: { success: true } } as any);
+      .mockResolvedValue(mockResponse({ success: true }));
 
     render(<Review />);
 
@@ -105,19 +100,15 @@ describe('Review Component', () => {
 
   it('should prevent double submit on rapid consecutive clicks', async () => {
     vi.mocked(reviewerApi.getPending)
-      .mockResolvedValueOnce({
-        data: { sessions: [mockSession('s1'), mockSession('s2'), mockSession('s3')] },
-      } as any)
-      .mockResolvedValueOnce({
-        data: { sessions: [mockSession('s2'), mockSession('s3')] },
-      } as any);
+      .mockResolvedValueOnce(mockResponse({ sessions: [mockSession('s1'), mockSession('s2'), mockSession('s3')] }))
+      .mockResolvedValueOnce(mockResponse({ sessions: [mockSession('s2'), mockSession('s3')] }));
     vi.mocked(sessionApi.getSessionContent)
-      .mockResolvedValue({ data: { content: mockContent } } as any);
+      .mockResolvedValue(mockResponse({ content: mockContent }));
 
     // Make approveSession resolve after a delay to simulate network latency
     vi.mocked(reviewerApi.approveSession)
       .mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({ data: { success: true } } as any), 300))
+        () => new Promise((resolve) => setTimeout(() => resolve(mockResponse({ success: true })), 300))
       );
 
     render(<Review />);
@@ -148,14 +139,14 @@ describe('Review Component', () => {
     vi.mocked(reviewerApi.getPending).mockImplementation(() => {
       getPendingCall++;
       if (getPendingCall === 1) {
-        return Promise.resolve({ data: { sessions: [mockSession('s1')] } } as any);
+        return Promise.resolve(mockResponse({ sessions: [mockSession('s1')] }));
       }
-      return Promise.resolve({ data: { sessions: [] } } as any);
+      return Promise.resolve(mockResponse({ sessions: [] }));
     });
     vi.mocked(sessionApi.getSessionContent)
-      .mockResolvedValue({ data: { content: mockContent } } as any);
+      .mockResolvedValue(mockResponse({ content: mockContent }));
     vi.mocked(reviewerApi.approveSession)
-      .mockResolvedValue({ data: { success: true } } as any);
+      .mockResolvedValue(mockResponse({ success: true }));
 
     render(<Review />);
 
