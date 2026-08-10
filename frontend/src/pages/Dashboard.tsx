@@ -12,6 +12,7 @@ const Dashboard: React.FC = () => {
     rejected_sessions: 0,
     avg_auto_score: 0,
     curated_sessions: 0,
+    reviewed_sessions: 0,
   });
 
   useEffect(() => {
@@ -80,6 +81,13 @@ const Dashboard: React.FC = () => {
         <Col span={12}>
           <Card title="Curated Sessions">
             <Statistic value={stats.curated_sessions || 0} />
+          </Card>
+        </Col>
+      </Row>
+      <Row gutter={16} style={{ marginTop: 16 }}>
+        <Col span={12}>
+          <Card title="Reviewed Sessions">
+            <Statistic value={stats.reviewed_sessions || 0} />
           </Card>
         </Col>
       </Row>

@@ -110,12 +110,15 @@ class SettingManager:
         self._log_config()
 
     def _log_config(self):
-        """记录配置"""
+        """记录配置（敏感值已脱敏）"""
         logger = logging.getLogger(__name__)
         logger.info("=" * 50)
         logger.info("应用配置")
         logger.info("=" * 50)
+        SENSITIVE_KEYWORDS = ("SECRET", "KEY", "PASSWORD", "TOKEN", "CREDENTIAL")
         for key, value in self.config.items():
+            if any(kw in key.upper() for kw in SENSITIVE_KEYWORDS):
+                value = "***"
             logger.info(f"{key}: {value}")
         logger.info("=" * 50)
 

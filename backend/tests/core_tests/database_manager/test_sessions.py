@@ -111,3 +111,43 @@ class TestDatabaseManagerSessions:
         session = self.manager.session_get("json-test")
         assert session["tags"] == ["tag1", "tag2", "tag3"]
         assert session["tools_used"] == ["tool1", "tool2"]
+
+    def test_session_create_idempotent(self, args_with_db_path):
+        """P1.3: Creating same session_id twice returns existing record, no error."""
+        self.manager.init(args_with_db_path)
+
+        session_data = {
+            "session_id": "idempotent-test",
+            "file_path": "/tmp/test.json",
+            "status": "raw",
+            "agent_role": "tester",
+        }
+        first = self.manager.session_create(session_data)
+        assert first is not None
+        assert first["session_id"] == "idempotent-test"
+
+        second = self.manager.session_create(session_data)
+        assert second is not None
+        assert second["session_id"] == "idempotent-test"
+
+    def test_session_review_apply_atomic(self, args_with_db_path):
+        """P1.2: session_review_apply atomically updates status+score and creates audit log."""
+        self.manager.init(args_with_db_path)
+
+        self.manager.session_create({
+            "session_id": "review-atomic",
+            "file_path": "/tmp/test.json",
+            "status": "curated",
+        })
+
+        result = self.manager.session_review_apply(
+            "review-atomic", "approved", 90, "approve", "Approved by test"
+        )
+        assert result is not None
+        assert result["status"] == "approved"
+        assert result["quality_manual_score"] == 90
+
+        logs = self.manager.audit_log_get("review-atomic")
+        assert len(logs) == 1
+        assert logs[0]["action"] == "approve"
+        assert logs[0]["details"] == "Approved by test"

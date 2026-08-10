@@ -87,6 +87,7 @@ class CuratorManager:
             "quality_auto_score": score,
             "tags": tags,
             "tools_used": tools_used,
+            "status": "curated",
         })
 
         result = {
@@ -96,9 +97,6 @@ class CuratorManager:
             "tags": tags,
             "tools_used": tools_used,
         }
-
-        # 所有评估过的会话都标记为 curated
-        self._mark_as_curated(session_id)
 
         return result
 
@@ -178,10 +176,11 @@ class CuratorManager:
             result = self.evaluate_session(session_id)
             results.append(result)
 
+        success_results = [r for r in results if "error" not in r]
         return {
             "total": len(results),
-            "high_value": len([r for r in results if r.get("is_high_value")]),
-            "low_value": len([r for r in results if not r.get("is_high_value")]),
+            "high_value": len([r for r in success_results if r.get("is_high_value")]),
+            "low_value": len([r for r in success_results if not r.get("is_high_value")]),
             "results": results,
         }
 

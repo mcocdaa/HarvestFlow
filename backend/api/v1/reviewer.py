@@ -37,9 +37,9 @@ async def reject_session(session_id: str, notes: Optional[str] = None, score: Op
 @router.patch("/reviewer/session/{session_id}")
 async def update_session(session_id: str, updates: Dict) -> dict:
     result = reviewer_manager.update_session(session_id, updates)
-    if result:
-        return {"success": True, "session": result}
-    return {"success": False, "error": "Session not found"}
+    if "error" in result:
+        return {"success": False, "error": result["error"]}
+    return {"success": True, "session": result}
 
 
 @router.post("/reviewer/batch-approve")

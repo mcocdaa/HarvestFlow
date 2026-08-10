@@ -71,3 +71,32 @@ class TestDatabaseManagerOtherFeatures:
 
         history = self.manager.export_record_get_history(limit=5)
         assert len(history) == 5
+
+    def test_stats_get_includes_curated_status(self, args_with_db_path):
+        """P1.4: stats_get should count curated sessions and include reviewed_sessions."""
+        self.manager.init(args_with_db_path)
+
+        for i in range(3):
+            self.manager.session_create({
+                "session_id": f"raw-{i}", "status": "raw", "file_path": f"/tmp/raw{i}.json",
+            })
+        for i in range(2):
+            self.manager.session_create({
+                "session_id": f"curated-{i}", "status": "curated", "file_path": f"/tmp/curated{i}.json",
+            })
+        self.manager.session_create({
+            "session_id": "approved-1", "status": "approved", "file_path": "/tmp/approved1.json",
+        })
+        self.manager.session_create({
+            "session_id": "rejected-1", "status": "rejected", "file_path": "/tmp/rejected1.json",
+        })
+
+        stats = self.manager.stats_get()
+
+        assert stats["total_sessions"] == 7
+        assert stats["raw_sessions"] == 3
+        assert stats["curated_sessions"] == 2
+        assert stats["approved_sessions"] == 1
+        assert stats["rejected_sessions"] == 1
+        assert stats["reviewed_sessions"] == 2
+        assert "avg_auto_score" in stats

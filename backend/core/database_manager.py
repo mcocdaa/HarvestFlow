@@ -136,7 +136,7 @@ class DatabaseManager:
             self.logger.info("✓ 数据库连接已关闭")
 
     def session_create(self, session_data: Dict) -> Dict:
-        """创建会话"""
+        """创建会话（重复 session_id 时返回已有记录）"""
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
@@ -146,7 +146,7 @@ class DatabaseManager:
 
         with self._write_lock:
             self.connection.execute(
-                """INSERT INTO sessions (session_id, file_path, content, status, agent_role, task_type, tools_used, tags)
+                """INSERT OR IGNORE INTO sessions (session_id, file_path, content, status, agent_role, task_type, tools_used, tags)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     session_data.get("session_id"),
@@ -160,7 +160,7 @@ class DatabaseManager:
                 )
             )
             self.connection.commit()
-        return session_data
+        return self.session_get(session_data.get("session_id"))
 
     def session_get(self, session_id: str) -> Optional[Dict]:
         """获取单个会话"""
@@ -259,7 +259,7 @@ class DatabaseManager:
         return self.session_get(session_id)
 
     def session_delete(self, session_id: str) -> bool:
-        """删除会话"""
+        """删除会话（先删DB记录，再删文件）"""
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
@@ -267,15 +267,16 @@ class DatabaseManager:
         if not session:
             return False
 
+        with self._write_lock:
+            self.connection.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+            self.connection.commit()
+
         if session.get("file_path") and os.path.exists(session["file_path"]):
             try:
                 os.remove(session["file_path"])
             except Exception as e:
                 self.logger.warning(f"删除会话文件失败 {session['file_path']}: {e}", exc_info=True)
 
-        with self._write_lock:
-            self.connection.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
-            self.connection.commit()
         return True
 
     def session_get_by_status(self, status: str) -> List[Dict]:
@@ -309,8 +310,8 @@ class DatabaseManager:
         with self._write_lock:
             if session_id:
                 cursor = self.connection.execute(
-                    "SELECT * FROM audit_logs WHERE session_id = ? ORDER BY created_at DESC",
-                    (session_id,)
+                    "SELECT * FROM audit_logs WHERE session_id = ? ORDER BY created_at DESC LIMIT ?",
+                    (session_id, limit)
                 )
             else:
                 cursor = self.connection.execute(
@@ -318,6 +319,28 @@ class DatabaseManager:
                     (limit,)
                 )
             return [dict(row) for row in cursor.fetchall()]
+
+    def session_review_apply(self, session_id: str, status: str, score: int, action: str, notes: str = None) -> Optional[Dict]:
+        """原子性地更新状态+评分并创建审计日志"""
+        if not self.connection:
+            raise RuntimeError("数据库未初始化")
+
+        with self._write_lock:
+            self.connection.execute("BEGIN IMMEDIATE")
+            try:
+                self.connection.execute(
+                    "UPDATE sessions SET status = ?, quality_manual_score = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
+                    (status, score, session_id)
+                )
+                self.connection.execute(
+                    "INSERT INTO audit_logs (session_id, action, operator, details) VALUES (?, ?, 'user', ?)",
+                    (session_id, action, notes)
+                )
+                self.connection.commit()
+            except Exception:
+                self.connection.rollback()
+                raise
+        return self.session_get(session_id)
 
     def export_record_create(
         self,
@@ -390,6 +413,8 @@ class DatabaseManager:
         with self._write_lock:
             cursor = self.connection.execute(query, tuple(params))
             sessions = [self._row_to_dict(row) for row in cursor.fetchall()]
+        for session in sessions:
+            session = self._deserialize_session_fields(session)
         return sessions
 
     def stats_get(self) -> Dict[str, Any]:
@@ -398,27 +423,29 @@ class DatabaseManager:
             raise RuntimeError("数据库未初始化")
 
         with self._write_lock:
-            raw = self.connection.execute(
-                "SELECT COUNT(*) AS c FROM sessions WHERE status = 'raw'"
-            ).fetchone()["c"]
-            approved = self.connection.execute(
-                "SELECT COUNT(*) AS c FROM sessions WHERE status = 'approved'"
-            ).fetchone()["c"]
-            rejected = self.connection.execute(
-                "SELECT COUNT(*) AS c FROM sessions WHERE status = 'rejected'"
-            ).fetchone()["c"]
+            status_counts = self.connection.execute(
+                "SELECT status, COUNT(*) AS c FROM sessions GROUP BY status"
+            ).fetchall()
             avg_row = self.connection.execute(
                 "SELECT AVG(quality_auto_score) AS avg_score FROM sessions WHERE quality_auto_score IS NOT NULL"
             ).fetchone()
 
+        counts = {row["status"]: row["c"] for row in status_counts}
+        raw = counts.get("raw", 0)
+        approved = counts.get("approved", 0)
+        rejected = counts.get("rejected", 0)
+        curated = counts.get("curated", 0)
+        total = sum(counts.values())
+
         avg_score = avg_row["avg_score"] if avg_row and avg_row["avg_score"] else 0
         return {
-            "total_sessions": raw + approved + rejected,
+            "total_sessions": total,
             "raw_sessions": raw,
             "approved_sessions": approved,
             "rejected_sessions": rejected,
+            "curated_sessions": curated,
+            "reviewed_sessions": approved + rejected,
             "avg_auto_score": round(avg_score, 1) if avg_score else 0,
-            "curated_sessions": approved + rejected,
         }
 
     def _row_to_dict(self, row: sqlite3.Row) -> Dict:

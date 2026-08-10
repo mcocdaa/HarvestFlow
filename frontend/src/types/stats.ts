@@ -5,4 +5,5 @@ export interface Stats {
   rejected_sessions: number;
   avg_auto_score: number;
   curated_sessions: number;
+  reviewed_sessions: number;
 }
