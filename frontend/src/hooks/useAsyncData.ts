@@ -27,9 +27,11 @@ export const useAsyncData = <T>(
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  // fetcher 引用随渲染更新，reload 保持稳定（避免 effect 循环）
+  // fetcher 引用随渲染更新（latest-ref 模式），reload 保持稳定（避免 effect 循环）
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  });
   // 竞态保护：请求序号，过期响应丢弃
   const seqRef = useRef(0);
 
