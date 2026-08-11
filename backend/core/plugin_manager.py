@@ -231,11 +231,8 @@ class PluginManager:
             self.logger.debug(f"插件注册表文件不存在: {registry_path}")
             return {}
 
-        try:
-            with open(registry_path, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f) or {}
-        except Exception as e:
-            self.logger.error(f"读取插件注册表失败: {e}", exc_info=True)
+        data = self._read_yaml(registry_path)
+        if data is None:
             return {}
 
         plugins = {}
@@ -344,21 +341,26 @@ class PluginManager:
         self.logger.info(f"插件 {plugin_key} 已{'启用' if enabled else '禁用'}")
         return True
 
+    def _display_name(self, key: str, manifest: Dict) -> str:
+        """插件显示名：优先 manifest.name，缺省用 key 最后一段"""
+        return manifest.get("name", key.split("/")[-1] if "/" in key else key)
+
+    def _plugin_type(self, key: str, manifest: Dict) -> str:
+        """插件类型：key 含 '/' 取首段，否则取 manifest.type"""
+        if '/' in key:
+            return key.split('/')[0]
+        return manifest.get("type", "unknown")
+
     def get_all(self) -> List[Dict]:
         """获取所有已注册插件的信息（包括禁用插件），展开 manifest 字段"""
         result = []
         for key, info in self.plugins.items():
             manifest = info.get("manifest", {})
-            if '/' in key:
-                plugin_type = key.split('/')[0]
-            else:
-                plugin_type = manifest.get("type", "unknown")
-
             result.append({
                 "key": key,
-                "plugin_type": plugin_type,
+                "plugin_type": self._plugin_type(key, manifest),
                 "enabled": info.get("enabled", True),
-                "name": manifest.get("name", key.split("/")[-1] if "/" in key else key),
+                "name": self._display_name(key, manifest),
                 "version": manifest.get("version", ""),
                 "description": manifest.get("description", ""),
                 "author": manifest.get("author", ""),
