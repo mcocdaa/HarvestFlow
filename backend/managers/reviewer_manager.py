@@ -8,6 +8,7 @@ from typing import Dict, List
 import argparse
 
 from core import database_manager, hook_manager
+from core.constants import SessionStatus
 from managers.base import BaseManager
 from managers.session_manager import session_manager, VALID_STATUS_TRANSITIONS
 
@@ -42,47 +43,56 @@ class ReviewerManager(BaseManager):
         """
         pass
 
+    def _review(self, session_id: str, target_status: SessionStatus, action: str,
+                notes: str = None, score: int = None) -> Dict:
+        """审批/拒绝公共逻辑
+
+        Args:
+            session_id: 会话 ID
+            target_status: 目标状态（APPROVED / REJECTED）
+            action: 审计动作名（"approve" / "reject"）
+            notes: 备注
+            score: 人工评分（缺省沿用现有 quality_manual_score）
+
+        Returns:
+            更新后的会话，失败返回 {"session_id", "error"}
+        """
+        session = session_manager.get_session(session_id)
+        if not session:
+            return self.error_result(session_id, "session not found")
+
+        current_status = session.get("status", SessionStatus.RAW.value)
+        if target_status.value not in VALID_STATUS_TRANSITIONS.get(current_status, []):
+            return self.error_result(session_id, "invalid status transition")
+
+        manual_score = score if score is not None else session.get("quality_manual_score", 0)
+        return database_manager.session_review_apply(
+            session_id, target_status.value, manual_score, action, notes
+        )
+
     @hook_manager.wrap_hooks("reviewer_manager_approve_before", "reviewer_manager_approve_after")
     def approve_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
         """审批会话"""
-        session = session_manager.get_session(session_id)
-        if not session:
-            return {"session_id": session_id, "error": "session not found"}
-
-        current_status = session.get("status", "raw")
-        if "approved" not in VALID_STATUS_TRANSITIONS.get(current_status, []):
-            return {"session_id": session_id, "error": "invalid status transition"}
-
-        manual_score = score if score is not None else session.get("quality_manual_score", 0)
-        return database_manager.session_review_apply(session_id, "approved", manual_score, "approve", notes)
+        return self._review(session_id, SessionStatus.APPROVED, "approve", notes, score)
 
     @hook_manager.wrap_hooks("reviewer_manager_reject_before", "reviewer_manager_reject_after")
     def reject_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
         """拒绝会话"""
-        session = session_manager.get_session(session_id)
-        if not session:
-            return {"session_id": session_id, "error": "session not found"}
-
-        current_status = session.get("status", "raw")
-        if "rejected" not in VALID_STATUS_TRANSITIONS.get(current_status, []):
-            return {"session_id": session_id, "error": "invalid status transition"}
-
-        manual_score = score if score is not None else session.get("quality_manual_score", 0)
-        return database_manager.session_review_apply(session_id, "rejected", manual_score, "reject", notes)
+        return self._review(session_id, SessionStatus.REJECTED, "reject", notes, score)
 
     @hook_manager.wrap_hooks("reviewer_manager_update_before", "reviewer_manager_update_after")
     def update_session(self, session_id: str, updates: Dict) -> Dict:
         """更新会话"""
         session = session_manager.get_session(session_id)
         if not session:
-            return {"session_id": session_id, "error": "session not found"}
+            return self.error_result(session_id, "session not found")
 
         try:
             updated = session_manager.update_session(session_id, updates)
         except ValueError:
-            return {"session_id": session_id, "error": "invalid status transition"}
+            return self.error_result(session_id, "invalid status transition")
         if updated is None:
-            return {"session_id": session_id, "error": "invalid status transition"}
+            return self.error_result(session_id, "invalid status transition")
 
         database_manager.audit_log_create(session_id, "modify", "user", json.dumps(updates))
 

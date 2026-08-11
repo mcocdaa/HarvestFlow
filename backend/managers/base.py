@@ -3,6 +3,7 @@
 # @create 2026-08-10
 
 import argparse
+from typing import Dict
 
 
 class BaseManager:
@@ -29,3 +30,15 @@ class BaseManager:
         Args:
             args: 解析后的命令行参数
         """
+
+    def error_result(self, session_id: str, error: str) -> Dict:
+        """构造统一错误结果
+
+        Args:
+            session_id: 会话 ID
+            error: 错误描述（文案由各调用方提供，保持与既有 API 契约一致）
+
+        Returns:
+            {"session_id": ..., "error": ...}
+        """
+        return {"session_id": session_id, "error": error}
