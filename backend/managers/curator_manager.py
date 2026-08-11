@@ -7,6 +7,7 @@ from typing import Dict, List
 import argparse
 
 from core import database_manager, setting_manager, hook_manager
+from core.constants import SessionStatus
 from managers.base import BaseManager
 from managers.session_manager import session_manager
 
@@ -69,18 +70,18 @@ class CuratorManager(BaseManager):
     def evaluate_session(self, session_id: str) -> Dict:
         """评估单个会话"""
         if not self.enabled:
-            return {"session_id": session_id, "error": "curator disabled"}
+            return self.error_result(session_id, "curator disabled")
 
         session = session_manager.get_session(session_id)
         if not session:
-            return {"session_id": session_id, "error": "session not found"}
+            return self.error_result(session_id, "session not found")
 
-        if session.get("status") != "raw":
-            return {"session_id": session_id, "error": "session is not in raw status"}
+        if session.get("status") != SessionStatus.RAW.value:
+            return self.error_result(session_id, "session is not in raw status")
 
         content = session.get("content")
         if not content:
-            return {"session_id": session_id, "error": "content not found"}
+            return self.error_result(session_id, "content not found")
 
         score = self._calculate_score(content)
         is_high_value = score >= self.auto_approve_threshold
@@ -93,14 +94,14 @@ class CuratorManager(BaseManager):
             "quality_auto_score": score,
             "tags": tags,
             "tools_used": tools_used,
-            "status": "curated",
+            "status": SessionStatus.CURATED.value,
         })
 
         # Auto-approve high-value sessions
         auto_approved = False
         if is_high_value:
             database_manager.session_review_apply(
-                session_id, "approved", score, "auto_approve",
+                session_id, SessionStatus.APPROVED.value, score, "auto_approve",
                 f"score {score} >= threshold {self.auto_approve_threshold}"
             )
             auto_approved = True
@@ -144,6 +145,17 @@ class CuratorManager(BaseManager):
                     tool_names.append(tool_call.get("name"))
         return tool_names
 
+    @staticmethod
+    def _unique_names(names: List[str]) -> List[str]:
+        """去重保序（替代 set() 的任意顺序）"""
+        seen = set()
+        result = []
+        for name in names:
+            if name not in seen:
+                seen.add(name)
+                result.append(name)
+        return result
+
     def _extract_tags(self, content: Dict, tool_names: List[str] = None) -> List[str]:
         """提取标签"""
         tags = []
@@ -156,7 +168,7 @@ class CuratorManager(BaseManager):
 
         tags.extend(tool_names if tool_names is not None else self._extract_tool_names_from_calls(content))
 
-        return list(set(tags))
+        return self._unique_names(tags)
 
     def _extract_tools(self, content: Dict, tool_names: List[str] = None) -> List[str]:
         """提取使用的工具"""
@@ -167,7 +179,7 @@ class CuratorManager(BaseManager):
 
         tools.extend(tool_names if tool_names is not None else self._extract_tool_names_from_calls(content))
 
-        return list(set(tools))
+        return self._unique_names(tools)
 
     @hook_manager.wrap_hooks("curator_manager_evaluate_all_before", "curator_manager_evaluate_all_after")
     def evaluate_all(self) -> Dict:
@@ -175,7 +187,7 @@ class CuratorManager(BaseManager):
         if not self.enabled:
             return {"success": False, "error": "curator disabled"}
 
-        raw_sessions = database_manager.session_get_by_status("raw")
+        raw_sessions = database_manager.session_get_by_status(SessionStatus.RAW.value)
 
         results = []
         for row in raw_sessions:
