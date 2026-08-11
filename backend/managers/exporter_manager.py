@@ -11,12 +11,13 @@ from datetime import datetime, timezone
 import argparse
 
 from core import database_manager, setting_manager, hook_manager
+from core.constants import ExportFormat
 from managers.base import BaseManager
 
 
 DEFAULT_FORMAT = "sharegpt"
-FORMAT_SHAREGPT = "sharegpt"
-FORMAT_ALPACA = "alpaca"
+FORMAT_SHAREGPT = ExportFormat.SHAREGPT.value
+FORMAT_ALPACA = ExportFormat.ALPACA.value
 DEFAULT_VERSION = "v1"
 DEFAULT_HISTORY_LIMIT = 20
 ROLE_USER = "user"
@@ -51,7 +52,7 @@ class ExporterManager(BaseManager):
             "--export-default-format",
             type=str,
             default=None,
-            choices=[FORMAT_SHAREGPT, FORMAT_ALPACA],
+            choices=[f.value for f in ExportFormat],
             help=f"默认导出格式 (默认: {DEFAULT_FORMAT})"
         )
         group.add_argument(
