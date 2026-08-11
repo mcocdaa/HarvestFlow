@@ -22,6 +22,7 @@ version: "2.0"
 ## 项目专用规范
 
 - [project](project/index.md): HarvestFlow 项目专用规范
+  - [architecture_guide.md](project/architecture_guide.md): 架构指南（分层职责/抽象约定/依赖方向）
   - [hook_overview.md](project/hook_overview.md): Hook 插件概述
   - [hook_api.md](project/hook_api.md): Hook Manager API
   - [plugin_structure.md](project/plugin_structure.md): 插件结构
