@@ -7,9 +7,11 @@ import yaml
 import base64
 import secrets
 import logging
+import threading
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Dict
 
 from core import hook_manager
 from core import setting_manager
@@ -98,7 +100,8 @@ class SecretsManager:
         self.sdk_available = False
         self.secret_defs = []
         self.secrets_cache = {}
-        self.refreshing = set()
+        self._refresh_events: Dict[str, threading.Event] = {}
+        self._refresh_lock = threading.Lock()
         self._client_class = LocalSecretsClient
         self._registered_clients = {}
 
@@ -308,16 +311,24 @@ class SecretsManager:
         return value
 
     def refresh_secret(self, name):
-        """强制刷新指定密钥"""
-        if name in self.refreshing:
-            for _ in range(REFRESH_WAIT_MAX_ITERATIONS):
-                if name not in self.refreshing:
-                    break
-                time.sleep(REFRESH_WAIT_INTERVAL)
-            result = self._get_cache(name)
-            return result
+        """强制刷新指定密钥（并发去重：同一密钥仅一个线程执行刷新，其余等待结果）
 
-        self.refreshing.add(name)
+        Args:
+            name: 密钥名称
+
+        Returns:
+            刷新后的密钥值（或等待期间的超时兜底缓存值）
+        """
+        with self._refresh_lock:
+            event = self._refresh_events.get(name)
+            if event is not None:
+                # 已有刷新进行中：等待其完成（Event 唤醒即返回；超时兜底返回缓存）
+                event.wait(timeout=REFRESH_WAIT_MAX_ITERATIONS * REFRESH_WAIT_INTERVAL)
+                return self._get_cache(name)
+
+            event = threading.Event()
+            self._refresh_events[name] = event
+
         try:
             if self.client and self.client.is_available():
                 new_value = self.client.get_secret(name)
@@ -328,7 +339,9 @@ class SecretsManager:
 
             return self._get_cache(name)
         finally:
-            self.refreshing.discard(name)
+            with self._refresh_lock:
+                self._refresh_events.pop(name, None)
+            event.set()
 
     def get_secret(self, name):
         """获取密钥值（从缓存）"""

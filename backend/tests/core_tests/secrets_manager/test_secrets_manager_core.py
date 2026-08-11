@@ -92,3 +92,102 @@ class TestSecretsManagerGetSecret:
         self.manager.init(args_minimal, [])
         result = self.manager.get_secret("TEST_KEY")
         assert result == ""
+
+
+class TestRefreshConcurrency:
+    def test_serial_refresh(self):
+        from core.secrets_manager import secrets_manager
+
+        original_client = secrets_manager.client
+        try:
+            calls = []
+
+            class FakeClient:
+                def is_available(self):
+                    return True
+
+                def get_secret(self, name):
+                    calls.append(name)
+                    return "new-value"
+
+            secrets_manager.client = FakeClient()
+            secrets_manager._set_cache("KEY", "old-value")
+
+            result = secrets_manager.refresh_secret("KEY")
+            assert result == "new-value"
+            assert calls == ["KEY"]
+        finally:
+            secrets_manager.client = original_client
+
+    def test_concurrent_refresh_single_fetch(self):
+        import threading
+        import time
+
+        from core.secrets_manager import secrets_manager
+
+        original_client = secrets_manager.client
+        try:
+            calls = []
+
+            class SlowClient:
+                def is_available(self):
+                    return True
+
+                def get_secret(self, name):
+                    calls.append(name)
+                    time.sleep(0.2)
+                    return "slow-value"
+
+            secrets_manager.client = SlowClient()
+            secrets_manager._set_cache("KEY2", "old-value")
+
+            results = []
+
+            def worker():
+                results.append(secrets_manager.refresh_secret("KEY2"))
+
+            threads = [threading.Thread(target=worker) for _ in range(3)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+            assert len(calls) == 1        # 并发去重：仅一次真实刷新
+            assert results == ["slow-value", "slow-value", "slow-value"]
+        finally:
+            secrets_manager.client = original_client
+
+    def test_waiting_thread_gets_refreshed_cache(self):
+        import threading
+        import time
+
+        from core.secrets_manager import secrets_manager
+
+        original_client = secrets_manager.client
+        try:
+            calls = []
+
+            class GateClient:
+                def is_available(self):
+                    return True
+
+                def get_secret(self, name):
+                    calls.append(name)
+                    time.sleep(0.1)
+                    return "gated-value"
+
+            secrets_manager.client = GateClient()
+            secrets_manager._set_cache("KEY3", "old-value")
+
+            results = []
+            threads = [threading.Thread(target=lambda: results.append(secrets_manager.refresh_secret("KEY3"))) for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+            # 两个线程都拿到刷新后的值（等待者等待完成后读缓存）
+            assert set(results) == {"gated-value"}
+            assert len(calls) == 1
+        finally:
+            secrets_manager.client = original_client

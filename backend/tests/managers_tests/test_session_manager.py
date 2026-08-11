@@ -36,7 +36,6 @@ class TestValidStatusTransitionsShape:
     """状态流转表枚举化后形状保持（spec T1 契约测试）"""
 
     def test_shape_preserved(self):
-        from core.constants import SessionStatus
         from managers.session_manager import VALID_STATUS_TRANSITIONS
 
         assert {
@@ -54,8 +53,6 @@ class TestDeleteSessionFileCleanup:
     """delete_session 承接物理文件删除（DB 层不再删文件）"""
 
     def test_delete_removes_db_record_and_file(self, args_with_db_path, tmp_path):
-        import os
-
         from core import database_manager
         from managers.session_manager import session_manager
 

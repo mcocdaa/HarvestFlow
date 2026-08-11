@@ -60,12 +60,27 @@ class TestSecretsManagerAdditionalFeatures:
         assert result == "old_value"
 
     def test_refresh_secret_waits_when_already_refreshing(self, args_minimal):
+        import threading
+        import time
+
         self.manager.init(args_minimal, [{"name": "TEST_KEY", "level": "optional"}])
         self.manager._set_cache("TEST_KEY", "cached_value")
-        self.manager.refreshing.add("TEST_KEY")
+
+        # 模拟已有刷新进行中：后台线程稍后完成刷新并 set Event
+        event = threading.Event()
+        self.manager._refresh_events["TEST_KEY"] = event
+
+        def finish_refresh():
+            time.sleep(0.05)
+            self.manager._set_cache("TEST_KEY", "fresh_value")
+            with self.manager._refresh_lock:
+                self.manager._refresh_events.pop("TEST_KEY", None)
+            event.set()
+
+        threading.Thread(target=finish_refresh, daemon=True).start()
 
         result = self.manager.refresh_secret("TEST_KEY")
-        assert result == "cached_value"
+        assert result == "fresh_value"
 
     def test_load_all_secrets_populates_cache(self, args_minimal):
         self.manager.init(args_minimal, [])
