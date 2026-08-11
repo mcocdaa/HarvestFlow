@@ -9,7 +9,7 @@
 修正过期文档（hook 清单、架构笔记、CLAUDE.md、插件开发指南），新增架构指南，更新索引。
 文档与代码可交叉验证。
 
-## Task 1：D1 一致性修正
+## Task 1：✅ 已完成D1 一致性修正
 
 - **hook_points.md**：补全 hook 清单（grep 已收集）——
   - after-only 注册参数类 ×10（setting/secrets/database/plugin/session/collector/curator/
@@ -23,15 +23,23 @@
 - **plugin_development.md**：补 call_on_load 入口约定与 curators/openclaw 入口待实现提示
 - **提交**：`docs: D1 修正 hook 清单/架构笔记/CLAUDE/插件开发指南与代码一致性`
 
-## Task 2：D2 架构指南
+## Task 2：✅ 已完成D2 架构指南
 
 - **新增**：docs/project/architecture_guide.md（结构见 spec D2：总览/目录职责/关键抽象约定/
   初始化流程/插件入口约定/依赖方向）
 - **提交**：`docs: D2 新增架构指南（分层职责/抽象约定/依赖方向）`
 
-## Task 3：D3 索引更新
+## Task 3：✅ 已完成D3 索引更新
 
 - **docs/index.md**、**docs/project/index.md**：增加 architecture_guide.md
 - **docs/notes/index.md**：保持或微调描述
 - **验证**：所有链接路径存在（grep 检查）；hook 清单与代码 grep 一致
 - **提交**：`docs: D3 索引更新（architecture_guide 收录）`
+
+## 实施记录
+
+- 全部 Task 已完成，commit：a6c3477（D1）、da29114（D2-D3）
+- 交叉验证：hook 清单与代码 wrap_hooks 全部一致（含 after-only register_arguments ×10、
+  生命周期 init_app/create_app/app_lifespan/register_routes、插件侧 4 个）；
+  文档链接检查通过（rules/docs.md 中的示例链接除外，属规范模板）
+- 发现并修正：CLAUDE.md 原 hook 清单含不存在的 curator_manager_mark_as_curated（已删）
