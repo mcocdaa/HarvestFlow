@@ -50,14 +50,17 @@ Core（基础设施）→ Managers（业务逻辑）→ API v1（HTTP 接口）
 | `secrets_manager` | 密钥缓存，支持本地模式和可插拔远程 SDK（如 Infisical） |
 | `database_manager` | SQLite 封装，所有 SQL 只在此层，外部调用具名方法 |
 | `hook_manager` | 前置/后置钩子系统，`run()`（异步）和 `run_sync()`（同步）两套 |
+| `parsers` | 会话文件解析（`parse_jsonl_file`/`parse_json_file`），业务层委托调用 |
 
 初始化顺序严格：`setting → plugin → secrets → database → business managers`。
 
 ### Manager 层（`backend/managers/`）
 
-5 个业务管理器，每个都实现 `register_arguments(parser)` + `init(args)` 接口：
+5 个业务管理器，统一继承 `managers/base.py` 的 `BaseManager`，
+实现 `register_arguments(parser)` + `init(args)` 生命周期接口；模块级单例模式
+（`xxx_manager = XxxManager()`）：
 
-- **collector_manager**：扫描文件夹，解析 `.json`/`.jsonl`，写入 DB
+- **collector_manager**：扫描文件夹，解析 `.json`/`.jsonl`（委托 `core.parsers`），写入 DB
 - **session_manager**：会话生命周期代理，也提供 `get_session_content()`
 - **curator_manager**：自动评分（1-5分）+ 提取 tags/tools，状态改为 `curated`
 - **reviewer_manager**：人工 approve/reject，写 audit_log，状态改为 `approved`/`rejected`
@@ -67,7 +70,7 @@ Core（基础设施）→ Managers（业务逻辑）→ API v1（HTTP 接口）
 
 ### API 层（`backend/api/v1/`）
 
-`router_loader.py` 自动扫描 `api/v1/` 目录，发现有 `router` 属性的模块并挂载。每个 API 模块只调用对应 Manager，不直接操作 DB。
+`router_loader.py` 自动扫描 `api/v1/` 目录，发现有 `router` 属性的模块并挂载。每个 API 模块只调用对应 Manager，不直接操作 DB。成功响应统一使用 `api/v1/common.py` 的 `ok()`，错误使用 `not_found()`/`bad_request()` 辅助（响应形状 `{"success": true, ...}`）。
 
 插件也可通过 `register_routes` hook（`hook_manager.run_sync("register_routes", app)`）注册额外路由。
 
@@ -79,9 +82,16 @@ Core（基础设施）→ Managers（业务逻辑）→ API v1（HTTP 接口）
 ```
 plugins/collectors/my_plugin/
 ├── plugin.yaml     # 清单：name, type, version, secrets[], config
-├── __init__.py     # 入口，在模块级别用 @hook_manager.hook() 注册钩子
-└── backend.py      # 可选，具体实现
+├── __init__.py     # 入口：from ...hooks import * 注册钩子；可选 call_on_load 初始化
+├── hooks.py        # 钩子定义（@hook_manager.hook 注册）
+└── backend.py      # 可选，具体实现（on_load 初始化入口）
 ```
+
+**插件入口约定**：
+1. 有 hooks.py 的插件，`__init__.py` 必须 `from plugins.{path}.hooks import *`
+2. 有 `on_load` 初始化入口的插件（backend.py 中定义），用 `plugins/common.py` 的
+   `call_on_load(on_load, "[{Name}]")` 安全调用（失败仅记录日志，不中断导入）
+3. 无 `on_load` 的插件不调用 `call_on_load`
 
 **插件加载流程**：
 1. `plugin_manager.register_hooks()` 在 `main()` 最开始调用（argparse 解析前）
@@ -93,12 +103,10 @@ plugins/collectors/my_plugin/
 - **after 钩子**：签名 `(result, *被包装方法参数)`。返回非 `None` 时替换 `result`，多个钩子按 priority 升序链式传递。
 - `run()` / `run_sync()` 返回 `(results, errors)`，`results` 为各钩子返回值列表（按注册顺序）。
 
-**可用钩子点**（格式：`{manager}_{method}_before/after`）：
-- `collector_manager_scan/parse/import/import_all_before/after`
-- `curator_manager_evaluate/evaluate_all/mark_as_curated_before/after`
-- `reviewer_manager_approve/reject/batch_approve/batch_reject_before/after`
-- `exporter_manager_export/get_history_before/after`
-- `app_lifespan_start/shutdown`（异步），`register_routes`（同步）
+**可用钩子点**：完整清单见 `docs/project/hook_points.md`。核心格式
+`{manager}_{method}_before/after`，另有生命周期钩子
+`app_lifespan_start/shutdown`（异步）、`register_routes`（同步）、
+`init_app_before/after`、`create_app_before/after`。
 
 **插件密钥**：在 `plugin.yaml` 的 `secrets[]` 中声明，`secrets_manager` 会自动加载并提供缓存访问。
 
