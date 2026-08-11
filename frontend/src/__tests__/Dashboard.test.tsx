@@ -62,17 +62,17 @@ describe('Dashboard Component', () => {
   })
 
   it('should handle API error gracefully', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(statsApi.get).mockRejectedValue(new Error('API Error'))
 
     render(<Dashboard />)
 
+    // 错误后加载结束、页面不崩溃、默认值展示
     await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to load stats:', expect.any(Error))
+      expect(document.querySelector('.ant-card-loading')).toBeFalsy()
     })
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    consoleSpy.mockRestore()
+    expect(screen.getByText('Total Sessions')).toBeInTheDocument()
   })
 
   it('should show loading state while fetching stats', async () => {

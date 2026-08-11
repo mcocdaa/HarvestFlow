@@ -22,8 +22,9 @@ const Sessions: React.FC = () => {
     try {
       const params: SessionListParams = { page, page_size: pageSize, sort: 'recent' };
       const res = await sessionApi.getSessions(params);
-      setSessions(res.data.sessions || []);
-      setTotal(res.data.total || 0);
+      const list = res.data as { sessions?: Session[]; total?: number };
+      setSessions(list.sessions ?? []);
+      setTotal(list.total ?? 0);
     } catch (error) {
       console.error('Failed to load sessions:', error);
     } finally {
