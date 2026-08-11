@@ -13,6 +13,11 @@ import argparse
 
 from core import hook_manager
 from core import setting_manager
+from core.constants import (
+    MAX_PAGE_SIZE,
+    DEFAULT_PAGE_SIZE,
+    DEFAULT_HISTORY_LIMIT,
+)
 
 class DatabaseManager:
     """数据库管理器
@@ -61,7 +66,7 @@ class DatabaseManager:
 
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
-        self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
+        self.connection = sqlite3.connect(self.db_path, check_same_thread=False, timeout=5.0)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA journal_mode=WAL")
 
@@ -192,7 +197,7 @@ class DatabaseManager:
             raise RuntimeError("数据库未初始化")
 
         # clamp page_size and page to prevent unbounded queries
-        page_size = max(1, min(page_size, 100))
+        page_size = self._clamp_limit(page_size, DEFAULT_PAGE_SIZE)
         page = max(1, page)
 
         where_clause = ""
@@ -313,7 +318,7 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
-        limit = max(1, min(limit, 100))
+        limit = self._clamp_limit(limit, 100)
 
         if session_id:
             cursor = self.connection.execute(
@@ -375,7 +380,7 @@ class DatabaseManager:
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
-        limit = max(1, min(limit, 100))
+        limit = self._clamp_limit(limit, DEFAULT_HISTORY_LIMIT)
 
         with self._write_lock:
             cursor = self.connection.execute(
@@ -420,9 +425,7 @@ class DatabaseManager:
             params.extend(tags)
 
         cursor = self.connection.execute(query, tuple(params))
-        sessions = [self._row_to_dict(row) for row in cursor.fetchall()]
-        for session in sessions:
-            session = self._deserialize_session_fields(session)
+        sessions = [self._deserialize_session_fields(self._row_to_dict(row)) for row in cursor.fetchall()]
         return sessions
 
     def stats_get(self) -> Dict[str, Any]:
@@ -459,23 +462,27 @@ class DatabaseManager:
         """将 Row 转换为字典"""
         return dict(row)
 
+    def _clamp_limit(self, limit: Optional[int], default: int,
+                     max_value: int = MAX_PAGE_SIZE) -> int:
+        """将 limit 限制在 [1, max_value]，None 使用 default"""
+        if limit is None:
+            return default
+        return max(1, min(limit, max_value))
+
+    def _deserialize_json_field(self, data: Dict, key: str) -> None:
+        """就地反序列化指定 JSON 字段，失败保留原值并记 warning"""
+        raw = data.get(key)
+        if not raw:
+            return
+        try:
+            data[key] = json.loads(raw)
+        except json.JSONDecodeError as e:
+            self.logger.warning(f"字段 {key} JSON 反序列化失败: {e}")
+
     def _deserialize_session_fields(self, session: Dict) -> Dict:
         """反序列化会话的 JSON 字段"""
-        if session.get("tags"):
-            try:
-                session["tags"] = json.loads(session["tags"])
-            except json.JSONDecodeError:
-                pass
-        if session.get("tools_used"):
-            try:
-                session["tools_used"] = json.loads(session["tools_used"])
-            except json.JSONDecodeError:
-                pass
-        if session.get("content"):
-            try:
-                session["content"] = json.loads(session["content"])
-            except json.JSONDecodeError:
-                pass
+        for key in ("tags", "tools_used", "content"):
+            self._deserialize_json_field(session, key)
         return session
 
 
