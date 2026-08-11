@@ -267,25 +267,24 @@ class DatabaseManager:
         return self.session_get(session_id)
 
     def session_delete(self, session_id: str) -> bool:
-        """删除会话（先删DB记录，再删文件）"""
+        """删除会话记录（物理文件删除由 session_manager.delete_session 负责）
+
+        Args:
+            session_id: 会话 ID
+
+        Returns:
+            记录是否被删除（不存在返回 False）
+        """
         if not self.connection:
             raise RuntimeError("数据库未初始化")
 
-        session = self.session_get(session_id)
-        if not session:
-            return False
-
         with self._write_lock:
-            self.connection.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+            cursor = self.connection.execute(
+                "DELETE FROM sessions WHERE session_id = ?", (session_id,)
+            )
             self.connection.commit()
 
-        if session.get("file_path") and os.path.exists(session["file_path"]):
-            try:
-                os.remove(session["file_path"])
-            except Exception as e:
-                self.logger.warning(f"删除会话文件失败 {session['file_path']}: {e}", exc_info=True)
-
-        return True
+        return cursor.rowcount > 0
 
     def session_get_by_status(self, status: str) -> List[Dict]:
         """按状态获取会话"""

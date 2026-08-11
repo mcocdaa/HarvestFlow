@@ -3,18 +3,20 @@
 # @create 2026-03-18
 
 import logging
+import os
 from typing import Optional, Dict, List
 import argparse
 
 from core import database_manager, hook_manager
+from core.constants import SessionStatus
 from managers.base import BaseManager
 
 # 合法的状态流转：{当前状态: [允许转入的状态]}
-VALID_STATUS_TRANSITIONS: Dict[str, List[str]] = {
-    "raw":      ["curated"],
-    "curated":  ["approved", "rejected"],
-    "approved": ["rejected"],
-    "rejected": ["approved"],
+VALID_STATUS_TRANSITIONS: Dict[SessionStatus, List[SessionStatus]] = {
+    SessionStatus.RAW:      [SessionStatus.CURATED],
+    SessionStatus.CURATED:  [SessionStatus.APPROVED, SessionStatus.REJECTED],
+    SessionStatus.APPROVED: [SessionStatus.REJECTED],
+    SessionStatus.REJECTED: [SessionStatus.APPROVED],
 }
 
 
@@ -127,7 +129,8 @@ class SessionManager(BaseManager):
             session = database_manager.session_get(session_id)
             if not session:
                 return None
-            current_status = session.get("status", "raw")
+            # current_status 为 str，dict 键为 StrEnum 成员——哈希/相等天然兼容
+            current_status = session.get("status", SessionStatus.RAW.value)
             allowed = VALID_STATUS_TRANSITIONS.get(current_status, [])
             if new_status not in allowed:
                 self.logger.warning(
@@ -143,7 +146,7 @@ class SessionManager(BaseManager):
 
     @hook_manager.wrap_hooks("session_manager_delete_before", "session_manager_delete_after")
     def delete_session(self, session_id: str) -> bool:
-        """删除会话
+        """删除会话（DB 记录 + 物理文件，业务层职责）
 
         Args:
             session_id: 会话 ID
@@ -151,7 +154,21 @@ class SessionManager(BaseManager):
         Returns:
             是否删除成功
         """
-        return database_manager.session_delete(session_id)
+        session = database_manager.session_get(session_id)
+        if not session:
+            return False
+
+        if not database_manager.session_delete(session_id):
+            return False
+
+        file_path = session.get("file_path")
+        if file_path and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                self.logger.warning(f"删除会话文件失败 {file_path}: {e}", exc_info=True)
+
+        return True
 
     @hook_manager.wrap_hooks("session_manager_content_get_before", "session_manager_content_get_after")
     def get_session_content(self, session_id: str) -> Optional[Dict]:
