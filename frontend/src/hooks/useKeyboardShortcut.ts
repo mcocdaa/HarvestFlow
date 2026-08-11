@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react';
+import { isEditableTarget } from '../utils';
 
 export const useKeyboardShortcut = (
   key: string,
@@ -7,10 +8,7 @@ export const useKeyboardShortcut = (
 ) => {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target?.tagName) return;
-      const tagName = target.tagName.toLowerCase();
-      if (tagName === 'input' || tagName === 'textarea' || tagName === 'button' || target.isContentEditable || target.contentEditable === 'true') {
+      if (isEditableTarget(e.target)) {
         return;
       }
 

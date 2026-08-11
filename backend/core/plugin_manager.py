@@ -84,7 +84,7 @@ class PluginManager:
         for key, info in self.plugins.items():
             if not info.get("enabled", True):
                 continue
-            module_name = f"plugins.{key.replace(os.sep, '.').replace('/', '.')}"
+            module_name = self._module_name(key)
             try:
                 try:
                     module = importlib.import_module(module_name)
@@ -95,7 +95,7 @@ class PluginManager:
                 self.logger.info(f"成功加载插件: {info['name']} ({key})")
             except Exception as e:
                 self.logger.error(f"导入插件 {key} 失败: {e}", exc_info=True)
-                module_name = f"plugins.{key.replace(os.sep, '.').replace('/', '.')}"
+                module_name = self._module_name(key)
                 if module_name in sys.modules:
                     del sys.modules[module_name]
                 self.plugin_modules.pop(key, None)
@@ -123,6 +123,98 @@ class PluginManager:
         spec.loader.exec_module(module)
         return module
 
+    def _module_name(self, key: str) -> str:
+        """插件 key → 模块名：plugins.{key 中的路径分隔符替换为 .}"""
+        return f"plugins.{key.replace(os.sep, '.').replace('/', '.')}"
+
+    def _read_yaml(self, path: Path) -> Optional[Dict]:
+        """读取 yaml 文件，异常记录错误返回 None
+
+        Args:
+            path: yaml 文件路径
+
+        Returns:
+            解析后的字典（空内容返回 {}），读取失败返回 None
+        """
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                return yaml.safe_load(f) or {}
+        except Exception as e:
+            self.logger.error(f"读取 yaml 文件失败: {path}: {e}", exc_info=True)
+            return None
+
+    def _read_manifest(self, path: Path) -> Dict:
+        """读取插件清单：目录取 plugin.yaml；.py 单文件构造默认清单
+
+        Args:
+            path: 插件路径（目录或 .py 文件）
+
+        Returns:
+            插件清单字典
+        """
+        if path.is_dir():
+            return self._read_yaml(path / "plugin.yaml")
+        return {"name": path.stem, "type": "unknown", "backend_entry": path.name}
+
+    def _load_entry(self, key: str, cfg: Dict) -> Optional[Dict]:
+        """处理注册表单个条目
+
+        Args:
+            key: 插件 key
+            cfg: plugins.yaml 中该插件的配置
+
+        Returns:
+            {enabled, path, name, type, manifest}，失败返回 None
+        """
+        if cfg is None:
+            return None
+        if not cfg.get("enabled", True):
+            # 保留禁用插件到注册表（供 enable API 查找），但不加载
+            self.logger.debug(f"插件 {key} 已禁用，跳过")
+            return {
+                "enabled": False,
+                "path": "",
+                "name": key.split("/")[-1],
+                "type": "unknown",
+                "manifest": {},
+            }
+
+        if "path" in cfg:
+            path = Path(cfg["path"])
+            if not path.is_absolute():
+                path = (self.plugins_dir / path).resolve()
+            else:
+                path = path.resolve()
+        else:
+            path = (self.plugins_dir / key).resolve()
+
+        if not path.exists():
+            self.logger.warning(f"插件路径不存在: {path}，跳过插件 {key}")
+            return None
+
+        if path.is_dir():
+            plugin_yaml = path / "plugin.yaml"
+            if not plugin_yaml.exists():
+                self.logger.warning(f"插件清单文件不存在: {plugin_yaml}，跳过插件 {key}")
+                return None
+            manifest = self._read_yaml(plugin_yaml)
+            if manifest is None:
+                # 清单读取失败（IO/解析异常），跳过该插件
+                return None
+        elif path.suffix == ".py":
+            manifest = self._read_manifest(path)
+        else:
+            self.logger.warning(f"插件路径既不是目录也不是 .py 文件: {path}，跳过插件 {key}")
+            return None
+
+        return {
+            "enabled": True,
+            "path": str(path),
+            "name": manifest.get("name", key.split("/")[-1] if "/" in key else key),
+            "type": manifest.get("type", "unknown"),
+            "manifest": manifest,
+        }
+
     def _load_registry(self) -> Dict[str, Any]:
         """加载插件注册表
 
@@ -148,70 +240,15 @@ class PluginManager:
 
         plugins = {}
         for key, cfg in data.get("plugins", {}).items():
-            if cfg is None:
-                continue
-            if not cfg.get("enabled", True):
-                # 保留禁用插件到注册表（供 enable API 查找），但不加载
-                plugins[key] = {
-                    "enabled": False,
-                    "path": "",
-                    "name": key.split("/")[-1],
-                    "type": "unknown",
-                    "manifest": {},
-                }
-                self.logger.debug(f"插件 {key} 已禁用，跳过")
-                continue
-
             try:
-                if "path" in cfg:
-                    path = Path(cfg["path"])
-                    if not path.is_absolute():
-                        path = (self.plugins_dir / path).resolve()
-                    else:
-                        path = path.resolve()
-                else:
-                    path = (self.plugins_dir / key).resolve()
-
-                if not path.exists():
-                    self.logger.warning(f"插件路径不存在: {path}，跳过插件 {key}")
-                    continue
-
-                if path.is_dir():
-                    plugin_yaml = path / "plugin.yaml"
-                    if not plugin_yaml.exists():
-                        self.logger.warning(f"插件清单文件不存在: {plugin_yaml}，跳过插件 {key}")
-                        continue
-
-                    try:
-                        with open(plugin_yaml, 'r', encoding='utf-8') as f:
-                            manifest = yaml.safe_load(f) or {}
-                    except Exception as e:
-                        self.logger.error(f"读取插件清单失败 ({key}): {e}", exc_info=True)
-                        continue
-                elif path.suffix == ".py":
-                    manifest = {
-                        "name": path.stem,
-                        "type": "unknown",
-                        "backend_entry": path.name
-                    }
-                else:
-                    self.logger.warning(f"插件路径既不是目录也不是 .py 文件: {path}，跳过插件 {key}")
-                    continue
-
-                plugin_type = manifest.get("type", "unknown")
-
-                plugins[key] = {
-                    "enabled": True,
-                    "path": str(path),
-                    "name": manifest.get("name", key.split("/")[-1] if "/" in key else key),
-                    "type": plugin_type,
-                    "manifest": manifest,
-                }
-                self.logger.debug(f"成功加载插件注册表项: {key} ({path})")
-
+                entry = self._load_entry(key, cfg)
             except Exception as e:
                 self.logger.error(f"处理插件 {key} 时发生错误: {e}", exc_info=True)
                 continue
+            if entry is None:
+                continue
+            plugins[key] = entry
+            self.logger.debug(f"成功加载插件注册表项: {key} ({entry['path']})")
 
         return plugins
 
@@ -291,7 +328,7 @@ class PluginManager:
             return False
 
         if not enabled:
-            module_name = f"plugins.{plugin_key.replace(os.sep, '.').replace('/', '.')}"
+            module_name = self._module_name(plugin_key)
             hook_manager.unregister_by_module(module_name)
             to_remove = [m for m in sys.modules if m == module_name or m.startswith(module_name + ".")]
             for m in to_remove:

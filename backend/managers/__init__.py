@@ -2,6 +2,8 @@
 # @brief 业务管理器模块
 # @create 2026-03-22
 
+from .base import BaseManager
+
 # 业务管理器（领域级）
 from .session_manager import SessionManager, session_manager
 from .collector_manager import CollectorManager, collector_manager
@@ -10,6 +12,7 @@ from .reviewer_manager import ReviewerManager, reviewer_manager
 from .exporter_manager import ExporterManager, exporter_manager
 
 __all__ = [
+    "BaseManager",
     "SessionManager",
     "session_manager",
     "CollectorManager",

@@ -6,7 +6,7 @@ from collections import defaultdict
 import asyncio
 import logging
 from functools import wraps
-from typing import Callable, Any, List, Tuple
+from typing import Callable, Any, List, Tuple, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,28 @@ class HookManager:
             if not self._hooks[hook_name]:
                 del self._hooks[hook_name]
 
+    async def _dispatch(self, hook_name: str, args: Tuple, kwargs: Dict,
+                        execute: Callable[[Callable], Any]) -> HookResult:
+        """共享执行循环：遍历钩子，逐个调用 execute(cb) 收集结果与错误。
+
+        execute 必须为 async 可调用，返回 (collect, value)：
+        - collect: 是否将该值收集进 results（False 表示跳过，如同步环境中的异步钩子）
+        - value: 钩子返回值
+
+        异步钩子在此处 await，同步钩子直接调用。
+        """
+        results = []
+        errors = []
+        for _, cb in self._hooks.get(hook_name, []):
+            try:
+                collect, value = await execute(cb)
+                if collect:
+                    results.append(value)
+            except Exception as e:
+                errors.append((cb.__name__, e))
+                logger.error(f"钩子执行失败 [{hook_name}]: {cb.__name__} - {e}", exc_info=True)
+        return results, errors
+
     async def run(self, hook_name: str, *args, **kwargs) -> HookResult:
         """异步执行所有已注册的钩子
 
@@ -68,21 +90,17 @@ class HookManager:
         Returns:
             (results, errors): 钩子返回值列表（按注册顺序）与错误列表
         """
-        results = []
-        errors = []
-        for _, cb in self._hooks.get(hook_name, []):
-            try:
-                if asyncio.iscoroutinefunction(cb):
-                    results.append(await cb(*args, **kwargs))
-                else:
-                    results.append(cb(*args, **kwargs))
-            except Exception as e:
-                errors.append((cb.__name__, e))
-                logger.error(f"钩子执行失败 [{hook_name}]: {cb.__name__} - {e}", exc_info=True)
-        return results, errors
+        async def execute(cb: Callable) -> Any:
+            if asyncio.iscoroutinefunction(cb):
+                return True, await cb(*args, **kwargs)
+            return True, cb(*args, **kwargs)
+        return await self._dispatch(hook_name, args, kwargs, execute)
 
     def run_sync(self, hook_name: str, *args, **kwargs) -> HookResult:
         """同步执行钩子（给同步包装器用），只执行同步钩子
+
+        同步环境无法 await 异步钩子，因此跳过并警告（与 _dispatch 不同，
+        此处保留独立同步循环以避免 asyncio.run 在已运行事件循环中抛错）。
 
         Args:
             hook_name: 钩子名称

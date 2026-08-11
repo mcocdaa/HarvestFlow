@@ -2,4 +2,4 @@
 # @brief Example curator plugin entry
 # @create 2026-03-28
 
-from plugins.examples.curator_example.hooks import *
+from plugins.examples.curator_example.hooks import *  # noqa: F403

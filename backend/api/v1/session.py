@@ -7,6 +7,7 @@ from fastapi.responses import Response
 from typing import Optional, List
 from pydantic import BaseModel
 from managers.session_manager import session_manager
+from api.v1.common import ok, not_found
 
 
 class SessionUpdate(BaseModel):
@@ -25,16 +26,16 @@ router = APIRouter()
 def get_session(session_id: str) -> dict:
     session = session_manager.get_session(session_id)
     if not session:
-        raise HTTPException(404, detail="Session not found")
-    return {"success": True, "session": session}
+        raise not_found("Session not found")
+    return ok(session=session)
 
 
 @router.get("/sessions/{session_id}/content")
 def get_session_content(session_id: str) -> dict:
     content = session_manager.get_session_content(session_id)
     if not content:
-        raise HTTPException(404, detail="Content not found")
-    return {"success": True, "content": content}
+        raise not_found("Content not found")
+    return ok(content=content)
 
 
 @router.get("/sessions")
@@ -54,15 +55,15 @@ def update_session(session_id: str, updates: SessionUpdate) -> dict:
     except ValueError:
         raise HTTPException(409, detail="Invalid status transition")
     if result is None:
-        raise HTTPException(404, detail="Session not found")
-    return {"success": True, "session": result}
+        raise not_found("Session not found")
+    return ok(session=result)
 
 
 @router.delete("/sessions/{session_id}")
 def delete_session(session_id: str):
     success = session_manager.delete_session(session_id)
     if not success:
-        raise HTTPException(404, detail="Session not found")
+        raise not_found("Session not found")
     return Response(status_code=204)
 
 

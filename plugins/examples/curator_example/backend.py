@@ -3,7 +3,7 @@
 # @create 2026-03-28
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class ExampleCurator:
             评估结果，包含 score, is_high_value, tags
         """
         try:
-            logger.debug(f"[ExampleCurator] Evaluating session")
+            logger.debug("[ExampleCurator] Evaluating session")
 
             # 计算评分
             score = self._calculate_score(session)

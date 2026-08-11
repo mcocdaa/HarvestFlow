@@ -4,6 +4,7 @@
 
 from fastapi import APIRouter, HTTPException
 from managers.curator_manager import curator_manager
+from api.v1.common import ok, not_found, bad_request
 
 router = APIRouter()
 
@@ -12,16 +13,16 @@ router = APIRouter()
 def evaluate_session(session_id: str) -> dict:
     result = curator_manager.evaluate_session(session_id)
     if not result:
-        raise HTTPException(404, detail="Session not found")
+        raise not_found("Session not found")
     error = result.get("error")
     if error:
         if error == "session not found":
-            raise HTTPException(404, detail=error)
+            raise not_found(error)
         elif "not in raw" in error or "disabled" in error:
             raise HTTPException(409, detail=error)
         else:
-            raise HTTPException(400, detail=error)
-    return {"success": True, **result}
+            raise bad_request(error)
+    return ok(**result)
 
 
 @router.post("/curator/evaluate-all")

@@ -35,9 +35,19 @@ config:
 
 **步骤 3：创建入口文件（__init__.py）**
 
+入口约定（与 `plugins/common.py` 辅助配合）：
+
 ```python
-from plugins.collectors.my_collector.hooks import *
+from plugins.collectors.my_collector.hooks import *          # 注册钩子（必选）
+from plugins.collectors.my_collector.backend import on_load  # 初始化入口（可选）
+from plugins.common import call_on_load
+
+call_on_load(on_load, "[MyCollector]")
 ```
+
+- 有 hooks.py 的插件必须导入其钩子
+- 有 `on_load` 初始化入口时通过 `call_on_load` 安全调用（失败仅记录日志，不中断插件导入）
+- 无 `on_load` 的插件不调用 `call_on_load`（参考 `plugins/services/infisical/`）
 
 **步骤 4：创建钩子文件（hooks.py）**
 
@@ -177,6 +187,13 @@ def safe_hook(args, result):
 - **钩子点命名**：`{manager}_{method}_{timing}`
 - **钩子函数命名**：`{plugin_name}_{action}`
 - **插件目录命名**：小写字母，下划线分隔
+
+### 注意事项
+
+- `plugins/curators/openclaw/` 的入口（`__init__.py`）尚未实现，当前加载该插件
+  不会注册任何钩子；如需启用其评分逻辑，先补齐入口与钩子注册
+- `plugins/collectors/default`、`plugins/curators/default`、`plugins/reviewers/default`
+  为占位目录（空），插件开发以 `plugins/examples/` 为模板
 
 ### 性能优化
 

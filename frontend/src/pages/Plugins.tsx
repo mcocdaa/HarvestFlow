@@ -1,28 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Card, Table, message, Tabs, Switch } from 'antd';
 import { pluginApi } from '../services';
+import { useAsyncData } from '../hooks';
 import type { Plugin } from '../types';
 
 const Plugins: React.FC = () => {
-  const [plugins, setPlugins] = useState<Plugin[]>([]);
-  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('collectors');
 
-  const loadPlugins = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await pluginApi.getByType(activeTab);
-      setPlugins((res.data.plugins || []) as Plugin[]);
-    } catch (error) {
-      console.error('Failed to load plugins:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    loadPlugins();
-  }, [loadPlugins]);
+  const { data, loading, reload } = useAsyncData<{ plugins?: Plugin[] }>(
+    useCallback(() => pluginApi.getByType(activeTab), [activeTab])
+  );
+  const plugins = data?.plugins ?? [];
 
   const handleToggle = async (plugin: Plugin, enabled: boolean) => {
     try {
@@ -32,7 +20,7 @@ const Plugins: React.FC = () => {
         await pluginApi.disable(plugin.key);
       }
       message.info(`Plugin ${plugin.name} ${enabled ? 'enabled' : 'disabled'}`);
-      loadPlugins();
+      reload();
     } catch {
       // Interceptor handles error display
     }
@@ -87,7 +75,7 @@ const Plugins: React.FC = () => {
         />
         <Table
           columns={columns}
-          dataSource={plugins || []}
+          dataSource={plugins}
           rowKey="key"
           loading={loading}
           pagination={false}

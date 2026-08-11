@@ -2,18 +2,17 @@
 # @brief 采集管理器 - 负责扫描文件夹和导入会话
 # @create 2026-03-18
 
-import json
 import os
 import logging
 from typing import List, Dict, Optional
-from datetime import datetime, timezone
 import argparse
 
-from core import hook_manager, setting_manager
+from core import hook_manager, setting_manager, parsers
+from managers.base import BaseManager
 from managers.session_manager import session_manager
 
 
-class CollectorManager:
+class CollectorManager(BaseManager):
     """采集管理器
 
     职责：
@@ -97,79 +96,25 @@ class CollectorManager:
         Returns:
             解析后的会话数据，失败返回 None
         """
+        if file_path.endswith('.jsonl'):
+            return parsers.parse_jsonl_file(file_path)
+        return parsers.parse_json_file(file_path)
+
+    def _build_session_record(self, file_path: str, session_data: Dict) -> Dict:
+        """构造入库记录：content 保存原始数据快照，file_path 附加来源路径"""
+        record = dict(session_data)
+        record["file_path"] = file_path
+        record["content"] = dict(session_data)
+        return record
+
+    def _create_session(self, record: Dict) -> Optional[str]:
+        """调用 session_manager 创建会话，返回 session_id，失败记录日志返回 None"""
         try:
-            # 首先尝试使用 jsonl 解析器（OpenClaw 等）
-            if file_path.endswith('.jsonl'):
-                # jsonl 文件需要特殊处理，逐行读取
-                messages = []
-                session_id = None
-                agent_id = None
-
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            msg = json.loads(line)
-                            msg_type = msg.get('type', '')
-                            if msg_type == 'message':
-                                message_data = msg.get('message', {})
-                                role = message_data.get('role', 'user')
-                                content_list = message_data.get('content', [])
-
-                                # 提取文本内容
-                                text_content = ""
-                                if isinstance(content_list, list):
-                                    for item in content_list:
-                                        if isinstance(item, dict) and item.get('type') == 'text':
-                                            text_content += item.get('text', '')
-                                elif isinstance(content_list, str):
-                                    text_content = content_list
-
-                                if text_content:
-                                    messages.append({
-                                        "role": role,
-                                        "content": text_content
-                                    })
-
-                            # 提取 session_id
-                            if not session_id and msg.get('id'):
-                                session_id = msg.get('id')
-
-                        except json.JSONDecodeError:
-                            continue
-
-                if messages and session_id:
-                    # 从文件路径提取 agent_id
-                    parts = file_path.split(os.sep)
-                    if 'agents' in parts:
-                        idx = parts.index('agents')
-                        if idx + 1 < len(parts):
-                            agent_id = parts[idx + 1]
-
-                    return {
-                        "session_id": session_id,
-                        "agent_id": agent_id,
-                        "messages": messages,
-                        "message_count": len(messages),
-                        "has_tool_calls": False,
-                        "tools_used": [],
-                    }
-
-            # 默认处理：尝试作为普通 JSON 文件读取
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-
-            session_id = data.get("session_id")
-            if not session_id:
-                session_id = f"session_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.path.basename(file_path)}"
-                data["session_id"] = session_id
-
-            return data
+            session_manager.create_session(record)
         except Exception as e:
-            self.logger.error(f"解析文件失败 {file_path}: {e}")
+            self.logger.error(f"创建会话记录失败：{e}")
             return None
+        return record.get("session_id")
 
     @hook_manager.wrap_hooks("collector_manager_import_before", "collector_manager_import_after")
     def import_session(self, file_path: str) -> Optional[str]:
@@ -184,20 +129,8 @@ class CollectorManager:
         session_data = self.parse_session_file(file_path)
         if not session_data:
             return None
-
-        session_id = session_data.get("session_id")
-
-        raw_content = dict(session_data)
-        session_data["file_path"] = file_path
-        session_data["content"] = raw_content
-
-        try:
-            session_manager.create_session(session_data)
-        except Exception as e:
-            self.logger.error(f"创建会话记录失败：{e}")
-            return None
-
-        return session_id
+        record = self._build_session_record(file_path, session_data)
+        return self._create_session(record)
 
     @hook_manager.wrap_hooks("collector_manager_import_all_before", "collector_manager_import_all_after")
     def import_all(self, folder_path: str = None) -> Dict:
@@ -226,14 +159,8 @@ class CollectorManager:
                 skipped.append(session_id)
                 continue
 
-            raw_content = dict(session_data)
-            session_data["file_path"] = file_path
-            session_data["content"] = raw_content
-
-            try:
-                session_manager.create_session(session_data)
-            except Exception as e:
-                self.logger.error(f"创建会话记录失败：{e}")
+            record = self._build_session_record(file_path, session_data)
+            if self._create_session(record) is None:
                 failed.append(file_path)
                 continue
             imported.append(session_id)

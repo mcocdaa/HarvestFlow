@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import argparse
 
 from core import database_manager, setting_manager, hook_manager
+from managers.base import BaseManager
 
 
 DEFAULT_FORMAT = "sharegpt"
@@ -24,7 +25,7 @@ ROLE_GPT = "gpt"
 ROLE_SYSTEM = "system"
 
 
-class ExporterManager:
+class ExporterManager(BaseManager):
     """导出管理器
 
     职责：
