@@ -90,7 +90,7 @@ version: "2.0"
 | `curator_manager_construct_before` / `curator_manager_construct_after` | 构造前后 | 审核器管理器实例化前后 |
 | `curator_manager_init_before` / `curator_manager_init_after` | 初始化前后 | 初始化前后 |
 | `curator_manager_register_arguments` | 参数注册后（after-only） | 追加审核参数 |
-| `curator_manager_evaluate_before` / `curator_manager_evaluate_after` | 评估前后 | 评估单个会话 |
+| `curator_manager_evaluate_before` / `curator_manager_evaluate_after` | 评估前后 | 评估单个会话（openclaw 插件短路于此） |
 | `curator_manager_evaluate_all_before` / `curator_manager_evaluate_all_after` | 批量评估前后 | 评估全部会话 |
 
 ### Reviewer Manager
@@ -124,5 +124,6 @@ version: "2.0"
 |---------|------|------|
 | `collector_manager_scan_after` | collectors/openclaw | 合并 OpenClaw 扫描到的 jsonl 文件 |
 | `collector_manager_parse_before` | collectors/openclaw | 短路内置解析，改由 OpenClaw 采集器解析 |
+| `curator_manager_evaluate_before` | curators/openclaw | 短路内置评分，改由 OpenClaw 审核器评分 |
 | `secrets_manager_register_arguments` | services/infisical | 追加 Infisical SDK 参数 |
 | `secrets_manager_init_before` | services/infisical | 配置凭证时启用 Infisical 密钥客户端 |

@@ -4,7 +4,7 @@
 plugins:
   collectors/openclaw:   # OpenClaw 会话采集器
     enabled: true
-  curators/openclaw:     # OpenClaw 自动审核（注意：入口未实现，当前加载无效果）
+  curators/openclaw:     # OpenClaw 自动审核（通过 curator_manager_evaluate_before 短路钩子接入）
     enabled: true
   services/infisical:    # Infisical 密钥服务
     enabled: true

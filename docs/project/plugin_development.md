@@ -190,10 +190,10 @@ def safe_hook(args, result):
 
 ### 注意事项
 
-- `plugins/curators/openclaw/` 的入口（`__init__.py`）尚未实现，当前加载该插件
-  不会注册任何钩子；如需启用其评分逻辑，先补齐入口与钩子注册
-- `plugins/collectors/default`、`plugins/curators/default`、`plugins/reviewers/default`
-  为占位目录（空），插件开发以 `plugins/examples/` 为模板
+- `plugins/curators/openclaw/` 通过 `curator_manager_evaluate_before` 短路钩子接入
+  OpenClaw 评分逻辑（参考 `plugins/collectors/openclaw/hooks.py` 的短路先例）；
+  插件异常时自动回退内置评分
+- 插件开发以 `plugins/examples/` 为模板
 
 ### 性能优化
 
@@ -314,3 +314,9 @@ def validate_import(args, result):
     if result:
         logger.info(f"成功导入会话: {result}")
 ```
+
+## 短路钩子（接管内置逻辑）
+
+before 钩子返回非 None 时短路——跳过被包装方法，返回值作为方法结果。
+可用于接管内置实现（如 openclaw 采集器接管 jsonl 解析、openclaw 审核器接管评分）。
+注意：短路返回结构必须与内置方法返回值契约一致（含错误分支文案）。

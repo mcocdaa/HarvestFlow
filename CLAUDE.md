@@ -107,6 +107,7 @@ plugins/collectors/my_plugin/
 `{manager}_{method}_before/after`，另有生命周期钩子
 `app_lifespan_start/shutdown`（异步）、`register_routes`（同步）、
 `init_app_before/after`、`create_app_before/after`。
+`curators/openclaw` 已接入评分短路钩子（`curator_manager_evaluate_before`）。
 
 **插件密钥**：在 `plugin.yaml` 的 `secrets[]` 中声明，`secrets_manager` 会自动加载并提供缓存访问。
 
@@ -118,4 +119,6 @@ plugins/collectors/my_plugin/
 - **所有数据库操作**走 `database_manager` 的具名方法，禁止在外部写 raw SQL。
 - **每个 Manager 都是模块级单例**，通过 `from managers.xxx import xxx_manager` 导入。
 - **Core 模块间循环引用**：`hook_manager` 和 `setting_manager` 不依赖其他 core 模块；`plugin_manager` 依赖两者；`database_manager` 和 `secrets_manager` 依赖前两者。
+- **状态/格式枚举**：会话状态与导出格式使用 `core/constants.py` 的 `SessionStatus`/`ExportFormat`
+  （StrEnum）；DB 绑定与输出统一 `.value`。
 - `wrap_hooks` 装饰器是同步/异步自动适配的，同步方法用 `run_sync`（只执行同步钩子），异步方法用 `run`（支持两者）。

@@ -54,3 +54,14 @@ class TestBaseManagerInterface:
             exporter_manager,
         ]:
             assert isinstance(instance, BaseManager)
+
+
+class TestErrorResult:
+    def test_structure(self):
+        from managers.base import BaseManager
+
+        bm = BaseManager()
+        assert bm.error_result("s1", "session not found") == {
+            "session_id": "s1",
+            "error": "session not found",
+        }
