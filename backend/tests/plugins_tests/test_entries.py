@@ -2,6 +2,7 @@
 # @brief 插件入口导入冒烟测试
 # @create 2026-08-10
 
+import importlib
 import sys
 from pathlib import Path
 
@@ -27,11 +28,17 @@ class TestPluginEntries:
     def test_openclaw_collector_imports_and_registers_hooks(self):
         import plugins.collectors.openclaw  # noqa: F401
 
+        # 其他测试可能已加载该模块（sys.modules 缓存 + 钩子被清理），
+        # reload hooks 子模块强制重新执行注册
+        importlib.reload(plugins.collectors.openclaw.hooks)
+
         assert "collector_manager_scan_after" in hook_manager._hooks
         assert "collector_manager_parse_before" in hook_manager._hooks
 
     def test_infisical_imports_and_registers_hooks(self):
         import plugins.services.infisical  # noqa: F401
+
+        importlib.reload(plugins.services.infisical.hooks)
 
         assert "secrets_manager_register_arguments" in hook_manager._hooks
         assert "secrets_manager_init_before" in hook_manager._hooks

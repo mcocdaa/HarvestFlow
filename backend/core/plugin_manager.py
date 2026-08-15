@@ -286,9 +286,9 @@ class PluginManager:
                 return False
 
             # Match the plugin key block and replace its enabled line
+            # `:.*` 允许 key 行同行注释（如 `curators/openclaw:   # 说明`）
             escaped_key = re.escape(key)
-            # Pattern: the key line followed by the enabled line (with any indentation)
-            pattern = rf'^(\s*{escaped_key}\s*:\s*\n\s+enabled\s*:\s*)\w+'
+            pattern = rf'^(\s*{escaped_key}\s*:.*\n\s+enabled\s*:\s*)\w+'
             new_enabled = "true" if enabled else "false"
 
             if re.search(pattern, content, re.MULTILINE):
