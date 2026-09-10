@@ -5,9 +5,16 @@
 from fastapi import APIRouter
 from typing import Optional, List
 from managers.reviewer_manager import reviewer_manager
-from api.v1.common import ok, raise_from_result
+from api.v1.common import ok, raise_from_result, not_found
 
 router = APIRouter()
+
+
+def _review_ok(result: dict) -> dict:
+    """审批结果 → 响应：会话缺失 404，其他错误 400，成功包 ok(session=...)"""
+    if result.get("error") == "session not found":
+        raise not_found(result["error"])
+    return ok(session=raise_from_result(result, "Session not found"))
 
 
 @router.get("/reviewer/pending")
@@ -17,14 +24,12 @@ def get_pending_sessions(page: int = 1, page_size: int = 20) -> dict:
 
 @router.post("/reviewer/approve/{session_id}")
 def approve_session(session_id: str, notes: Optional[str] = None, score: Optional[int] = None) -> dict:
-    result = reviewer_manager.approve_session(session_id, notes, score)
-    return ok(session=raise_from_result(result, "Session not found"))
+    return _review_ok(reviewer_manager.approve_session(session_id, notes, score))
 
 
 @router.post("/reviewer/reject/{session_id}")
 def reject_session(session_id: str, notes: Optional[str] = None, score: Optional[int] = None) -> dict:
-    result = reviewer_manager.reject_session(session_id, notes, score)
-    return ok(session=raise_from_result(result, "Session not found"))
+    return _review_ok(reviewer_manager.reject_session(session_id, notes, score))
 
 
 @router.post("/reviewer/batch-approve")

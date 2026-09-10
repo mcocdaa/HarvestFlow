@@ -135,3 +135,67 @@ WHERE s.status = 'approved'
 - `database_manager.session_get_for_export` 状态常量写死在 SQL 字符串中
   （`status = 'approved'`），可用参数化枚举
 - `database_manager` 单连接 + 写锁模型在超高并发下仍是瓶颈
+
+---
+
+## 7. 本地部署实测与真实数据回归（Round 8）
+
+以 `backend/data/test_sessions/agents/` 的真实 OpenClaw 导出数据逐功能实测，
+发现并修复以下问题：
+
+### 7.1 OpenClaw 采集器：真实格式解析失败（严重）
+
+**问题**: `OpenClawCollector.parse()` 只支持扁平行格式
+（`{"role", "content", "sessionId"}`），而真实 OpenClaw v3 导出是嵌套格式
+（`{"type": "message", "message": {"role", "content"}}`）。真实文件解析结果为
+101 条空消息、无 tools、session_id 取自文件名。
+
+**修复**: `parse()` 兼容两种格式；非 message 事件行不再计入消息；
+session_id 优先扁平 `sessionId`，其次 v3 会话头 `{"type":"session","id"}`。
+**影响**: 修复前所有真实 .jsonl 导入均为空内容（且因 message_count 虚高被误自动通过）。
+
+### 7.2 OpenClaw 采集器：Windows 路径回退在 POSIX 失效
+
+**问题**: `scan()` 回退分支用 `Path(session_file).name` 取 Windows 路径文件名，
+POSIX 上反斜杠不是分隔符，返回整串 → 回退文件永远找不到（本机 6 个真实会话全部扫描为 0）。
+`_extract_metadata()` 的 basename 比较同理。
+
+**修复**: 新增 `_path_basename()` 归一化分隔符后取名；`_extract_metadata()`
+改用 `os.sep.join` 构造 agent_dir（原 `os.path.join('' , ...)` 会丢绝对路径开头的 `/`）。
+
+### 7.3 Curator 窄钩子回归：tools_used 被写空
+
+**问题**: Round 7 将 openclaw 评分改为窄钩子后，钩子只返回
+`{score, is_high_value, tags, score_reasons}`；`evaluate_session` 中
+`scored.get("tools_used", [])` 把 content 已有的 tools_used 覆盖为空。
+旧插件实现会显式回写 `content["tools_used"]`。
+
+**修复**: `tools_used = scored.get("tools_used", content.get("tools_used", []))`。
+
+### 7.4 本地脚本：VITE 变量泄漏与停止范围过宽
+
+**问题**:
+- root `.env` 的 `VITE_API_BASE_URL`（Docker 构建用）经 `start.sh` 的 `load_env`
+  导出，覆盖 frontend/.env 的"本地留空走代理"设计，导致本地前端请求到错误端口。
+- `stop.sh` 的 `pkill -f "vite"` 会误杀其他项目的 vite；`python backend/main.py`
+  模式也可能匹配其他项目。
+
+**修复**:
+- `start_frontend_local` 先 `unset VITE_API_BASE_URL VITE_API_KEY`；当 `PORT != 3000`
+  时自动导出 `VITE_API_BASE_URL=http://localhost:$PORT`（多项目端口共存）。
+- `start_backend_local` 改用绝对路径启动；`stop.sh` 按项目绝对路径精确匹配，
+  不再影响其他项目进程。
+
+### 7.5 Reviewer 缺失会话错误码不一致
+
+**问题**: `POST /reviewer/approve|reject` 对不存在会话返回 400 "session not found"，
+与 `GET /sessions/{id}`、`POST /curator/evaluate` 的 404 不一致。
+
+**修复**: API 层将 `error == "session not found"` 映射为 404；补 API 测试。
+
+### 7.6 实测覆盖
+
+采集（scan/import/import-all/watch-folder）、会话（list/get/content/patch/delete/stats）、
+自动审核（evaluate/evaluate-all/status）、人工审核（pending/approve/reject/batch/audit）、
+导出（sharegpt/alpaca/过滤/history/错误路径）、插件（list/by-type）、前端页面与 CORS，
+全部通过；新增采集器回归测试 6 例、curator 1 例、API 2 例（共 351 → 360）。

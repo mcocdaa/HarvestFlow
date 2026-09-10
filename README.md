@@ -185,6 +185,7 @@ HarvestFlow 支持可扩展的插件架构，包含 Collector（采集）、Cura
 | `DATA_DIR` | `./backend/data` | 数据目录 |
 | `DB_PATH` | `./backend/data/db/harvestflow.db` | SQLite 数据库路径 |
 | `PLUGINS_DIR` | `./plugins` | 插件目录（相对项目根） |
+| `OPENCLAW_AGENTS_DIR` | 空 | OpenClaw 采集数据目录（本地开发覆盖 plugin.yaml 的 Docker 路径） |
 | `WATCH_FOLDERS` | 空 | 监控文件夹列表，逗号分隔 |
 | `CURATOR_ENABLED` | `true` | 是否启用自动审核 |
 | `AUTO_APPROVE_THRESHOLD` | `4` | 自动审批阈值 |

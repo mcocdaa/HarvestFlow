@@ -88,6 +88,13 @@ start_frontend_local() {
         cd "$FRONTEND_DIR" && npm install
     fi
     echo "启动本地前端服务..."
+    # 本地模式默认走 Vite 代理（/api → localhost:3000）：
+    # 清除 .env 中供 Docker 构建使用的 VITE_* 变量，避免覆盖 frontend/.env 的留空设计
+    unset VITE_API_BASE_URL VITE_API_KEY
+    # 后端端口非默认 3000 时（多项目共存场景），前端直连对应端口；默认仍走代理
+    if [ -n "$PORT" ] && [ "$PORT" != "3000" ]; then
+        export VITE_API_BASE_URL="http://localhost:$PORT"
+    fi
     echo "✓ 前端服务将启动"
     echo "按 Ctrl+C 停止服务"
     cd "$FRONTEND_DIR" && npm run dev
@@ -101,8 +108,9 @@ start_backend_local() {
     fi
     # 从项目根启动，保证 .env 相对路径（DATA_DIR/DB_PATH/PLUGINS_DIR）正确解析
     # uv 按 backend/uv.lock 自动创建/同步 backend/.venv 后运行
+    # 使用绝对路径便于 stop.sh 精确匹配本项目进程（避免误杀其他项目）
     cd "$PROJECT_ROOT"
-    uv run --project backend --frozen --no-dev python backend/main.py &
+    uv run --project backend --frozen --no-dev python "$PROJECT_ROOT/backend/main.py" &
     echo "✓ 本地后端已启动 (http://localhost:3000)"
 }
 

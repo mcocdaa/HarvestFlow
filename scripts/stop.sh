@@ -61,9 +61,11 @@ case "$MODE" in
     local)
         load_env
         echo "停止本地后端进程..."
-        pkill -f "python backend/main.py" 2>/dev/null || true
+        # 精确匹配本项目绝对路径，避免误杀其他项目的同名进程
+        pkill -f "$PROJECT_ROOT/backend/main.py" 2>/dev/null || true
         echo "停止本地前端进程..."
-        pkill -f "vite" 2>/dev/null || true
+        # vite 的 node 进程 cmdline 含项目内绝对路径（start.sh 启动时 cwd 为 frontend/）
+        pkill -f "$PROJECT_ROOT/frontend/node_modules/.bin/vite" 2>/dev/null || true
         ;;
 
     prod)

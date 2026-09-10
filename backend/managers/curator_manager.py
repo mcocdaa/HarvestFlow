@@ -83,7 +83,8 @@ class CuratorManager(BaseManager):
         score = int(scored["score"])
         is_high_value = bool(scored.get("is_high_value", score >= self.auto_approve_threshold))
         tags = scored.get("tags", [])
-        tools_used = scored.get("tools_used", [])
+        # 评分步骤未显式返回 tools_used 时回退到 content（插件窄钩子只负责评分）
+        tools_used = scored.get("tools_used", content.get("tools_used", []))
 
         session_manager.update_session(session_id, {
             "quality_auto_score": score,

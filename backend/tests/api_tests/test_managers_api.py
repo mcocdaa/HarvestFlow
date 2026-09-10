@@ -92,6 +92,17 @@ class TestCuratorAPI:
 
 
 class TestReviewerAPI:
+    def test_approve_missing_session_404(self, client):
+        """缺失会话应为 404（与 GET /sessions、curator 一致）"""
+        resp = client.post("/api/v1/reviewer/approve/nope")
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "session not found"
+
+    def test_reject_missing_session_404(self, client):
+        resp = client.post("/api/v1/reviewer/reject/nope")
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "session not found"
+
     def test_pending_flow(self, client, import_session):
         import_session("rev-001")
         client.post("/api/v1/curator/evaluate/rev-001")
