@@ -95,9 +95,14 @@ start_frontend_local() {
 
 start_backend_local() {
     echo "启动本地后端服务..."
+    if ! command -v uv >/dev/null 2>&1; then
+        echo "✗ 未找到 uv。请先安装：curl -LsSf https://astral.sh/uv/install.sh | sh"
+        exit 1
+    fi
     # 从项目根启动，保证 .env 相对路径（DATA_DIR/DB_PATH/PLUGINS_DIR）正确解析
+    # uv 按 backend/uv.lock 自动创建/同步 backend/.venv 后运行
     cd "$PROJECT_ROOT"
-    python backend/main.py &
+    uv run --project backend --frozen --no-dev python backend/main.py &
     echo "✓ 本地后端已启动 (http://localhost:3000)"
 }
 

@@ -35,7 +35,8 @@ backend/
 │   ├── agent_curated/     # AI 精选会话
 │   └── human_approved/    # 人工批准会话
 ├── main.py                 # 应用入口
-├── requirements.txt        # Python 依赖
+├── pyproject.toml          # 依赖定义（uv）
+├── uv.lock                 # 依赖锁文件
 ├── pytest.ini             # 测试配置
 ├── Dockerfile             # Docker 构建配置
 └── .gitignore            # Git 忽略规则
@@ -46,11 +47,11 @@ backend/
 ### 本地开发
 
 ```bash
-# 安装依赖
-pip install -r requirements.txt
+# 安装依赖（uv 自动创建 .venv 并按锁文件安装）
+uv sync
 
-# 启动服务
-python main.py
+# 启动服务（推荐从项目根通过 scripts/start.sh local backend 启动）
+uv run python main.py
 ```
 
 ### Docker 开发

@@ -1,0 +1,30 @@
+# @file backend/pyproject.toml
+# @brief 后端依赖与 uv 配置（单一依赖来源，锁文件 uv.lock）
+
+[project]
+name = "harvestflow-backend"
+version = "1.0.0"
+description = "HarvestFlow 后端 - AI Agent 会话数据采集与审核系统"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.100.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0",
+    "uvicorn>=0.23.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.12.0",
+    "pytest>=7.0.0",
+    "ruff==0.15.1",
+]
+
+[tool.uv]
+# 应用而非库：不安装项目自身，仅管理依赖环境
+package = false
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true

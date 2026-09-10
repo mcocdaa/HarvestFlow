@@ -15,18 +15,19 @@ HarvestFlow 是一个本地 AI Agent 会话数据采集与审核系统，用于�
 ## 启动与开发
 
 ```bash
-# 安装依赖（在 backend/ 目录下）
-cd backend && pip install -r requirements.txt
+# 安装依赖（在 backend/ 目录下，uv 自动创建 .venv 并按 uv.lock 安装）
+cd backend && uv sync
 
 # 启动后端（从项目根目录运行，使 .env 和 plugins/ 路径正确）
 cd /path/to/HarvestFlow
-python backend/main.py
+uv run --project backend python backend/main.py
+# 或使用规范脚本：./scripts/start.sh local backend
 
 # 启动前端
 cd frontend && npm install && npm run dev
 
 # 带参数启动（覆盖 .env）
-python backend/main.py --port 3001 --log-level DEBUG --watch-folders /path/to/sessions
+uv run --project backend python backend/main.py --port 3001 --log-level DEBUG --watch-folders /path/to/sessions
 ```
 
 环境配置：复制 `.env.example` 为 `.env` 并填写 `WATCH_FOLDERS`（逗号分隔的会话文件目录）。

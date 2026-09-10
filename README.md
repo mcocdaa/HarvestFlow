@@ -45,8 +45,8 @@ HarvestFlow/
 │   │   └── db/harvestflow.db   # SQLite 数据库
 │   ├── tests/                  # 测试
 │   ├── main.py                 # 应用入口
-│   ├── requirements.txt        # 生产依赖
-│   └── requirements-dev.txt    # 开发/测试依赖
+│   ├── pyproject.toml          # 依赖定义（uv）
+│   └── uv.lock                 # 依赖锁文件
 ├── frontend/                   # 前端工作域
 │   ├── src/
 │   │   ├── components/         # 组件
@@ -144,6 +144,13 @@ HarvestFlow/
 ## 快速开始
 
 ### 本地开发
+
+**前置要求**：后端依赖由 [uv](https://docs.astral.sh/uv/) 管理（按 `backend/uv.lock` 自动创建 `backend/.venv`）：
+
+```bash
+# 如未安装 uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
 **启动方式必须通过 `scripts/start.sh` 脚本（项目规范要求）：**
 
