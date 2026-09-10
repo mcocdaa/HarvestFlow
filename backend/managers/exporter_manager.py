@@ -5,7 +5,6 @@
 import json
 import os
 import uuid
-import logging
 from typing import Dict, List
 from datetime import datetime, timezone
 import argparse
@@ -41,7 +40,7 @@ class ExporterManager(BaseManager):
 
     @hook_manager.wrap_hooks("exporter_manager_construct_before", "exporter_manager_construct_after")
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        super().__init__()
         self.default_format: str = DEFAULT_FORMAT
         self.output_dir: str = os.path.join(setting_manager.get("DATA_DIR", "./data"), "export")
 
@@ -93,12 +92,7 @@ class ExporterManager(BaseManager):
             "tags": tags,
         }
 
-        sessions = database_manager.session_get_for_export(
-            min_score=min_score,
-            agent_role=agent_role,
-            task_type=task_type,
-            tags=tags
-        )
+        sessions = database_manager.session_get_for_export(**filters)
 
         if not sessions:
             return {

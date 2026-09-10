@@ -46,7 +46,6 @@ class TestCuratorManagerEvaluate:
 
     def test_evaluate_session_calculates_score(self, args_minimal, monkeypatch):
         from managers import session_manager
-        from core import database_manager
 
         self.manager.init(args_minimal)
 
@@ -67,7 +66,7 @@ class TestCuratorManagerEvaluate:
             return {"session_id": session_id, **updates}
 
         monkeypatch.setattr(session_manager, "update_session", mock_update)
-        monkeypatch.setattr(database_manager, "session_review_apply", lambda *args, **kwargs: None)
+        monkeypatch.setattr(session_manager, "apply_review", lambda *args, **kwargs: {})
 
         result = self.manager.evaluate_session("test")
 
@@ -76,9 +75,8 @@ class TestCuratorManagerEvaluate:
         assert updates_list[0]["quality_auto_score"] == 5
 
     def test_evaluate_session_auto_approves_high_value(self, args_minimal, monkeypatch):
-        """高分会话应触发自动审批"""
+        """高分会话应触发自动审批（经 session_manager.apply_review 统一入口）"""
         from managers import session_manager
-        from core import database_manager
 
         self.manager.init(args_minimal)
         self.manager.auto_approve_threshold = 3  # low threshold
@@ -94,14 +92,23 @@ class TestCuratorManagerEvaluate:
         monkeypatch.setattr(session_manager, "update_session",
             lambda sid, up: {"session_id": sid, **up})
 
-        apply_called = []
+        apply_calls = []
 
-        def mock_apply(session_id, status, score, action, notes=None):
-            apply_called.append(True)
+        def mock_apply(session_id, target_status, action, notes=None, score=None):
+            apply_calls.append({
+                "session_id": session_id,
+                "target_status": target_status,
+                "action": action,
+                "notes": notes,
+                "score": score,
+            })
             return {"session_id": session_id}
 
-        monkeypatch.setattr(database_manager, "session_review_apply", mock_apply)
+        monkeypatch.setattr(session_manager, "apply_review", mock_apply)
 
         result = self.manager.evaluate_session("test")
         assert result["auto_approved"] is True
-        assert len(apply_called) == 1
+        assert len(apply_calls) == 1
+        assert apply_calls[0]["target_status"].value == "approved"
+        assert apply_calls[0]["action"] == "auto_approve"
+        assert apply_calls[0]["score"] == 5

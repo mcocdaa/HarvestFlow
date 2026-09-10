@@ -255,17 +255,12 @@ class SecretsManager:
                 source = "infisical" if self.sdk_available else "config"
                 return secret_value, source
 
-            if level == "required":
-                random_value = self._generate_random_secret()
-                if self.client.set_secret(name, random_value):
-                    self.logger.info(f"  {name}: required 密钥已上传到服务")
-                else:
-                    self.logger.warning(f"  {name}: required 密钥上传失败，使用本地随机值")
-                return random_value, "generated"
-
         if level == "required":
             random_value = self._generate_random_secret()
-            self.logger.warning(f"  {name}: required 密钥未配置，已自动生成随机值")
+            if self.client and self.client.is_available() and self.client.set_secret(name, random_value):
+                self.logger.info(f"  {name}: required 密钥已上传到服务")
+            else:
+                self.logger.warning(f"  {name}: required 密钥未配置，已自动生成随机值")
             return random_value, "generated"
 
         if default is not None:

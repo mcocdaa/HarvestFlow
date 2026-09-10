@@ -51,7 +51,9 @@ def get_sessions(
 @router.patch("/sessions/{session_id}")
 def update_session(session_id: str, updates: SessionUpdate) -> dict:
     try:
-        result = session_manager.update_session(session_id, updates.model_dump(exclude_none=True))
+        result = session_manager.update_session(
+            session_id, updates.model_dump(exclude_none=True), operator="user"
+        )
     except ValueError:
         raise HTTPException(409, detail="Invalid status transition")
     if result is None:

@@ -2,7 +2,6 @@
 # @brief 自动审核管理器 - 评估会话质量并自动打标签
 # @create 2026-03-18
 
-import logging
 from typing import Dict, List
 import argparse
 
@@ -33,7 +32,7 @@ class CuratorManager(BaseManager):
 
     @hook_manager.wrap_hooks("curator_manager_construct_before", "curator_manager_construct_after")
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        super().__init__()
         self.enabled: bool = True
         self.auto_approve_threshold: int = DEFAULT_AUTO_APPROVE_THRESHOLD
 
@@ -68,27 +67,23 @@ class CuratorManager(BaseManager):
 
     @hook_manager.wrap_hooks("curator_manager_evaluate_before", "curator_manager_evaluate_after")
     def evaluate_session(self, session_id: str) -> Dict:
-        """评估单个会话"""
+        """评估单个会话（模板：校验 → 评分 → 回写 → 自动审批）
+
+        插件通过 curator_manager_score_before 窄钩子只接管评分步骤，
+        校验与回写编排始终由本模板负责，插件无需复制。
+        """
         if not self.enabled:
             return self.error_result(session_id, "curator disabled")
 
-        session = session_manager.get_session(session_id)
-        if not session:
-            return self.error_result(session_id, "session not found")
+        content, error = self._validate_for_evaluation(session_id)
+        if error:
+            return self.error_result(session_id, error)
 
-        if session.get("status") != SessionStatus.RAW.value:
-            return self.error_result(session_id, "session is not in raw status")
-
-        content = session.get("content")
-        if not content:
-            return self.error_result(session_id, "content not found")
-
-        score = self._calculate_score(content)
-        is_high_value = score >= self.auto_approve_threshold
-
-        tool_names = self._extract_tool_names_from_calls(content)
-        tags = self._extract_tags(content, tool_names)
-        tools_used = self._extract_tools(content, tool_names)
+        scored = self._score(content)
+        score = int(scored["score"])
+        is_high_value = bool(scored.get("is_high_value", score >= self.auto_approve_threshold))
+        tags = scored.get("tags", [])
+        tools_used = scored.get("tools_used", [])
 
         session_manager.update_session(session_id, {
             "quality_auto_score": score,
@@ -97,14 +92,15 @@ class CuratorManager(BaseManager):
             "status": SessionStatus.CURATED.value,
         })
 
-        # Auto-approve high-value sessions
+        # Auto-approve high-value sessions（经 apply_review 统一入口，含流转校验+审计）
         auto_approved = False
         if is_high_value:
-            database_manager.session_review_apply(
-                session_id, SessionStatus.APPROVED.value, score, "auto_approve",
-                f"score {score} >= threshold {self.auto_approve_threshold}"
+            review_result = session_manager.apply_review(
+                session_id, SessionStatus.APPROVED, "auto_approve",
+                notes=f"score {score} >= threshold {self.auto_approve_threshold}",
+                score=score
             )
-            auto_approved = True
+            auto_approved = "error" not in review_result
 
         result = {
             "session_id": session_id,
@@ -114,8 +110,46 @@ class CuratorManager(BaseManager):
             "tools_used": tools_used,
             "auto_approved": auto_approved,
         }
-
+        # 评分步骤的附加产物（如 score_reasons）并入 API 响应
+        result.update({k: v for k, v in scored.items() if k not in result})
         return result
+
+    def _validate_for_evaluation(self, session_id: str) -> tuple:
+        """评估前置校验（错误文案为 API 404/409 映射依据，不可更改）
+
+        Returns:
+            (content, error)：校验通过返回 (会话 content, None)，否则 (None, 错误文案)
+        """
+        session = session_manager.get_session(session_id)
+        if not session:
+            return None, "session not found"
+
+        if session.get("status") != SessionStatus.RAW.value:
+            return None, "session is not in raw status"
+
+        content = session.get("content")
+        if not content:
+            return None, "content not found"
+
+        return content, None
+
+    @hook_manager.wrap_hooks(before="curator_manager_score_before", after="curator_manager_score_after")
+    def _score(self, content: Dict) -> Dict:
+        """内置评分步骤（窄钩子接入点）
+
+        before 钩子签名 (self, content)；返回非 None dict 即短路接管，
+        需包含 score 键，可选 is_high_value / tags / tools_used 及任意附加键。
+
+        Returns:
+            {"score": int, "tags": List[str], "tools_used": List[str], ...}
+        """
+        score = self._calculate_score(content)
+        tool_names = self._extract_tool_names_from_calls(content)
+        return {
+            "score": score,
+            "tags": self._extract_tags(content, tool_names),
+            "tools_used": self._extract_tools(content, tool_names),
+        }
 
     def _calculate_score(self, content: Dict) -> int:
         """计算质量分数"""

@@ -46,7 +46,7 @@ version: "1.0"
 | `secrets_manager` | 密钥缓存 + 可插拔客户端 | `init(args, plugin_secrets)`、`set_client_class(cls)` |
 | `database_manager` | SQLite 封装（唯一 SQL 层） | `session_get/session_create/...` 具名方法 |
 | `hook_manager` | 钩子系统 | `hook()`、`wrap_hooks()`、`run()`（异步）、`run_sync()`（同步） |
-| `parsers` | 会话文件解析 | `parse_jsonl_file(path)`、`parse_json_file(path)` |
+| `parsers` | 会话文件解析（json；jsonl 由采集器插件负责） | `parse_json_file(path)` |
 | `constants` | 全局枚举与通用常量 | `SessionStatus`/`ExportFormat`（StrEnum）、`MAX_PAGE_SIZE` 等 |
 
 ### backend/managers/（业务层）
@@ -147,8 +147,9 @@ call_on_load(on_load, "[{Name}]")
 
 详细开发指南见 `plugin_development.md`；结构说明见 `plugin_structure.md`。
 
-> `plugins/curators/openclaw/` 已接入：`curator_manager_evaluate_before` 短路钩子
-> 接管自动审核评分（参考 `plugin_development.md`「短路钩子」小节）。
+> `plugins/curators/openclaw/` 已接入：`curator_manager_score_before` 窄钩子
+> 只接管自动审核的评分步骤，校验与回写由 `CuratorManager` 模板负责（参考
+> `plugin_development.md`「短路钩子」小节）。
 
 ## 6. 依赖方向规则（红线）
 

@@ -116,6 +116,7 @@ HarvestFlow/
 | GET | /api/v1/sessions | 获取会话列表 |
 | GET | /api/v1/sessions/{id} | 获取会话详情 |
 | GET | /api/v1/sessions/{id}/content | 获取会话原始内容 |
+| PATCH | /api/v1/sessions/{id} | 更新会话（含状态流转校验与审计） |
 | DELETE | /api/v1/sessions/{id} | 删除会话 |
 | GET | /api/v1/collector/scan | 触发扫描 |
 | POST | /api/v1/collector/import | 导入单个会话 |
@@ -126,7 +127,6 @@ HarvestFlow/
 | POST | /api/v1/reviewer/reject/{id} | 驳回审核 |
 | POST | /api/v1/reviewer/batch-approve | 批量审核通过 |
 | POST | /api/v1/reviewer/batch-reject | 批量审核驳回 |
-| PATCH | /api/v1/reviewer/session/{id} | 更新会话标注 |
 | GET | /api/v1/reviewer/audit-logs | 获取审核日志 |
 | POST | /api/v1/exporter/export | 导出数据 (JSON body) |
 | GET | /api/v1/exporter/formats | 获取支持的导出格式 |
