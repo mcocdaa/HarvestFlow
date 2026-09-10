@@ -5,19 +5,20 @@
 
 FROM python:3.12-slim
 
+# 安装 uv（官方静态二进制，用于按锁文件安装依赖）
+COPY --from=ghcr.io/astral-sh/uv:0.11.19 /uv /uvx /bin/
+
 WORKDIR /app
 
-# 安装系统依赖
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# 复制依赖文件
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# 按锁文件安装运行依赖（不安装 dev 组；依赖均有预编译 wheel，无需编译器）
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
 
 # 复制后端代码
 COPY . .
+
+# 使用项目虚拟环境中的 python
+ENV PATH="/app/.venv/bin:$PATH"
 
 # 内部端口（固定）
 EXPOSE 3000
