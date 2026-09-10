@@ -73,8 +73,8 @@ version: "2.0"
 
 1. 业务管理器继承 `managers.base.BaseManager`，统一 `register_arguments`/`init` 生命周期接口
 2. 模块级单例模式：`xxx_manager = XxxManager()`，测试直接 import 单例
-3. 会话文件解析（jsonl/json）统一走 `core.parsers`（`parse_jsonl_file`/`parse_json_file`），
-   业务层不再内嵌解析逻辑
+3. 会话文件解析：`.json` 走 `core.parsers.parse_json_file`；`.jsonl` 由采集器插件
+   经 `collector_manager_parse_before` 钩子负责（核心层不内置 jsonl 解析），业务层不再内嵌解析逻辑
 4. API 成功响应统一 `api.v1.common.ok()`，错误统一 `not_found`/`bad_request` 辅助
 
 ## Secrets Manager 使用

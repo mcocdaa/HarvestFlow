@@ -190,9 +190,10 @@ def safe_hook(args, result):
 
 ### 注意事项
 
-- `plugins/curators/openclaw/` 通过 `curator_manager_evaluate_before` 短路钩子接入
-  OpenClaw 评分逻辑（参考 `plugins/collectors/openclaw/hooks.py` 的短路先例）；
-  插件异常时自动回退内置评分
+- `plugins/curators/openclaw/` 通过 `curator_manager_score_before` 窄钩子接入
+  OpenClaw 评分逻辑：校验与回写由 `CuratorManager.evaluate_session` 模板负责，
+  插件只接管 `_score` 步骤（返回含 `score` 键的 dict 即短路内置评分）；
+  插件异常时返回 None 自动回退内置评分
 - 插件开发以 `plugins/examples/` 为模板
 
 ### 性能优化

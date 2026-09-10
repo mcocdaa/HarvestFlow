@@ -2,7 +2,7 @@
 # @brief 会话管理器 - 管理会话生命周期
 # @create 2026-03-18
 
-import logging
+import json
 import os
 from typing import Optional, Dict, List
 import argparse
@@ -34,16 +34,11 @@ class SessionManager(BaseManager):
 
     @hook_manager.wrap_hooks("session_manager_construct_before", "session_manager_construct_after")
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        super().__init__()
 
     @hook_manager.wrap_hooks(after="session_manager_register_arguments")
     def register_arguments(self, parser: argparse.ArgumentParser):
-        """注册 argparse 参数
-
-        Args:
-            parser: argparse.ArgumentParser 实例
-        """
-        parser.add_argument_group("Session", "Session Management")
+        """注册 argparse 参数（无参数）"""
 
     @hook_manager.wrap_hooks("session_manager_init_before", "session_manager_init_after")
     def init(self, args: argparse.Namespace):
@@ -111,12 +106,15 @@ class SessionManager(BaseManager):
         )
 
     @hook_manager.wrap_hooks("session_manager_update_before", "session_manager_update_after")
-    def update_session(self, session_id: str, updates: Dict) -> Optional[Dict]:
+    def update_session(self, session_id: str, updates: Dict, operator: str = None) -> Optional[Dict]:
         """更新会话，包含状态流转合法性校验
 
         Args:
             session_id: 会话 ID
             updates: 更新数据字典
+            operator: 操作者标识；传入时（如 API 层传 "user"）成功更新后
+                追加 "modify" 审计日志。内部流水线调用（如 curator 回写）
+                不传则不产生审计，避免污染操作历史。
 
         Returns:
             更新后的会话数据，会话不存在返回 None
@@ -142,7 +140,53 @@ class SessionManager(BaseManager):
         if result is None and not new_status:
             # empty update: return existing session
             return session or database_manager.session_get(session_id)
+        if operator is not None and result is not None:
+            database_manager.audit_log_create(
+                session_id, "modify", operator, json.dumps(updates, ensure_ascii=False)
+            )
         return result
+
+    @hook_manager.wrap_hooks("session_manager_apply_review_before", "session_manager_apply_review_after")
+    def apply_review(
+        self,
+        session_id: str,
+        target_status: SessionStatus,
+        action: str,
+        notes: str = None,
+        score: int = None
+    ) -> Dict:
+        """审批落库唯一入口：状态流转校验 + 原子更新（状态+评分+审计日志）
+
+        所有审批路径（人工 approve/reject、curator 自动审批）都必须经由本方法，
+        不允许绕过流转校验直调 database_manager.session_review_apply。
+
+        Args:
+            session_id: 会话 ID
+            target_status: 目标状态（APPROVED / REJECTED）
+            action: 审计动作名（"approve" / "reject" / "auto_approve"）
+            notes: 备注
+            score: 评分，缺省沿用现有 quality_manual_score
+
+        Returns:
+            更新后的会话数据；会话不存在或状态流转非法时返回
+            {"session_id": ..., "error": ...}
+        """
+        session = self.get_session(session_id)
+        if not session:
+            return self.error_result(session_id, "session not found")
+
+        current_status = session.get("status", SessionStatus.RAW.value)
+        if target_status.value not in VALID_STATUS_TRANSITIONS.get(current_status, []):
+            self.logger.warning(
+                f"Invalid status transition for {session_id}: "
+                f"{current_status!r} -> {target_status.value!r}, allowed: {VALID_STATUS_TRANSITIONS.get(current_status, [])}"
+            )
+            return self.error_result(session_id, "invalid status transition")
+
+        manual_score = score if score is not None else session.get("quality_manual_score", 0)
+        return database_manager.session_review_apply(
+            session_id, target_status.value, manual_score, action, notes
+        )
 
     @hook_manager.wrap_hooks("session_manager_delete_before", "session_manager_delete_after")
     def delete_session(self, session_id: str) -> bool:

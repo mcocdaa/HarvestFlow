@@ -35,16 +35,13 @@ def client(args_with_db_path, tmp_path, monkeypatch):
 
 @pytest.fixture
 def make_session_file(tmp_path):
+    """构造核心层可解析的标准 .json 会话文件（.jsonl 由采集器插件负责）"""
     def _make(session_id, role="user", content="hello"):
-        path = tmp_path / f"{session_id}.jsonl"
+        path = tmp_path / f"{session_id}.json"
         path.write_text(json.dumps({
-            "type": "message",
-            "id": session_id,
-            "message": {
-                "role": role,
-                "content": [{"type": "text", "text": content}],
-            },
-        }) + "\n", encoding="utf-8")
+            "session_id": session_id,
+            "messages": [{"role": role, "content": content}],
+        }), encoding="utf-8")
         return str(path)
 
     return _make
@@ -67,7 +64,7 @@ class TestSessionCRUD:
         assert resp.json()["session"]["status"] == "raw"
 
     def test_import_missing_file(self, client):
-        resp = client.post("/api/v1/collector/import", params={"file_path": "/nonexistent/x.jsonl"})
+        resp = client.post("/api/v1/collector/import", params={"file_path": "/nonexistent/x.json"})
         assert resp.status_code == 400
         assert resp.json()["detail"] == "Failed to import session"
 
@@ -86,6 +83,12 @@ class TestSessionCRUD:
         resp = client.patch("/api/v1/sessions/api-test-002", json={"status": "curated"})
         assert resp.status_code == 200
         assert resp.json()["session"]["status"] == "curated"
+
+        # 审计上移：API 更新路径应产生 modify 审计日志
+        resp = client.get("/api/v1/reviewer/audit-logs", params={"session_id": "api-test-002"})
+        assert resp.status_code == 200
+        logs = resp.json()["logs"]
+        assert any(log["action"] == "modify" and log["operator"] == "user" for log in logs)
 
     def test_update_invalid_transition_409(self, client, make_session_file):
         path = make_session_file("api-test-003")

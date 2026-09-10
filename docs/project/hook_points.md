@@ -67,6 +67,7 @@ version: "2.0"
 | `session_manager_get_before` / `session_manager_get_after` | 获取前后 | 获取会话 |
 | `session_manager_list_before` / `session_manager_list_after` | 列表前后 | 会话列表查询 |
 | `session_manager_update_before` / `session_manager_update_after` | 更新前后 | 更新会话（含状态流转校验） |
+| `session_manager_apply_review_before` / `session_manager_apply_review_after` | 审批前后 | 审批落库唯一入口（流转校验 + 状态/评分原子更新 + 审计） |
 | `session_manager_delete_before` / `session_manager_delete_after` | 删除前后 | 删除会话 |
 | `session_manager_content_get_before` / `session_manager_content_get_after` | 内容获取前后 | 获取会话内容 |
 | `session_manager_stats_get_before` / `session_manager_stats_get_after` | 统计前后 | 获取统计信息 |
@@ -90,7 +91,8 @@ version: "2.0"
 | `curator_manager_construct_before` / `curator_manager_construct_after` | 构造前后 | 审核器管理器实例化前后 |
 | `curator_manager_init_before` / `curator_manager_init_after` | 初始化前后 | 初始化前后 |
 | `curator_manager_register_arguments` | 参数注册后（after-only） | 追加审核参数 |
-| `curator_manager_evaluate_before` / `curator_manager_evaluate_after` | 评估前后 | 评估单个会话（openclaw 插件短路于此） |
+| `curator_manager_evaluate_before` / `curator_manager_evaluate_after` | 评估前后 | 评估单个会话 |
+| `curator_manager_score_before` / `curator_manager_score_after` | 评分前后 | 评分步骤窄钩子（openclaw 插件短路于此） |
 | `curator_manager_evaluate_all_before` / `curator_manager_evaluate_all_after` | 批量评估前后 | 评估全部会话 |
 
 ### Reviewer Manager
@@ -102,7 +104,6 @@ version: "2.0"
 | `reviewer_manager_register_arguments` | 参数注册后（after-only） | 追加评审参数 |
 | `reviewer_manager_approve_before` / `reviewer_manager_approve_after` | 批准前后 | 人工批准 |
 | `reviewer_manager_reject_before` / `reviewer_manager_reject_after` | 拒绝前后 | 人工拒绝 |
-| `reviewer_manager_update_before` / `reviewer_manager_update_after` | 更新前后 | 更新会话 |
 | `reviewer_manager_batch_approve_before` / `reviewer_manager_batch_approve_after` | 批量批准前后 | 批量批准 |
 | `reviewer_manager_batch_reject_before` / `reviewer_manager_batch_reject_after` | 批量拒绝前后 | 批量拒绝 |
 | `reviewer_manager_get_pending_before` / `reviewer_manager_get_pending_after` | 待审列表前后 | 获取待审列表 |
@@ -124,6 +125,6 @@ version: "2.0"
 |---------|------|------|
 | `collector_manager_scan_after` | collectors/openclaw | 合并 OpenClaw 扫描到的 jsonl 文件 |
 | `collector_manager_parse_before` | collectors/openclaw | 短路内置解析，改由 OpenClaw 采集器解析 |
-| `curator_manager_evaluate_before` | curators/openclaw | 短路内置评分，改由 OpenClaw 审核器评分 |
+| `curator_manager_score_before` | curators/openclaw | 短路内置评分步骤，改由 OpenClaw 审核器评分（校验/回写仍由模板负责） |
 | `secrets_manager_register_arguments` | services/infisical | 追加 Infisical SDK 参数 |
 | `secrets_manager_init_before` | services/infisical | 配置凭证时启用 Infisical 密钥客户端 |

@@ -35,16 +35,13 @@ def client(args_with_db_path, tmp_path, monkeypatch):
 
 @pytest.fixture
 def make_session_file(tmp_path):
+    """构造核心层可解析的标准 .json 会话文件（.jsonl 由采集器插件负责）"""
     def _make(session_id, role="user", content="hello"):
-        path = tmp_path / f"{session_id}.jsonl"
+        path = tmp_path / f"{session_id}.json"
         path.write_text(json.dumps({
-            "type": "message",
-            "id": session_id,
-            "message": {
-                "role": role,
-                "content": [{"type": "text", "text": content}],
-            },
-        }) + "\n", encoding="utf-8")
+            "session_id": session_id,
+            "messages": [{"role": role, "content": content}],
+        }), encoding="utf-8")
         return str(path)
 
     return _make

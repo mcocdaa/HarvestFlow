@@ -106,7 +106,9 @@ class TestOpenClawCuratorHook:
     def test_import_registers_hook(self):
         import plugins.curators.openclaw  # noqa: F401
 
-        assert "curator_manager_evaluate_before" in hook_manager._hooks
+        # 窄钩子协议：插件只接管评分步骤，不再短路整个 evaluate
+        assert "curator_manager_score_before" in hook_manager._hooks
+        assert "curator_manager_evaluate_before" not in hook_manager._hooks
 
     def test_short_circuit_evaluates_and_writes_db(self, db, curated_setup):
         make_low_value_session(db, "oc-1")

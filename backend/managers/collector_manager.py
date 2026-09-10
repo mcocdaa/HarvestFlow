@@ -3,7 +3,6 @@
 # @create 2026-03-18
 
 import os
-import logging
 from typing import List, Dict, Optional
 import argparse
 
@@ -27,7 +26,7 @@ class CollectorManager(BaseManager):
 
     @hook_manager.wrap_hooks("collector_manager_construct_before", "collector_manager_construct_after")
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        super().__init__()
         self.watch_folders: List[str] = []
 
     @hook_manager.wrap_hooks(after="collector_manager_register_arguments")
@@ -88,7 +87,7 @@ class CollectorManager(BaseManager):
 
     @hook_manager.wrap_hooks("collector_manager_parse_before", "collector_manager_parse_after")
     def parse_session_file(self, file_path: str) -> Optional[Dict]:
-        """解析会话文件
+        """解析会话文件（.jsonl 由采集器插件经 parse_before 钩子接管）
 
         Args:
             file_path: 会话文件路径
@@ -96,8 +95,6 @@ class CollectorManager(BaseManager):
         Returns:
             解析后的会话数据，失败返回 None
         """
-        if file_path.endswith('.jsonl'):
-            return parsers.parse_jsonl_file(file_path)
         return parsers.parse_json_file(file_path)
 
     def _build_session_record(self, file_path: str, session_data: Dict) -> Dict:
@@ -116,6 +113,11 @@ class CollectorManager(BaseManager):
             return None
         return record.get("session_id")
 
+    def _import_parsed(self, file_path: str, session_data: Dict) -> Optional[str]:
+        """已解析数据的导入公共路径：构造记录 + 入库（import_session / import_all 共用）"""
+        record = self._build_session_record(file_path, session_data)
+        return self._create_session(record)
+
     @hook_manager.wrap_hooks("collector_manager_import_before", "collector_manager_import_after")
     def import_session(self, file_path: str) -> Optional[str]:
         """导入单个会话
@@ -129,8 +131,7 @@ class CollectorManager(BaseManager):
         session_data = self.parse_session_file(file_path)
         if not session_data:
             return None
-        record = self._build_session_record(file_path, session_data)
-        return self._create_session(record)
+        return self._import_parsed(file_path, session_data)
 
     @hook_manager.wrap_hooks("collector_manager_import_all_before", "collector_manager_import_all_after")
     def import_all(self, folder_path: str = None) -> Dict:
@@ -159,11 +160,11 @@ class CollectorManager(BaseManager):
                 skipped.append(session_id)
                 continue
 
-            record = self._build_session_record(file_path, session_data)
-            if self._create_session(record) is None:
+            created_id = self._import_parsed(file_path, session_data)
+            if created_id is None:
                 failed.append(file_path)
                 continue
-            imported.append(session_id)
+            imported.append(created_id)
 
         return {
             "total": len(files),

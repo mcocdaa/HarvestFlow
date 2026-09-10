@@ -5,8 +5,7 @@
 from fastapi import APIRouter
 from typing import Optional, List
 from managers.reviewer_manager import reviewer_manager
-from api.v1.session import SessionUpdate
-from api.v1.common import ok, not_found, bad_request
+from api.v1.common import ok, raise_from_result
 
 router = APIRouter()
 
@@ -19,31 +18,13 @@ def get_pending_sessions(page: int = 1, page_size: int = 20) -> dict:
 @router.post("/reviewer/approve/{session_id}")
 def approve_session(session_id: str, notes: Optional[str] = None, score: Optional[int] = None) -> dict:
     result = reviewer_manager.approve_session(session_id, notes, score)
-    if not result:
-        raise not_found("Session not found")
-    if "error" in result:
-        raise bad_request(result["error"])
-    return ok(session=result)
+    return ok(session=raise_from_result(result, "Session not found"))
 
 
 @router.post("/reviewer/reject/{session_id}")
 def reject_session(session_id: str, notes: Optional[str] = None, score: Optional[int] = None) -> dict:
     result = reviewer_manager.reject_session(session_id, notes, score)
-    if not result:
-        raise not_found("Session not found")
-    if "error" in result:
-        raise bad_request(result["error"])
-    return ok(session=result)
-
-
-@router.patch("/reviewer/session/{session_id}")
-def update_session(session_id: str, updates: SessionUpdate) -> dict:
-    result = reviewer_manager.update_session(session_id, updates.model_dump(exclude_none=True))
-    if not result:
-        raise not_found("Session not found")
-    if "error" in result:
-        raise bad_request(result["error"])
-    return ok(session=result)
+    return ok(session=raise_from_result(result, "Session not found"))
 
 
 @router.post("/reviewer/batch-approve")

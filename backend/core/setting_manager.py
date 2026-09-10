@@ -14,6 +14,16 @@ from core import hook_manager
 ROOT_DIR = Path(__file__).parent.parent.parent
 BACKEND_DIR = ROOT_DIR / "backend"
 
+# 默认配置单一来源：register_arguments 与 init 共用，避免两处默认值漂移
+DEFAULTS = {
+    "HOST": "0.0.0.0",
+    "PORT": 3000,
+    "DATA_DIR": "./data",
+    "LOG_LEVEL": "INFO",
+    "CORS_ORIGINS": "*",
+}
+
+
 class SettingManager:
     """配置管理器
 
@@ -56,37 +66,37 @@ class SettingManager:
         group.add_argument(
             "--host",
             type=str,
-            default=os.getenv("HOST", "0.0.0.0"),
-            help="绑定地址 (默认: 0.0.0.0)"
+            default=os.getenv("HOST", DEFAULTS["HOST"]),
+            help=f"绑定地址 (默认: {DEFAULTS['HOST']})"
         )
 
         group.add_argument(
             "--port",
             type=int,
-            default=int(os.getenv("PORT", "3000")),
-            help="绑定端口 (默认: 3000)"
+            default=int(os.getenv("PORT", str(DEFAULTS["PORT"]))),
+            help=f"绑定端口 (默认: {DEFAULTS['PORT']})"
         )
 
         group.add_argument(
             "--data-dir",
             type=str,
-            default=os.getenv("DATA_DIR", "./data"),
-            help="数据目录 (默认: ./data)"
+            default=os.getenv("DATA_DIR", DEFAULTS["DATA_DIR"]),
+            help=f"数据目录 (默认: {DEFAULTS['DATA_DIR']})"
         )
 
         group.add_argument(
             "--log-level",
             type=str,
-            default=os.getenv("LOG_LEVEL", "INFO"),
+            default=os.getenv("LOG_LEVEL", DEFAULTS["LOG_LEVEL"]),
             choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-            help="日志级别 (默认: INFO)"
+            help=f"日志级别 (默认: {DEFAULTS['LOG_LEVEL']})"
         )
 
         group.add_argument(
             "--cors-origins",
             type=str,
-            default=os.getenv("CORS_ORIGINS", "*"),
-            help="CORS 允许的源，逗号分隔 (默认: *)"
+            default=os.getenv("CORS_ORIGINS", DEFAULTS["CORS_ORIGINS"]),
+            help=f"CORS 允许的源，逗号分隔 (默认: {DEFAULTS['CORS_ORIGINS']})"
         )
 
     @hook_manager.wrap_hooks("setting_manager_init_before", "setting_manager_init_after")
@@ -96,11 +106,15 @@ class SettingManager:
         Args:
             args: 解析后的 argparse.Namespace
         """
-        self.config["HOST"] = getattr(args, 'host', self.config.get("HOST", "127.0.0.1"))
-        self.config["PORT"] = getattr(args, 'port', self.config.get("PORT", 3010))
-        self.config["DATA_DIR"] = getattr(args, 'data_dir', self.config.get("DATA_DIR", "./data"))
-        self.config["LOG_LEVEL"] = getattr(args, 'log_level', self.config.get("LOG_LEVEL", "INFO"))
-        self.config["CORS_ORIGINS"] = [o.strip() for o in getattr(args, 'cors_origins', self.config.get("CORS_ORIGINS", "*")).split(",")]
+        self.config["HOST"] = getattr(args, 'host', self.config.get("HOST", DEFAULTS["HOST"]))
+        self.config["PORT"] = getattr(args, 'port', self.config.get("PORT", DEFAULTS["PORT"]))
+        self.config["DATA_DIR"] = getattr(args, 'data_dir', self.config.get("DATA_DIR", DEFAULTS["DATA_DIR"]))
+        self.config["LOG_LEVEL"] = getattr(args, 'log_level', self.config.get("LOG_LEVEL", DEFAULTS["LOG_LEVEL"]))
+        cors_raw = getattr(args, 'cors_origins', self.config.get("CORS_ORIGINS", DEFAULTS["CORS_ORIGINS"]))
+        if isinstance(cors_raw, list):
+            self.config["CORS_ORIGINS"] = cors_raw
+        else:
+            self.config["CORS_ORIGINS"] = [o.strip() for o in cors_raw.split(",")]
 
         logging.basicConfig(
             level=getattr(logging, self.config["LOG_LEVEL"]),

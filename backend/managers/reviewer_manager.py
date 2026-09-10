@@ -2,15 +2,13 @@
 # @brief 人工审核管理器 - 支持人工审批、拒绝和批量操作
 # @create 2026-03-18
 
-import json
-import logging
 from typing import Dict, List
 import argparse
 
 from core import database_manager, hook_manager
 from core.constants import SessionStatus
 from managers.base import BaseManager
-from managers.session_manager import session_manager, VALID_STATUS_TRANSITIONS
+from managers.session_manager import session_manager
 
 
 class ReviewerManager(BaseManager):
@@ -28,11 +26,11 @@ class ReviewerManager(BaseManager):
 
     @hook_manager.wrap_hooks("reviewer_manager_construct_before", "reviewer_manager_construct_after")
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        super().__init__()
 
     @hook_manager.wrap_hooks(after="reviewer_manager_register_arguments")
     def register_arguments(self, parser: argparse.ArgumentParser):
-        parser.add_argument_group("Reviewer", "Reviewer Settings")
+        """注册 argparse 参数（无参数）"""
 
     @hook_manager.wrap_hooks("reviewer_manager_init_before", "reviewer_manager_init_after")
     def init(self, args: argparse.Namespace):
@@ -45,7 +43,7 @@ class ReviewerManager(BaseManager):
 
     def _review(self, session_id: str, target_status: SessionStatus, action: str,
                 notes: str = None, score: int = None) -> Dict:
-        """审批/拒绝公共逻辑
+        """审批/拒绝公共逻辑（委托 session_manager.apply_review 统一入口）
 
         Args:
             session_id: 会话 ID
@@ -57,18 +55,7 @@ class ReviewerManager(BaseManager):
         Returns:
             更新后的会话，失败返回 {"session_id", "error"}
         """
-        session = session_manager.get_session(session_id)
-        if not session:
-            return self.error_result(session_id, "session not found")
-
-        current_status = session.get("status", SessionStatus.RAW.value)
-        if target_status.value not in VALID_STATUS_TRANSITIONS.get(current_status, []):
-            return self.error_result(session_id, "invalid status transition")
-
-        manual_score = score if score is not None else session.get("quality_manual_score", 0)
-        return database_manager.session_review_apply(
-            session_id, target_status.value, manual_score, action, notes
-        )
+        return session_manager.apply_review(session_id, target_status, action, notes, score)
 
     @hook_manager.wrap_hooks("reviewer_manager_approve_before", "reviewer_manager_approve_after")
     def approve_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
@@ -79,24 +66,6 @@ class ReviewerManager(BaseManager):
     def reject_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
         """拒绝会话"""
         return self._review(session_id, SessionStatus.REJECTED, "reject", notes, score)
-
-    @hook_manager.wrap_hooks("reviewer_manager_update_before", "reviewer_manager_update_after")
-    def update_session(self, session_id: str, updates: Dict) -> Dict:
-        """更新会话"""
-        session = session_manager.get_session(session_id)
-        if not session:
-            return self.error_result(session_id, "session not found")
-
-        try:
-            updated = session_manager.update_session(session_id, updates)
-        except ValueError:
-            return self.error_result(session_id, "invalid status transition")
-        if updated is None:
-            return self.error_result(session_id, "invalid status transition")
-
-        database_manager.audit_log_create(session_id, "modify", "user", json.dumps(updates))
-
-        return session_manager.get_session(session_id)
 
     def _batch_operation(self, session_ids: List[str], operation_func) -> Dict:
         """批量操作的通用方法"""
