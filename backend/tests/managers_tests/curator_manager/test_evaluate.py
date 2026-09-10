@@ -74,6 +74,39 @@ class TestCuratorManagerEvaluate:
         assert result["is_high_value"] is True
         assert updates_list[0]["quality_auto_score"] == 5
 
+    def test_score_hook_without_tools_used_falls_back_to_content(self, args_minimal, monkeypatch):
+        """窄钩子只返回 score 时，tools_used 应回退到 content 值（不被写空）"""
+        from core.hook_manager import hook_manager
+        from managers import session_manager
+
+        self.manager.init(args_minimal)
+
+        content = {"messages": [1] * 5, "tools_used": ["read_file", "grep"]}
+
+        monkeypatch.setattr(session_manager, "get_session",
+            lambda sid: {"session_id": sid, "status": "raw", "content": content})
+
+        updates_list = []
+
+        def mock_update(session_id, updates, operator=None):
+            updates_list.append(updates)
+            return {"session_id": session_id, **updates}
+
+        monkeypatch.setattr(session_manager, "update_session", mock_update)
+        monkeypatch.setattr(session_manager, "apply_review", lambda *a, **k: {})
+
+        def score_hook(self_, content_):
+            return {"score": 2}
+
+        hook_manager.register("curator_manager_score_before", score_hook)
+        try:
+            result = self.manager.evaluate_session("test")
+        finally:
+            hook_manager.unregister("curator_manager_score_before", score_hook)
+
+        assert updates_list[0]["tools_used"] == ["read_file", "grep"]
+        assert result["tools_used"] == ["read_file", "grep"]
+
     def test_evaluate_session_auto_approves_high_value(self, args_minimal, monkeypatch):
         """高分会话应触发自动审批（经 session_manager.apply_review 统一入口）"""
         from managers import session_manager

@@ -25,6 +25,15 @@ class OpenClawCollector:
         self.skip_cron = self.config.get("skip_cron_sessions", True)
         self.min_message_count = self.config.get("min_message_count", DEFAULT_MIN_MESSAGE_COUNT)
 
+    @staticmethod
+    def _path_basename(path: str) -> str:
+        """跨平台取文件名：兼容 Windows 反斜杠路径
+
+        POSIX 上 Windows 路径的 Path.name 会返回整串而非文件名，
+        因此统一先归一化分隔符再取最后一段。
+        """
+        return str(path).replace("\\", "/").rsplit("/", 1)[-1]
+
     def scan(self) -> List[str]:
         """扫描所有目标 agent 的 sessions.json，返回 jsonl 文件路径列表
 
@@ -70,7 +79,7 @@ class OpenClawCollector:
                         continue
 
                     # 绝对路径不存在（如 Windows 路径）：回退到本机 sessions 目录查找同名文件
-                    fallback = Path(self.agents_dir) / agent_id / "sessions" / candidate.name
+                    fallback = Path(self.agents_dir) / agent_id / "sessions" / self._path_basename(session_file)
                     if fallback.exists():
                         jsonl_files.append(str(fallback))
                     else:
@@ -83,6 +92,11 @@ class OpenClawCollector:
 
     def parse(self, file_path: str) -> Optional[Dict[str, Any]]:
         """读取 jsonl 文件，解析为标准格式
+
+        兼容两种行格式：
+        - OpenClaw v3 嵌套：{"type": "message", "message": {"role", "content"}}
+        - 扁平：{"role", "content", "sessionId"}
+        非 message 事件行（session/model_change 等）仅用于提取 session_id，不计入消息。
 
         Args:
             file_path: jsonl 文件路径
@@ -115,8 +129,23 @@ class OpenClawCollector:
                     except json.JSONDecodeError:
                         continue
 
-                    role = msg.get("role", "user")
-                    content = msg.get("content", "")
+                    # session_id：优先扁平 sessionId，其次 v3 会话头 {"type": "session", "id"}
+                    if not session_id:
+                        if msg.get("sessionId"):
+                            session_id = msg.get("sessionId")
+                        elif msg.get("type") == "session" and msg.get("id"):
+                            session_id = msg.get("id")
+
+                    # 消息行判定：v3 嵌套 message 字段或扁平 role 字段
+                    if msg.get("type") == "message" and isinstance(msg.get("message"), dict):
+                        message_data = msg["message"]
+                    elif "role" in msg:
+                        message_data = msg
+                    else:
+                        continue
+
+                    role = message_data.get("role", "user")
+                    content = message_data.get("content", "")
 
                     parsed_content = self._parse_content(content)
 
@@ -139,9 +168,6 @@ class OpenClawCollector:
                         "content": parsed_content,
                         "tool_calls": tool_calls if tool_calls else None,
                     })
-
-                    if not session_id:
-                        session_id = msg.get("sessionId")
 
             if agent_id and session_id:
                 session_key = f"agent:{agent_id}:{session_id[:8]}"
@@ -214,7 +240,9 @@ class OpenClawCollector:
             return metadata
 
         idx = parts.index("agents")
-        agent_dir = os.path.join(*parts[:idx + 2])
+        # 用 os.sep.join 而非 os.path.join：绝对路径 split 后首段为空串，
+        # os.path.join('', 'home', ...) 会丢掉开头的 '/'，导致 sessions.json 查不到
+        agent_dir = os.sep.join(parts[:idx + 2]) or os.sep
         sessions_json_path = os.path.join(agent_dir, "sessions", "sessions.json")
 
         if not os.path.exists(sessions_json_path):
@@ -226,7 +254,7 @@ class OpenClawCollector:
 
             for session_key, session_info in sessions_data.items():
                 sf = session_info.get("sessionFile", "")
-                if sf == file_path or os.path.basename(sf) == os.path.basename(file_path):
+                if sf == file_path or self._path_basename(sf) == self._path_basename(file_path):
                     metadata["model"] = session_info.get("model", "")
                     metadata["updated_at"] = session_info.get("updatedAt", 0)
                     metadata["label"] = session_info.get("label", "")
