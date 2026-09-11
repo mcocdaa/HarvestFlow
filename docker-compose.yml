@@ -1,0 +1,64 @@
+# ============================================
+# HarvestFlow Docker Compose
+# 用法:
+#   cp .env.example .env    # 按需修改端口/鉴权/监控目录
+#   docker compose up -d --build
+#   前端 http://localhost:8001
+#   后端 http://localhost:3001
+#
+# 也可通过 ./scripts/start.sh dev full 启动（自动创建 .env）
+# ============================================
+
+name: harvestflow
+
+services:
+  harvestflow-backend:
+    image: ghcr.io/mcocdaa/harvestflow-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_EXTERNAL_PORT:-3001}:3000"
+    environment:
+      # 容器内固定路径（与下方 volume 挂载对应）
+      PORT: 3000
+      DATA_DIR: /app/data
+      DB_PATH: /app/data/db/harvestflow.db
+      PLUGINS_DIR: /app/plugins
+      OPENCLAW_AGENTS_DIR: ${OPENCLAW_AGENTS_DIR:-/app/data/test_sessions/agents}
+      # 以下从 .env 透传（留空则使用应用默认值）
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      API_VERSION: ${API_VERSION:-v1}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      HARVESTFLOW_API_KEY: ${HARVESTFLOW_API_KEY:-}
+      CURATOR_ENABLED: ${CURATOR_ENABLED:-true}
+      AUTO_APPROVE_THRESHOLD: ${AUTO_APPROVE_THRESHOLD:-4}
+      WATCH_FOLDERS: ${WATCH_FOLDERS:-}
+    volumes:
+      - ./backend/data:/app/data
+      - ./plugins:/app/plugins:ro
+    networks:
+      - harvestflow-network
+
+  harvestflow-frontend:
+    image: ghcr.io/mcocdaa/harvestflow-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # 留空走 Nginx 同源代理（/api → harvestflow-backend:3000）
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_API_KEY: ${VITE_API_KEY:-}
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_EXTERNAL_PORT:-8001}:8000"
+    depends_on:
+      harvestflow-backend:
+        condition: service_healthy
+    networks:
+      - harvestflow-network
+
+networks:
+  harvestflow-network:
+    driver: bridge

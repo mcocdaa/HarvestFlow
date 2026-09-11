@@ -199,3 +199,40 @@ POSIX 上反斜杠不是分隔符，返回整串 → 回退文件永远找不到
 自动审核（evaluate/evaluate-all/status）、人工审核（pending/approve/reject/batch/audit）、
 导出（sharegpt/alpaca/过滤/history/错误路径）、插件（list/by-type）、前端页面与 CORS，
 全部通过；新增采集器回归测试 6 例、curator 1 例、API 2 例（共 351 → 360）。
+
+---
+
+## 8. 工程化精简与 CI/CD 优化（Round 9）
+
+### 8.1 过度工程化清理
+
+- 3 个分层 compose（base/backend/frontend）合并为根目录单文件
+  `docker-compose.yml`：`docker compose up -d --build` 一键启动，也支持单服务
+  （`up -d harvestflow-backend`）
+- 移除 Docker Swarm `prod` 模式（约 90 行）：`stack deploy` 不支持 compose 的
+  build/depends_on，且镜像从未发布，实际不可用
+- 清理死配置：`ENVIRONMENT`、`SESSION_DATA_DIR`、`REVIEWER_DATA_DIR`、
+  `SECRET_FALLBACK_MODE`（代码从未读取）
+- 前端默认同源代理：`VITE_API_BASE_URL` 留空即可（Docker Nginx /api、本地 Vite /api），
+  改端口无需重建前端；原 compose 将 `http://localhost:3001` 硬编码进构建参数
+- `frontend/Dockerfile`：`npm install` → `npm ci`，修正过时注释
+- `start.sh`/`stop.sh`：仅保留 `local | dev` 两模式；无 `.env` 时自动从 `.env.example` 创建
+
+### 8.2 CI 优化
+
+- concurrency 同 ref 自动取消旧运行；`permissions: contents: read`；各 job 超时
+- ruff 覆盖插件目录（`uv run ruff check ../plugins`），与本地命令一致
+- 新增 E2E job：`docker compose config -q` + `up -d --build` + 健康等待 +
+  后端 `/health`、前端 `/`、Nginx 同源代理 `/api/v1/stats` 冒烟，失败打印容器日志
+
+### 8.3 CD：GHCR 镜像发布
+
+- push main / `v*` tag 时发布：main → `latest`/`main`/`sha-*`；tag → 语义化版本
+- main 构建 linux/amd64；tag 额外构建 linux/arm64（QEMU + buildx GHA 缓存）
+- 用户可直接 `docker compose pull` 或 `docker run ghcr.io/mcocdaa/harvestflow-*`
+
+### 8.4 README 重写
+
+- 部署优先：`cp .env.example .env` → `docker compose up -d --build`，
+  另含预构建镜像、`docker run` 手动部署、本地开发、配置表、API 概览
+- 数据库表结构等开发细节移出 README（由 docs/project 承载）

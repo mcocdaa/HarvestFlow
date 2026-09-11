@@ -3,60 +3,44 @@
 # HarvestFlow 启动脚本
 # 用法:
 #   ./start.sh <mode> [service]
-#   mode: dev | local | prod
+#   mode:    local | dev
 #   service: backend | frontend | full (default: full)
 #
 # 模式说明:
-#   dev    - 开发模式，使用 Docker Compose
-#   local  - 本地模式，不使用 Docker
-#   prod   - 生产模式，使用 Docker Swarm (stack deploy)
-#
-# 服务说明:
-#   backend       - 仅后端
-#   frontend      - 仅前端 (dev/prod 用 Docker，local 用本地)
-#   full          - 全部服务
+#   local  - 本地源码模式（不使用 Docker，开发用）
+#   dev    - Docker Compose 模式（部署用，自动创建 .env）
 #
 # 示例:
-#   ./start.sh dev backend         # 开发模式，仅后端 (Docker Compose)
-#   ./start.sh dev frontend        # 开发模式，仅前端 (Docker Compose)
-#   ./start.sh dev full            # 开发模式，前后端都启动 (Docker Compose)
-#   ./start.sh local backend       # 本地模式，仅后端
-#   ./start.sh local frontend      # 本地模式，仅前端
-#   ./start.sh local full          # 本地模式，前后端都本地启动
-#   ./start.sh prod full           # 生产模式，全栈 (Docker Swarm)
+#   ./start.sh local full      # 本地源码启动前后端
+#   ./start.sh local backend   # 仅后端 (uv)
+#   ./start.sh local frontend  # 仅前端 (vite)
+#   ./start.sh dev full        # Docker Compose 启动前后端
+#   ./start.sh dev backend     # Docker Compose 仅后端
 # ============================================
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-DOCKER_DIR="$PROJECT_ROOT/docker"
 FRONTEND_DIR="$PROJECT_ROOT/frontend"
-BACKEND_DIR="$PROJECT_ROOT/backend"
+COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
+COMPOSE_PROJECT="harvestflow"
 
 usage() {
     echo "用法：$0 <mode> [service]"
-    echo "  mode:    dev | local | prod"
+    echo "  mode:    local | dev"
     echo "  service: backend | frontend | full (默认：full)"
     echo ""
     echo "模式说明:"
-    echo "  dev    - 开发模式，使用 Docker Compose"
-    echo "  local  - 本地模式，不使用 Docker"
-    echo "  prod   - 生产模式，使用 Docker Swarm (stack deploy)"
-    echo ""
-    echo "服务说明:"
-    echo "  backend       - 仅后端"
-    echo "  frontend      - 仅前端 (dev/prod 用 Docker，local 用本地)"
-    echo "  full          - 全部服务"
+    echo "  local  - 本地源码模式（不使用 Docker，开发用）"
+    echo "  dev    - Docker Compose 模式（部署用，自动创建 .env）"
     echo ""
     echo "示例:"
-    echo "  $0 dev backend         # 开发模式，仅后端 (Docker Compose)"
-    echo "  $0 dev frontend        # 开发模式，仅前端 (Docker Compose)"
-    echo "  $0 dev full            # 开发模式，前后端都启动 (Docker Compose)"
-    echo "  $0 local backend       # 本地模式，仅后端"
-    echo "  $0 local frontend      # 本地模式，仅前端"
-    echo "  $0 local full          # 本地模式，前后端都本地启动"
-    echo "  $0 prod full           # 生产模式，全栈 (Docker Swarm)"
+    echo "  $0 local full      # 本地源码启动前后端"
+    echo "  $0 local backend   # 仅后端 (uv)"
+    echo "  $0 local frontend  # 仅前端 (vite)"
+    echo "  $0 dev full        # Docker Compose 启动前后端"
+    echo "  $0 dev backend     # Docker Compose 仅后端"
     exit 1
 }
 
@@ -67,18 +51,31 @@ fi
 MODE="$1"
 SERVICE="${2:-full}"
 
-stop_docker_services() {
-    echo "停止已有 Docker 服务..."
-    if [ "$MODE" = "prod" ]; then
-        # Docker Swarm 模式
-        docker stack rm harvestflow 2>/dev/null || true
-        echo "等待服务移除..."
-        sleep 5
-    else
-        # Docker Compose 模式 — include all service files so previously-started frontend/backend containers are also stopped
-        docker compose -p harvestflow -f "$DOCKER_DIR/docker-compose.base.yml" -f "$DOCKER_DIR/docker-compose.backend.yml" -f "$DOCKER_DIR/docker-compose.frontend.yml" down 2>/dev/null || true
+case "$MODE" in
+    local|dev) ;;
+    *) echo "未知模式：$MODE"; usage ;;
+esac
+
+case "$SERVICE" in
+    backend|frontend|full) ;;
+    *) echo "未知服务：$SERVICE"; usage ;;
+esac
+
+# 无 .env 时从模板自动创建，保证 cp .env.example .env 的等价体验
+ensure_env() {
+    if [ ! -f "$PROJECT_ROOT/.env" ] && [ -f "$PROJECT_ROOT/.env.example" ]; then
+        cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
+        echo "✓ 已从 .env.example 创建 .env（可按需修改）"
     fi
-    echo "✓ Docker 服务已停止"
+}
+
+load_env() {
+    ensure_env
+    if [ -f "$PROJECT_ROOT/.env" ]; then
+        set -a
+        . "$PROJECT_ROOT/.env"
+        set +a
+    fi
 }
 
 start_frontend_local() {
@@ -95,7 +92,7 @@ start_frontend_local() {
     if [ -n "$PORT" ] && [ "$PORT" != "3000" ]; then
         export VITE_API_BASE_URL="http://localhost:$PORT"
     fi
-    echo "✓ 前端服务将启动"
+    echo "✓ 前端服务将启动 (http://localhost:5173)"
     echo "按 Ctrl+C 停止服务"
     cd "$FRONTEND_DIR" && npm run dev
 }
@@ -111,120 +108,40 @@ start_backend_local() {
     # 使用绝对路径便于 stop.sh 精确匹配本项目进程（避免误杀其他项目）
     cd "$PROJECT_ROOT"
     uv run --project backend --frozen --no-dev python "$PROJECT_ROOT/backend/main.py" &
-    echo "✓ 本地后端已启动 (http://localhost:3000)"
+    echo "✓ 本地后端已启动 (http://localhost:${PORT:-3000})"
 }
 
-load_env() {
-    if [ -f "$PROJECT_ROOT/.env" ]; then
-        set -a
-        . "$PROJECT_ROOT/.env"
-        set +a
-    fi
-}
+start_docker() {
+    command -v docker >/dev/null 2>&1 || { echo "✗ 未找到 docker"; exit 1; }
+    load_env
+    echo "停止已有容器..."
+    docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" down 2>/dev/null || true
 
-# ============================================
-# 主逻辑
-# ============================================
+    local target="$SERVICE"
+    [ "$target" = "full" ] && target=""
+    echo "构建并启动容器（首次构建需要几分钟）..."
+    docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" up --build -d $target
+
+    echo ""
+    echo "✓ Docker 服务已启动"
+    echo "  前端: http://localhost:${FRONTEND_EXTERNAL_PORT:-8001}"
+    echo "  后端: http://localhost:${BACKEND_EXTERNAL_PORT:-3001}"
+}
 
 case "$MODE" in
     dev)
-        # Docker Compose 开发模式
-        COMPOSE_COMMAND="docker compose"
-        COMPOSE_FILES="-f $DOCKER_DIR/docker-compose.base.yml"
-
-        case "$SERVICE" in
-            backend)
-                COMPOSE_FILES="$COMPOSE_FILES -f $DOCKER_DIR/docker-compose.backend.yml"
-                ;;
-            frontend)
-                COMPOSE_FILES="$COMPOSE_FILES -f $DOCKER_DIR/docker-compose.frontend.yml"
-                ;;
-            full)
-                COMPOSE_FILES="$COMPOSE_FILES -f $DOCKER_DIR/docker-compose.backend.yml -f $DOCKER_DIR/docker-compose.frontend.yml"
-                ;;
-            *)
-                echo "未知服务：$SERVICE"
-                usage
-                ;;
-        esac
-
-        # Docker Compose 模式：停止旧服务并启动新服务
-        cd "$DOCKER_DIR"
-        load_env
-        stop_docker_services
-
-        echo ""
-        echo "========================================"
-        echo "HarvestFlow 启动 (Docker Compose)"
-        echo "========================================"
-        echo "模式：$MODE"
-        echo "服务：$SERVICE"
-        echo "命令：$COMPOSE_COMMAND"
-        echo "========================================"
-
-        $COMPOSE_COMMAND -p harvestflow $COMPOSE_FILES up --build -d
-
-        echo ""
-        echo "✓ 启动完成"
-        echo "========================================"
+        start_docker
         ;;
-
-    prod)
-        # Docker Swarm 生产模式
-        STACK_NAME="harvestflow"
-        COMPOSE_COMMAND="docker stack"
-
-        case "$SERVICE" in
-            backend)
-                COMPOSE_FILES="$DOCKER_DIR/docker-compose.backend.yml"
-                ;;
-            frontend)
-                echo "生产模式暂不支持仅前端部署"
-                usage
-                ;;
-            full)
-                COMPOSE_FILES="$DOCKER_DIR/docker-compose.backend.yml $DOCKER_DIR/docker-compose.frontend.yml"
-                ;;
-            *)
-                echo "未知服务：$SERVICE"
-                usage
-                ;;
-        esac
-
-        # Docker Swarm 模式：停止旧服务并部署新服务
-        cd "$DOCKER_DIR"
-        load_env
-        stop_docker_services
-
-        echo ""
-        echo "========================================"
-        echo "HarvestFlow 启动 (Docker Swarm)"
-        echo "========================================"
-        echo "模式：$MODE"
-        echo "服务：$SERVICE"
-        echo "栈名：$STACK_NAME"
-        echo "========================================"
-
-        docker stack deploy -c "$DOCKER_DIR/docker-compose.base.yml" -c "$COMPOSE_FILES" "$STACK_NAME"
-
-        echo ""
-        echo "✓ 启动完成"
-        echo "========================================"
-        ;;
-
     local)
-        # 本地开发模式（不使用 Docker）
+        load_env
         case "$SERVICE" in
             backend)
-                load_env
                 start_backend_local
                 ;;
             frontend)
-                load_env
                 start_frontend_local
                 ;;
             full)
-                load_env
                 trap 'kill $(jobs -p) 2>/dev/null' EXIT
                 echo "启动本地后端..."
                 start_backend_local
@@ -232,25 +149,8 @@ case "$MODE" in
                 echo "启动本地前端..."
                 start_frontend_local
                 ;;
-            *)
-                echo "未知服务：$SERVICE"
-                usage
-                ;;
         esac
-
         echo ""
-        echo "========================================"
-        echo "HarvestFlow 启动 (本地模式)"
-        echo "========================================"
-        echo "模式：$MODE"
-        echo "服务：$SERVICE"
-        echo "========================================"
-        echo "✓ 启动完成"
-        echo "========================================"
-        ;;
-
-    *)
-        echo "未知模式：$MODE"
-        usage
+        echo "✓ HarvestFlow 已启动 (本地模式)"
         ;;
 esac

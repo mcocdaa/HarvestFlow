@@ -57,11 +57,8 @@ uv run python main.py
 ### Docker 开发
 
 ```bash
-# 构建镜像
-docker build -t harvestflow-backend .
-
-# 启动容器
-docker compose -f ../docker/docker-compose.backend.yml up
+# 在项目根目录构建并启动后端
+docker compose up -d --build harvestflow-backend
 ```
 
 ## 主要功能模块
