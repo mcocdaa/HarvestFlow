@@ -3,27 +3,26 @@
 # HarvestFlow 停止脚本
 # 用法:
 #   ./stop.sh <mode>
-#   mode: dev | local | prod
+#   mode: local | dev
 # 示例:
-#   ./stop.sh dev    # 开发模式停止 (Docker Compose)
-#   ./stop.sh local  # 本地模式停止 (kill processes)
-#   ./stop.sh prod   # 生产模式停止 (Docker Swarm)
+#   ./stop.sh local  # 停止本地源码进程
+#   ./stop.sh dev    # 停止 Docker Compose 容器
 # ============================================
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-DOCKER_DIR="$PROJECT_ROOT/docker"
+COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
+COMPOSE_PROJECT="harvestflow"
 
 usage() {
     echo "用法: $0 <mode>"
-    echo "  mode: dev | local | prod"
+    echo "  mode: local | dev"
     echo ""
     echo "示例:"
-    echo "  $0 dev    # 开发模式停止"
-    echo "  $0 local  # 本地模式停止"
-    echo "  $0 prod   # 生产模式停止"
+    echo "  $0 local  # 停止本地源码进程"
+    echo "  $0 dev    # 停止 Docker Compose 容器"
     exit 1
 }
 
@@ -33,13 +32,11 @@ fi
 
 MODE="$1"
 
-load_env() {
-    if [ -f "$PROJECT_ROOT/.env" ]; then
-        set -a
-        . "$PROJECT_ROOT/.env"
-        set +a
-    fi
-}
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    set -a
+    . "$PROJECT_ROOT/.env"
+    set +a
+fi
 
 echo "========================================"
 echo "HarvestFlow 停止"
@@ -48,18 +45,7 @@ echo "模式: $MODE"
 echo "========================================"
 
 case "$MODE" in
-    dev)
-        cd "$DOCKER_DIR"
-        load_env
-        docker compose -p harvestflow \
-            -f docker-compose.base.yml \
-            -f docker-compose.backend.yml \
-            -f docker-compose.frontend.yml \
-            down 2>/dev/null || true
-        ;;
-
     local)
-        load_env
         echo "停止本地后端进程..."
         # 精确匹配本项目绝对路径，避免误杀其他项目的同名进程
         pkill -f "$PROJECT_ROOT/backend/main.py" 2>/dev/null || true
@@ -68,12 +54,8 @@ case "$MODE" in
         pkill -f "$PROJECT_ROOT/frontend/node_modules/.bin/vite" 2>/dev/null || true
         ;;
 
-    prod)
-        cd "$DOCKER_DIR"
-        load_env
-        docker stack rm harvestflow 2>/dev/null || true
-        echo "等待服务移除..."
-        sleep 5
+    dev)
+        docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" down 2>/dev/null || true
         ;;
 
     *)

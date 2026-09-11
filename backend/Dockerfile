@@ -19,6 +19,7 @@ COPY . .
 
 # 使用项目虚拟环境中的 python
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
 
 # 内部端口（固定）
 EXPOSE 3000
@@ -27,5 +28,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:3000/health')" || exit 1
 
-# 默认启动命令（会被 docker-compose 覆盖）
+# 默认启动命令
 CMD ["python", "main.py"]
