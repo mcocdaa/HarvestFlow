@@ -236,3 +236,47 @@ POSIX 上反斜杠不是分隔符，返回整串 → 回退文件永远找不到
 - 部署优先：`cp .env.example .env` → `docker compose up -d --build`，
   另含预构建镜像、`docker run` 手动部署、本地开发、配置表、API 概览
 - 数据库表结构等开发细节移出 README（由 docs/project 承载）
+
+---
+
+## 9. UI 重做与后端能力补齐（Round 10）
+
+目标：页面逻辑完整反映后端能力，统一设计语言，图标全 SVG，界面全中文。
+
+### 9.1 设计系统与外壳
+
+- 依赖：显式声明 `@ant-design/icons`，新增 `@ant-design/pro-components`、`recharts`、`dayjs`
+- 修复 `Sessions.css` 引用但从未定义的 CSS 变量（`--text-primary` 等 5 个），颜色不再静默失效
+- 统一色板到 `--flow-*` 变量与 theme token，清除 Review/Sessions 中 52 处 antd v4 硬编码色
+- 引入 `antd/dist/reset.css`、`zh_CN` locale；新增共享组件：
+  `PageHeader`、`StatCard`、`StatusTag`、`ScoreTag`、`RoleAvatar`、`CopyText`、
+  `JsonView`、`ToolCallList`、`EmptyState`、`Logo`（SVG）
+- 外壳改为 ProLayout 深色侧栏 + 固定头部，菜单全中文；待审核数量以 Badge 显示
+
+### 9.2 服务层与后端能力补齐
+
+- 新增 `curatorApi`（evaluate / evaluate-all / status）
+- 新增 `collectorApi`（scan / import / import-all / watch-folder 增删查）
+- `reviewerApi` 增批量通过拒绝、审计日志；`sessionApi` 增单查 / PATCH / DELETE
+- 类型同步补全（tools_used、tags、tool_calls、AuditLog、EvaluateResult 等）
+- 错误拦截器支持 `{success:false, message}` 形态的后端失败信息
+
+### 9.3 页面重做
+
+- 概览：统计卡 + 状态分布环形图（Recharts）+ 评分/通过率 + 待审核 CTA +
+  最近会话 + 清洗器状态，支持一键运行自动清洗
+- 会话：ProTable + 状态筛选/排序、查看（对话 + 工具调用 + 元数据）、
+  编辑（仅允许合法状态流转）、删除、单条自动评分（仅 raw）
+- 审核：逐条评审（评分/意见/平台化快捷键提示）+ 批量处理 + 审计日志抽屉
+- 采集（新增页）：监听目录增删、扫描、单条/批量导入与结果汇总
+- 导出：格式取自 `/exporter/formats`，角色/任务/标签建议值取自最近会话，
+  历史展示解析后的筛选条件与可复制文件路径
+- 插件：全部类型（含 services）分组展示、卡片元数据、启停开关（停用需确认）
+
+### 9.4 工程与验证
+
+- 图标全部 SVG：移除 👤🤖💬📦📊 与 ⌘ 等 emoji/符号提示
+- 路由懒加载 + vendor 分包（页面 1–10 KB，antd/pro/charts 独立缓存 chunk）
+- 测试 68 → 106：新增 Collect/Sessions/组件/utils 测试，更新 emoji 断言与中文文案；
+  修复 antd 两字按钮自动空格、Popconfirm 异步挂载等测试细节
+- `npm run lint` / `npx tsc -b` / `npx vitest run` / `npm run build` 全绿

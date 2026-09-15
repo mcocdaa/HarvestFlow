@@ -2,31 +2,41 @@
   --flow-bg-page: #F8FAFC;
   --flow-bg-card: #FFFFFF;
   --flow-bg-layer: #F1F5F9;
+  --flow-bg-sidebar: #0F172A;
+  --flow-border: #E2E8F0;
+  --flow-border-light: #F1F5F9;
 
   --flow-text-title: #0F172A;
   --flow-text-primary: #334155;
   --flow-text-secondary: #64748B;
-  --flow-text-disabled: #94A3B8;
+  --flow-text-tertiary: #94A3B8;
+  --flow-text-disabled: #CBD5E1;
 
   --flow-color-primary: #2563EB;
+  --flow-color-primary-hover: #1D4ED8;
   --flow-color-success: #10B981;
   --flow-color-warning: #F59E0B;
   --flow-color-danger: #EF4444;
   --flow-color-info: #3B82F6;
+  --flow-color-purple: #8B5CF6;
 
   --flow-status-approved: #10B981;
   --flow-status-curated: #2563EB;
   --flow-status-rejected: #EF4444;
   --flow-status-raw: #94A3B8;
 
+  --flow-role-user: #2563EB;
+  --flow-role-assistant: #10B981;
+  --flow-role-system: #8B5CF6;
+
   --flow-border-radius-sm: 6px;
   --flow-border-radius-md: 8px;
   --flow-border-radius-lg: 12px;
-  --flow-border-radius-full: 9999px;
+  --flow-border-radius-full: 999px;
 
-  --flow-shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-  --flow-shadow-md: 0 4px 6px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-  --flow-shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+  --flow-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --flow-shadow-md: 0 4px 6px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --flow-shadow-lg: 0 10px 15px rgba(15, 23, 42, 0.08), 0 4px 6px rgba(15, 23, 42, 0.04);
 
   --flow-spacing-xs: 4px;
   --flow-spacing-sm: 8px;
@@ -35,13 +45,12 @@
   --flow-spacing-xl: 32px;
   --flow-spacing-2xl: 48px;
 
-  --flow-sidebar-width: 240px;
-  --flow-header-height: 64px;
+  --flow-font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  --flow-sidebar-width: 232px;
+  --flow-header-height: 56px;
 }
 
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
@@ -54,6 +63,29 @@ body {
 }
 
 #root {
-  width: 100%;
-  height: 100%;
+  min-height: 100vh;
+}
+
+code,
+pre,
+.flow-mono {
+  font-family: var(--flow-font-mono);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }

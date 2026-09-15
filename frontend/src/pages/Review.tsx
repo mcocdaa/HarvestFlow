@@ -1,362 +1,43 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Card, Button, Tag, Rate, Input, message, Progress, Space, Tooltip, Popconfirm, Collapse } from 'antd';
-import {
-  CheckOutlined,
-  CloseOutlined,
-  LeftOutlined,
-  RightOutlined,
-  CopyOutlined,
-  ExpandOutlined,
-  RiseOutlined,
-  FallOutlined
-} from '@ant-design/icons';
-import { reviewerApi, sessionApi } from '../services';
-import { getScoreLabel, getScoreColor, getScoreTag, copyToClipboard, truncateSessionId, scoreLabels } from '../utils';
-import { useKeyboardShortcut } from '../hooks';
-import { MessageBubble } from '../components/common';
-import type { Session, SessionContent } from '../types';
-import '../styles/Review.css';
-
-const { TextArea } = Input;
-const { Panel } = Collapse;
+import React, { useState } from 'react';
+import { Button, Card, Segmented, Space } from 'antd';
+import { AuditOutlined } from '@ant-design/icons';
+import { PageHeader } from '../components';
+import { AuditLogDrawer, BatchReviewPanel, ReviewWorkspace } from '../components/review';
 
 const Review: React.FC = () => {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [score, setScore] = useState(3);
-  const [notes, setNotes] = useState('');
-  const [sessionContent, setSessionContent] = useState<SessionContent | null>(null);
-  const [contentLoading, setContentLoading] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const submittingRef = useRef(false);
-
-  // Load once on mount; refresh is triggered explicitly by handleApprove/handleReject
-  useEffect(() => {
-    loadPendingSessions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const selectSession = (index: number, sessionsOverride?: Session[]) => {
-    const list = sessionsOverride ?? sessions;
-    if (list.length === 0) {
-      setSessionContent(null);
-      setSelectedIndex(0);
-      return;
-    }
-    const clamped = Math.max(0, Math.min(index, list.length - 1));
-    setSelectedIndex(clamped);
-    loadSessionContent(list[clamped].session_id);
-  };
-
-  const loadPendingSessions = async () => {
-    setLoading(true);
-    try {
-      const res = await reviewerApi.getPending(1, 20);
-      const newSessions = res.data.sessions || [];
-      setSessions(newSessions);
-      if (newSessions.length > 0) {
-        selectSession(0, newSessions);
-      } else {
-        setSessionContent(null);
-        setSelectedIndex(0);
-      }
-    } catch (error) {
-      console.error('Failed to load pending sessions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadSessionContent = async (sessionId: string) => {
-    setContentLoading(true);
-    try {
-      const res = await sessionApi.getSessionContent(sessionId);
-      setSessionContent(res.data.content || null);
-    } catch (error) {
-      console.error('Failed to load session content:', error);
-      setSessionContent(null);
-    } finally {
-      setContentLoading(false);
-    }
-  };
-
-  const handleApprove = async () => {
-    if (!sessions[selectedIndex] || submittingRef.current) return;
-    submittingRef.current = true;
-    setSubmitting(true);
-    try {
-      await reviewerApi.approveSession(sessions[selectedIndex].session_id, notes, score);
-      message.success('Session 已通过评审');
-      setNotes('');
-      setScore(3);
-      await loadPendingSessions();
-    } catch {
-      // Interceptor handles error display
-    } finally {
-      submittingRef.current = false;
-      setSubmitting(false);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!sessions[selectedIndex] || submittingRef.current) return;
-    submittingRef.current = true;
-    setSubmitting(true);
-    try {
-      await reviewerApi.rejectSession(sessions[selectedIndex].session_id, notes, score);
-      message.success('Session 已拒绝');
-      setNotes('');
-      setScore(3);
-      await loadPendingSessions();
-    } catch {
-      // Interceptor handles error display
-    } finally {
-      submittingRef.current = false;
-      setSubmitting(false);
-    }
-  };
-
-  const handleCopySessionId = async () => {
-    if (sessions[selectedIndex]) {
-      await copyToClipboard(sessions[selectedIndex].session_id, 'Session ID 已复制');
-    }
-  };
-
-  useKeyboardShortcut('Enter', () => {
-    if (document.activeElement?.tagName === 'BUTTON') return;
-    if (submittingRef.current) return;
-    if (sessions[selectedIndex] && score) {
-      handleApprove();
-    }
-  }, true);
-
-  useKeyboardShortcut('Backspace', () => {
-    if (document.activeElement?.tagName === 'BUTTON') return;
-    if (submittingRef.current) return;
-    if (sessions[selectedIndex]) {
-      handleReject();
-    }
-  }, true);
-
-  const currentSession = sessions[selectedIndex];
-  const messages = sessionContent?.messages || [];
-  const displayMessages = expanded ? messages : messages.slice(0, 3);
-
-  const handleScoreChange = (value: number) => {
-    setScore(value);
-    message.info(`已选择 ${value} 分：${getScoreLabel(value)}`);
-  };
-
-  const goToPrevious = () => {
-    if (selectedIndex > 0) {
-      selectSession(selectedIndex - 1);
-    }
-  };
-
-  const goToNext = () => {
-    if (selectedIndex < sessions.length - 1) {
-      selectSession(selectedIndex + 1);
-    }
-  };
-
-  const shortSessionId = currentSession?.session_id
-    ? truncateSessionId(currentSession.session_id)
-    : '';
+  const [mode, setMode] = useState('single');
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   return (
-    <div className="review-page">
-      {/* 顶部进度栏 */}
-      <div className="review-header">
-        <div className="progress-section">
-          <Progress
-            percent={sessions.length > 0 ? ((selectedIndex + 1) / sessions.length) * 100 : 0}
-            showInfo={false}
-            strokeColor="#1890ff"
-            trailColor="#f0f0f0"
-            size="small"
-          />
-          <div className="progress-info">
-            <div className="progress-text">
-              <span className="current-session">Session {selectedIndex + 1}</span>
-              <span className="separator">/</span>
-              <span className="total-sessions">{sessions.length}</span>
-              {currentSession && (
-                <Tag color="blue" style={{ marginLeft: 8 }}>{currentSession.status}</Tag>
-              )}
-            </div>
-            <div className="session-id">
-              <Tooltip title={currentSession?.session_id || ''}>
-                <span className="id-text">{shortSessionId}</span>
-              </Tooltip>
-              <Button
-                type="text"
-                size="small"
-                icon={<CopyOutlined />}
-                onClick={handleCopySessionId}
-                disabled={!currentSession}
-              />
-            </div>
-          </div>
-        </div>
-
-        <Space>
-          <Button
-            icon={<LeftOutlined />}
-            onClick={goToPrevious}
-            disabled={selectedIndex === 0 || loading}
-          >
-            上一个
-          </Button>
-          <Button
-            type="primary"
-            icon={<RightOutlined />}
-            onClick={goToNext}
-            disabled={selectedIndex === sessions.length - 1 || loading}
-          >
-            下一个
-          </Button>
-        </Space>
-      </div>
-
-      {/* 主内容区：对话流 */}
-      <div className="conversation-container">
-        <Card
-          className="conversation-card"
-          loading={contentLoading}
-          title={
-            <Space>
-              <span>💬 对话内容</span>
-              {messages.length > 3 && (
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<ExpandOutlined />}
-                  onClick={() => setExpanded(!expanded)}
-                >
-                  {expanded ? '收起' : `查看完整对话 (${messages.length} 条)`}
-                </Button>
-              )}
-            </Space>
-          }
-        >
-          {messages.length === 0 ? (
-            <div className="empty-conversation">
-              <p>暂无对话内容</p>
-            </div>
-          ) : (
-            <div className="conversation-view">
-              {displayMessages.map((msg, idx) => (
-                <MessageBubble key={idx} message={msg} index={idx} />
-              ))}
-
-              {messages.length > 3 && !expanded && (
-                <div className="expand-hint">
-                  <Button type="link" onClick={() => setExpanded(true)}>
-                    展开剩余 {messages.length - 3} 条消息
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 技术信息折叠面板 */}
-          {sessionContent?.metadata && (
-            <Collapse className="metadata-collapse" ghost>
-              <Panel header="📦 技术信息 (Metadata)" key="metadata">
-                <pre className="metadata-json">
-                  {JSON.stringify(sessionContent.metadata, null, 2)}
-                </pre>
-              </Panel>
-            </Collapse>
-          )}
-        </Card>
-      </div>
-
-      {/* 右侧悬浮评分面板 */}
-      <div className="score-panel-wrapper">
-        <Card className="score-panel" title="📊 评审操作">
-          <div className="score-section">
-            <div className="score-header">
-              <span className="score-title">质量评分</span>
-              <Tag color={getScoreColor(score)}>{getScoreTag(score)}</Tag>
-            </div>
-
-            <Rate
-              allowClear
-              value={score}
-              onChange={handleScoreChange}
-              tooltips={scoreLabels}
-              className="rating-stars"
+    <div>
+      <PageHeader
+        title="审核"
+        description="对清洗后的会话进行质量评分与通过/拒绝决策"
+        extra={
+          <Space wrap>
+            <Segmented
+              options={[
+                { value: 'single', label: '逐条评审' },
+                { value: 'batch', label: '批量处理' },
+              ]}
+              value={mode}
+              onChange={(value) => setMode(String(value))}
             />
-
-            {currentSession?.quality_auto_score && (
-              <div className="score-compare">
-                <small>
-                  AI 评分：<strong>{currentSession.quality_auto_score}</strong>
-                  {score > currentSession.quality_auto_score && (
-                    <RiseOutlined className="trend-icon trend-up" />
-                  )}
-                  {score < currentSession.quality_auto_score && (
-                    <FallOutlined className="trend-icon trend-down" />
-                  )}
-                </small>
-              </div>
-            )}
-          </div>
-
-          <div className="notes-section">
-            <label className="notes-label">评审意见</label>
-            <TextArea
-              rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="请输入评审意见（可选）..."
-              showCount
-              maxLength={200}
-              className="notes-input"
-            />
-          </div>
-
-          <div className="action-buttons">
-            <Popconfirm
-              title="确认拒绝？"
-              description="拒绝后该 Session 将标记为 rejected，不可恢复。"
-              onConfirm={handleReject}
-              okText="确认拒绝"
-              cancelText="取消"
-              okButtonProps={{ danger: true }}
-            >
-              <Button
-                danger
-                size="large"
-                icon={<CloseOutlined />}
-                block
-                disabled={!currentSession || submitting}
-              >
-                拒绝
-              </Button>
-            </Popconfirm>
-
-            <Button
-              type="primary"
-              size="large"
-              icon={<CheckOutlined />}
-              onClick={handleApprove}
-              disabled={!currentSession || !score || submitting}
-              block
-            >
-              通过评审
+            <Button icon={<AuditOutlined />} onClick={() => setAuditOpen(true)}>
+              审计日志
             </Button>
-          </div>
-
-          <div className="keyboard-hints">
-            <Tag>⌘ + Enter 通过</Tag>
-            <Tag>⌘ + ⌫ 拒绝</Tag>
-          </div>
+          </Space>
+        }
+      />
+      {mode === 'single' ? (
+        <ReviewWorkspace onCurrentChange={setCurrentSessionId} />
+      ) : (
+        <Card variant="borderless">
+          <BatchReviewPanel />
         </Card>
-      </div>
+      )}
+      <AuditLogDrawer open={auditOpen} onClose={() => setAuditOpen(false)} sessionId={currentSessionId} />
     </div>
   );
 };
