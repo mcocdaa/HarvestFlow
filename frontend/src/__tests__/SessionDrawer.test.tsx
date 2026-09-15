@@ -10,40 +10,44 @@ describe('SessionDrawer', () => {
     quality_manual_score: 5,
     agent_role: 'backend_dev',
     task_type: 'coding',
+    tools_used: ['read', 'write'],
+    tags: ['a', 'b'],
     created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-02T00:00:00Z',
   };
 
-  it('should render session info and whitelisted metadata keys', () => {
+  it('should render session info and messages', () => {
     const content = {
       session_id: 's1',
-      messages: [{ role: 'user' as const, content: 'Hello' }],
+      messages: [{ role: 'user', content: 'Hello' }],
       metadata: { tokens: 100 },
-      agent_role: 'backend_dev',
-      task_type: 'coding',
       tools_used: ['read', 'write'],
-      tags: ['a', 'b'],
     };
 
-    render(<SessionDrawer visible session={baseSession} content={content} onClose={() => {}} />);
+    render(<SessionDrawer open session={baseSession} content={content} onClose={() => {}} />);
 
-    // Messages rendered
     expect(screen.getByText('Hello')).toBeInTheDocument();
+    expect(screen.getAllByText('已通过').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('backend_dev').length).toBeGreaterThan(0);
+    expect(screen.getByText('对话内容（1 条）')).toBeInTheDocument();
+  });
 
-    // Expand metadata collapse panel
-    fireEvent.click(screen.getByText('技术详情'));
+  it('should show metadata json after expanding technical info', () => {
+    const content = {
+      session_id: 's1',
+      messages: [{ role: 'user', content: 'Hello' }],
+      metadata: { tokens: 100 },
+    };
 
-    // Whitelisted metadata keys rendered
-    expect(screen.getByText('agent_role:')).toBeInTheDocument();
-    expect(screen.getAllByText('backend_dev').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('task_type:')).toBeInTheDocument();
-    expect(screen.getByText('tools_used:')).toBeInTheDocument();
-    expect(screen.getByText('tags:')).toBeInTheDocument();
-    // session_id top-level key should NOT be rendered as metadata
-    expect(screen.queryByText('session_id:')).not.toBeInTheDocument();
+    render(<SessionDrawer open session={baseSession} content={content} onClose={() => {}} />);
+
+    fireEvent.click(screen.getByText('技术信息'));
+
+    expect(screen.getByText(/tokens/)).toBeInTheDocument();
   });
 
   it('should render empty state when no content', () => {
-    render(<SessionDrawer visible session={baseSession} content={null} onClose={() => {}} />);
+    render(<SessionDrawer open session={baseSession} content={null} onClose={() => {}} />);
 
     expect(screen.getByText('暂无对话内容')).toBeInTheDocument();
   });

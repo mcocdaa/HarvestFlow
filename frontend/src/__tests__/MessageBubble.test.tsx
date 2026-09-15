@@ -15,7 +15,7 @@ describe('MessageBubble Component', () => {
     expect(screen.getByText('Hello, how can I help?')).toBeInTheDocument()
   })
 
-  it('should render object content as JSON.stringify', () => {
+  it('should render object content as JSON', () => {
     const message: Message = {
       role: 'assistant',
       content: { tool_calls: [{ name: 'read_file', args: { path: '/test' } }] },
@@ -23,12 +23,11 @@ describe('MessageBubble Component', () => {
 
     render(<MessageBubble message={message} index={1} />)
 
-    // Should show JSON representation
     expect(screen.getByText(/"tool_calls"/)).toBeInTheDocument()
     expect(screen.getByText(/"read_file"/)).toBeInTheDocument()
   })
 
-  it('should display "用户" label for user role', () => {
+  it('should display 用户 label for user role', () => {
     const message: Message = {
       role: 'user',
       content: 'test',
@@ -39,7 +38,7 @@ describe('MessageBubble Component', () => {
     expect(screen.getByText('用户')).toBeInTheDocument()
   })
 
-  it('should display "AI" label for assistant role', () => {
+  it('should display AI 助手 label for assistant role', () => {
     const message: Message = {
       role: 'assistant',
       content: 'response',
@@ -47,7 +46,18 @@ describe('MessageBubble Component', () => {
 
     render(<MessageBubble message={message} index={0} />)
 
-    expect(screen.getByText('AI')).toBeInTheDocument()
+    expect(screen.getByText('AI 助手')).toBeInTheDocument()
+  })
+
+  it('should display 系统 label for system role', () => {
+    const message: Message = {
+      role: 'system',
+      content: 'system prompt',
+    }
+
+    render(<MessageBubble message={message} index={0} />)
+
+    expect(screen.getByText('系统')).toBeInTheDocument()
   })
 
   it('should display correct message index', () => {
@@ -74,25 +84,30 @@ describe('MessageBubble Component', () => {
     expect(bubble?.classList.contains('assistant')).toBe(true)
   })
 
-  it('should render avatar emoji for user', () => {
+  it('should render SVG role avatar instead of emoji', () => {
     const message: Message = {
       role: 'user',
       content: 'test',
     }
 
-    render(<MessageBubble message={message} index={0} />)
+    const { container } = render(<MessageBubble message={message} index={0} />)
 
-    expect(screen.getByText('👤')).toBeInTheDocument()
+    const avatar = container.querySelector('.bubble-avatar')
+    expect(avatar).toBeInTheDocument()
+    expect(avatar?.querySelector('svg')).toBeInTheDocument()
+    // 不允许出现 emoji 头像
+    expect(avatar?.textContent).toBe('')
   })
 
-  it('should render avatar emoji for AI', () => {
+  it('should render tool call tags', () => {
     const message: Message = {
       role: 'assistant',
-      content: 'test',
+      content: 'done',
+      tool_calls: [{ type: 'tool_use', name: 'read_file' }],
     }
 
     render(<MessageBubble message={message} index={0} />)
 
-    expect(screen.getByText('🤖')).toBeInTheDocument()
+    expect(screen.getByText('read_file')).toBeInTheDocument()
   })
 })

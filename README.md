@@ -81,6 +81,19 @@ docker compose up -d    # 让配置生效
 
 首次启动会自动 `cp .env.example .env`，并按锁文件安装前后端依赖。
 
+## 功能界面
+
+界面为全中文，图标全部使用 SVG（`@ant-design/icons`）：
+
+| 页面 | 能力 |
+|------|------|
+| 概览 | 状态分布环形图、平均自动评分/通过率、待审核入口、最近会话、清洗器状态，一键运行自动清洗 |
+| 会话 | 状态筛选与排序、对话与工具调用查看、编辑（状态流转/评分/标签/工具）、删除、单条自动评分 |
+| 审核 | 逐条评审（评分/意见/快捷键）、批量通过或拒绝、审计日志（可按会话过滤） |
+| 采集 | 监听目录增删、目录扫描、单条/批量导入与结果汇总 |
+| 导出 | ShareGPT / Alpaca、最低分/角色/任务/标签筛选、导出历史（含筛选条件回看）与路径复制 |
+| 插件 | 全类型插件卡片（采集器/清洗器/审核器/服务）、启停开关（停用需确认） |
+
 ## 配置说明
 
 完整配置见 [.env.example](.env.example)，常用项：
@@ -125,7 +138,7 @@ HarvestFlow/
 │   ├── core/                # 配置/数据库/插件/钩子等基础设施
 │   ├── managers/            # 采集/审核/导出等业务逻辑
 │   └── tests/               # pytest
-├── frontend/                # React + Ant Design + Vite
+├── frontend/                # React 18 + Ant Design 5 + ProComponents + Recharts + Vite
 ├── plugins/                 # 采集/审核插件（独立于本体）
 ├── scripts/                 # start.sh / stop.sh
 ├── docker-compose.yml       # 单文件编排

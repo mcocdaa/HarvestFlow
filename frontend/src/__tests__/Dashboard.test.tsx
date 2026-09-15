@@ -1,52 +1,77 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import Dashboard from '../pages/Dashboard'
-import { statsApi } from '../services'
+import { curatorApi, sessionApi, statsApi } from '../services'
 import type { Stats } from '../types'
 
 vi.mock('../services', () => ({
   statsApi: {
     get: vi.fn(),
   },
+  sessionApi: {
+    getSessions: vi.fn(),
+  },
+  curatorApi: {
+    getStatus: vi.fn(),
+    evaluateAll: vi.fn(),
+  },
 }))
 
+vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
+
 // Mock axios response shape (status/headers/config are not needed by components)
-const mockResponse = (data: Partial<Stats>) => ({ data }) as never
+const mockResponse = (data: unknown) => ({ data }) as never
+
+const mockSession = {
+  session_id: 's1',
+  status: 'approved' as const,
+  quality_auto_score: 4,
+  task_type: 'coding',
+  created_at: '2026-01-01T00:00:00Z',
+}
+
+const setupMocks = (stats: Partial<Stats> = {}) => {
+  vi.mocked(statsApi.get).mockResolvedValue(mockResponse(stats))
+  vi.mocked(sessionApi.getSessions).mockResolvedValue(mockResponse({ sessions: [mockSession], total: 1 }))
+  vi.mocked(curatorApi.getStatus).mockResolvedValue(
+    mockResponse({ enabled: true, auto_approve_threshold: 4 })
+  )
+}
 
 describe('Dashboard Component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('should render dashboard title', () => {
-    vi.mocked(statsApi.get).mockResolvedValue(mockResponse({}))
+  it('should render dashboard title', async () => {
+    setupMocks()
     render(<Dashboard />)
-    expect(screen.getByText('Dashboard')).toBeInTheDocument()
+    expect(screen.getByText('概览')).toBeInTheDocument()
   })
 
-  it('should display statistics cards with default values', async () => {
-    vi.mocked(statsApi.get).mockResolvedValue(mockResponse({}))
+  it('should display statistic cards with default values', async () => {
+    setupMocks()
     render(<Dashboard />)
 
     await waitFor(() => {
-      expect(screen.getByText('Total Sessions')).toBeInTheDocument()
-      expect(screen.getByText('Raw Sessions')).toBeInTheDocument()
-      expect(screen.getByText('Approved')).toBeInTheDocument()
-      expect(screen.getByText('Rejected')).toBeInTheDocument()
+      expect(screen.getByText('会话总数')).toBeInTheDocument()
+      expect(screen.getByText('待清洗')).toBeInTheDocument()
+      expect(screen.getByText('待审核')).toBeInTheDocument()
+      expect(screen.getAllByText('已通过').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('已拒绝').length).toBeGreaterThan(0)
     })
   })
 
   it('should display correct statistics from API response', async () => {
-    const mockStats = {
+    setupMocks({
       total_sessions: 100,
       raw_sessions: 30,
       approved_sessions: 60,
       rejected_sessions: 10,
-      avg_auto_score: 8.5,
+      avg_auto_score: 4.5,
       curated_sessions: 70,
       reviewed_sessions: 70,
-    }
-    vi.mocked(statsApi.get).mockResolvedValue(mockResponse(mockStats))
+    })
 
     render(<Dashboard />)
 
@@ -57,22 +82,35 @@ describe('Dashboard Component', () => {
       expect(screen.getByText('10')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('Average Auto Score')).toBeInTheDocument()
-    expect(screen.getByText('Curated Sessions')).toBeInTheDocument()
+    expect(screen.getByText('质量与审核')).toBeInTheDocument()
+    expect(screen.getByText('清洗器')).toBeInTheDocument()
+    expect(screen.getByText('已启用')).toBeInTheDocument()
+  })
+
+  it('should render recent sessions', async () => {
+    setupMocks()
+
+    render(<Dashboard />)
+
+    await waitFor(() => {
+      expect(screen.getByText('最近会话')).toBeInTheDocument()
+      expect(screen.getByText('coding')).toBeInTheDocument()
+    })
   })
 
   it('should handle API error gracefully', async () => {
     vi.mocked(statsApi.get).mockRejectedValue(new Error('API Error'))
+    vi.mocked(sessionApi.getSessions).mockRejectedValue(new Error('API Error'))
+    vi.mocked(curatorApi.getStatus).mockRejectedValue(new Error('API Error'))
 
     render(<Dashboard />)
 
-    // 错误后加载结束、页面不崩溃、默认值展示
     await waitFor(() => {
       expect(document.querySelector('.ant-card-loading')).toBeFalsy()
     })
 
-    expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('Total Sessions')).toBeInTheDocument()
+    expect(screen.getByText('概览')).toBeInTheDocument()
+    expect(screen.getByText('会话总数')).toBeInTheDocument()
   })
 
   it('should show loading state while fetching stats', async () => {
@@ -82,46 +120,35 @@ describe('Dashboard Component', () => {
         resolveGet = resolve
       }) as never
     )
+    vi.mocked(sessionApi.getSessions).mockResolvedValue(mockResponse({ sessions: [], total: 0 }))
+    vi.mocked(curatorApi.getStatus).mockResolvedValue(
+      mockResponse({ enabled: true, auto_approve_threshold: 4 })
+    )
 
     render(<Dashboard />)
 
-    // Cards should be in loading state before the API resolves
     expect(document.querySelector('.ant-card-loading')).toBeTruthy()
 
     await act(async () => {
       resolveGet({ data: {} })
     })
 
-    expect(document.querySelector('.ant-card-loading')).toBeFalsy()
-  })
-
-  it('should display average auto score card', async () => {
-    vi.mocked(statsApi.get).mockResolvedValue(mockResponse({ avg_auto_score: 7.8 }))
-
-    render(<Dashboard />)
-
     await waitFor(() => {
-      expect(screen.getByText('Average Auto Score')).toBeInTheDocument()
+      expect(document.querySelector('.ant-card-loading')).toBeFalsy()
     })
   })
 
-  it('should display curated sessions card', async () => {
-    vi.mocked(statsApi.get).mockResolvedValue(mockResponse({ curated_sessions: 50 }))
+  it('should warn when curator is disabled', async () => {
+    setupMocks()
+    vi.mocked(curatorApi.getStatus).mockResolvedValue(
+      mockResponse({ enabled: false, auto_approve_threshold: 4 })
+    )
 
     render(<Dashboard />)
 
     await waitFor(() => {
-      expect(screen.getByText('Curated Sessions')).toBeInTheDocument()
-    })
-  })
-
-  it('should display reviewed sessions card', async () => {
-    vi.mocked(statsApi.get).mockResolvedValue(mockResponse({ reviewed_sessions: 50 }))
-
-    render(<Dashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Reviewed Sessions')).toBeInTheDocument()
+      expect(screen.getByText('已禁用')).toBeInTheDocument()
+      expect(screen.getByText(/清洗器当前禁用/)).toBeInTheDocument()
     })
   })
 })

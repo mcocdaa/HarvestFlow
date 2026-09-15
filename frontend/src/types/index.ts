@@ -2,5 +2,8 @@ export * from './session';
 export * from './stats';
 export * from './plugin';
 export * from './export';
+export * from './curator';
+export * from './collector';
+export * from './reviewer';
 export * from './menu';
 export * from './api';

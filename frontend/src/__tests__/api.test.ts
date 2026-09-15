@@ -5,6 +5,8 @@ import {
   exporterApi,
   pluginApi,
   statsApi,
+  curatorApi,
+  collectorApi,
 } from '../services'
 
 // Capture interceptor handlers registered on the mock axios instance
@@ -52,6 +54,8 @@ vi.mock('axios', () => ({
 
 const mockGet = vi.fn()
 const mockPost = vi.fn()
+const mockPatch = vi.fn()
+const mockDelete = vi.fn()
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -73,6 +77,23 @@ describe('API Service', () => {
       api.get = mockGet
       await sessionApi.getSessionContent('session-123')
       expect(mockGet).toHaveBeenCalledWith('/sessions/session-123/content')
+    })
+
+    it('should call updateSession with PATCH payload', async () => {
+      const { api } = await import('../services')
+      api.patch = mockPatch
+      await sessionApi.updateSession('session-123', { tags: ['a'], quality_manual_score: 4 })
+      expect(mockPatch).toHaveBeenCalledWith('/sessions/session-123', {
+        tags: ['a'],
+        quality_manual_score: 4,
+      })
+    })
+
+    it('should call deleteSession', async () => {
+      const { api } = await import('../services')
+      api.delete = mockDelete
+      await sessionApi.deleteSession('session-123')
+      expect(mockDelete).toHaveBeenCalledWith('/sessions/session-123')
     })
   })
 
@@ -101,6 +122,105 @@ describe('API Service', () => {
       await reviewerApi.getPending(1, 20)
       expect(mockGet).toHaveBeenCalledWith('/reviewer/pending', {
         params: { page: 1, page_size: 20 },
+      })
+    })
+
+    it('should call batchApprove with session id list', async () => {
+      const { api } = await import('../services')
+      api.post = mockPost
+      await reviewerApi.batchApprove(['s1', 's2'])
+      expect(mockPost).toHaveBeenCalledWith('/reviewer/batch-approve', ['s1', 's2'])
+    })
+
+    it('should call batchReject with session id list', async () => {
+      const { api } = await import('../services')
+      api.post = mockPost
+      await reviewerApi.batchReject(['s1'])
+      expect(mockPost).toHaveBeenCalledWith('/reviewer/batch-reject', ['s1'])
+    })
+
+    it('should call getAuditLogs with optional session id', async () => {
+      const { api } = await import('../services')
+      api.get = mockGet
+      await reviewerApi.getAuditLogs('session-123')
+      expect(mockGet).toHaveBeenCalledWith('/reviewer/audit-logs', {
+        params: { session_id: 'session-123' },
+      })
+      await reviewerApi.getAuditLogs()
+      expect(mockGet).toHaveBeenLastCalledWith('/reviewer/audit-logs', {
+        params: { session_id: undefined },
+      })
+    })
+  })
+
+  describe('curatorApi', () => {
+    it('should call evaluate for a single session', async () => {
+      const { api } = await import('../services')
+      api.post = mockPost
+      await curatorApi.evaluate('session-123')
+      expect(mockPost).toHaveBeenCalledWith('/curator/evaluate/session-123')
+    })
+
+    it('should call evaluateAll', async () => {
+      const { api } = await import('../services')
+      api.post = mockPost
+      await curatorApi.evaluateAll()
+      expect(mockPost).toHaveBeenCalledWith('/curator/evaluate-all')
+    })
+
+    it('should call getStatus', async () => {
+      const { api } = await import('../services')
+      api.get = mockGet
+      await curatorApi.getStatus()
+      expect(mockGet).toHaveBeenCalledWith('/curator/status')
+    })
+  })
+
+  describe('collectorApi', () => {
+    it('should call scan with folder path', async () => {
+      const { api } = await import('../services')
+      api.get = mockGet
+      await collectorApi.scan('/data/sessions')
+      expect(mockGet).toHaveBeenCalledWith('/collector/scan', {
+        params: { folder_path: '/data/sessions' },
+      })
+    })
+
+    it('should call importFile with file path', async () => {
+      const { api } = await import('../services')
+      api.post = mockPost
+      await collectorApi.importFile('/data/sessions/a.json')
+      expect(mockPost).toHaveBeenCalledWith('/collector/import', null, {
+        params: { file_path: '/data/sessions/a.json' },
+      })
+    })
+
+    it('should call importAll with folder path', async () => {
+      const { api } = await import('../services')
+      api.post = mockPost
+      await collectorApi.importAll('/data/sessions')
+      expect(mockPost).toHaveBeenCalledWith('/collector/import-all', null, {
+        params: { folder_path: '/data/sessions' },
+      })
+    })
+
+    it('should manage watch folders', async () => {
+      const { api } = await import('../services')
+      api.get = mockGet
+      api.post = mockPost
+      api.delete = mockDelete
+
+      await collectorApi.getWatchFolders()
+      expect(mockGet).toHaveBeenCalledWith('/collector/watch-folders')
+
+      await collectorApi.addWatchFolder('/data/sessions')
+      expect(mockPost).toHaveBeenCalledWith('/collector/watch-folder', null, {
+        params: { folder_path: '/data/sessions' },
+      })
+
+      await collectorApi.removeWatchFolder('/data/sessions')
+      expect(mockDelete).toHaveBeenCalledWith('/collector/watch-folder', {
+        params: { folder_path: '/data/sessions' },
       })
     })
   })
@@ -223,6 +343,15 @@ describe('API Service', () => {
       }
       await expect(onRejected(error)).rejects.toBe(error)
       expect(mockMessageError).toHaveBeenCalledWith('field required; too long')
+    })
+
+    it('should prefer message field when detail is missing', async () => {
+      await import('../services/client')
+      const onRejected = responseInterceptorHandlers[0]
+
+      const error = { response: { status: 400, data: { success: false, message: '没有可导出的会话' } } }
+      await expect(onRejected(error)).rejects.toBe(error)
+      expect(mockMessageError).toHaveBeenCalledWith('没有可导出的会话')
     })
 
     it('should fall back to status-based text when detail is missing', async () => {

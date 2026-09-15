@@ -29,6 +29,9 @@ api.interceptors.response.use(
       text = detail.map((item) => (typeof item === 'string' ? item : item?.msg ?? JSON.stringify(item))).join('; ');
     } else if (typeof detail === 'string') {
       text = detail;
+    } else if (typeof error.response?.data?.message === 'string' && error.response.data.message) {
+      // 部分端点失败时返回 {success: false, message}
+      text = error.response.data.message;
     } else if (status === 401) {
       text = '认证失败';
     } else if (status === 404) {

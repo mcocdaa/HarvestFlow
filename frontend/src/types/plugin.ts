@@ -1,4 +1,4 @@
-export type PluginType = 'collectors' | 'curators' | 'reviewers';
+export type PluginType = 'collectors' | 'curators' | 'reviewers' | 'services';
 
 export interface Plugin {
   key: string;
@@ -7,6 +7,6 @@ export interface Plugin {
   description: string;
   author: string;
   plugin_type: PluginType;
-  frontend_entry?: string;
-  enabled?: boolean;
+  type?: string;
+  enabled: boolean;
 }
