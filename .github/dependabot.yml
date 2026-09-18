@@ -32,6 +32,13 @@ updates:
       vitest:
         patterns: ['vitest', '@vitest/coverage-v8']
         update-types: ['major']
+    ignore:
+      # antd 6：等 @ant-design/pro-components 支持（当前 2.8.10 peer 仅 antd ^4 || ^5）
+      - dependency-name: 'antd'
+        update-types: ['version-update:semver-major']
+      # TypeScript 7：等 typescript-eslint 支持（当前 8.70.0 peer 不含 TS 7）
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
     commit-message:
       prefix: 'chore(deps)'
   # github-actions
