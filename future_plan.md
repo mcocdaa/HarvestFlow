@@ -280,3 +280,44 @@ POSIX 上反斜杠不是分隔符，返回整串 → 回退文件永远找不到
 - 测试 68 → 106：新增 Collect/Sessions/组件/utils 测试，更新 emoji 断言与中文文案；
   修复 antd 两字按钮自动空格、Popconfirm 异步挂载等测试细节
 - `npm run lint` / `npx tsc -b` / `npx vitest run` / `npm run build` 全绿
+
+---
+
+## 10. v1.1 规划（Round 11）
+
+以下功能已确认排入下一版；v1.0.0 仅做发版准备（文档定位、Release job、打 tag）。
+
+### 10.1 真实目录监听（自动采集）
+
+**现状**: `watch_folders` 仅作为扫描默认路径；`add/remove_watch_folder` 只改内存，
+重启丢失；无后台监听，README 原「监控/自动采集」名不符实（本轮文档已校准措辞）。
+
+**目标**:
+- 监听目录增删持久化（写回配置或 DB）
+- 后台轮询或 watchdog：新文件自动导入，含去重与失败重试
+- 前端展示监听状态与最近导入结果
+
+### 10.2 导出文件下载
+
+**现状**: 导出仅写服务器文件并记录历史，前端只能复制路径，浏览器无法直接取文件。
+
+**目标**: `GET /api/v1/exporter/download`（按历史记录/文件名，含路径穿越校验）；
+前端提供下载按钮，可选批量打包。
+
+### 10.3 Reviewer 插件体系
+
+**现状**: `plugins/reviewers/` 为空；文档中的 `ReviewerPlugin` 接口无加载约定与前端承载。
+
+**目标**: 后端加载约定 + 扩展字段/校验钩子；前端渲染插件扩展字段；提供示例插件。
+
+### 10.4 技术债清理（见 6.6）
+
+- `hook_manager` sync/async 双分发合并
+- `database_manager` 单连接 + 写锁模型
+- `session_get_for_export` 状态常量参数化
+
+### 10.5 已完成的本轮校准
+
+- README / plugins 文档按「三类插件已落地 + Reviewer 预留」校准
+- `plugin_structure.md` 过时说明（curators/openclaw 未实现）修正
+- 子模块指针 `ff61054` 推送至扩展仓库 main，`clone --recurse-submodules` 可用

@@ -6,7 +6,7 @@
 plugins/
 ├── collectors/      # 采集插件
 ├── curators/        # 自动审核插件
-├── reviewers/       # 人工审核插件
+├── reviewers/       # 人工审核插件（预留，v1.1 落地）
 ├── services/        # 服务插件
 ├── examples/       # 插件示例模板
 ├── plugins.yaml    # 插件配置文件
@@ -57,9 +57,10 @@ class CuratorPlugin:
         pass
 ```
 
-### 3. Reviewer (人工审核插件)
+### 3. Reviewer (人工审核插件) — 预留，v1.1 落地
 
-扩展人工审核界面的功能。
+扩展人工审核界面的功能。当前 `plugins/reviewers/` 为空目录，以下接口为设计草案，
+加载约定与前端扩展字段渲染将在 v1.1 实现。
 
 **接口定义：**
 ```python
@@ -86,19 +87,16 @@ class ReviewerPlugin:
 
 ```yaml
 plugins:
-  collectors/default:
-    enabled: true
   collectors/openclaw:
     enabled: true
-  curators/default:
-    enabled: true
   curators/openclaw:
-    enabled: true
-  reviewers/default:
     enabled: true
   services/infisical:
     enabled: true
 ```
+
+> `plugins.yaml` 中不存在的插件不会被加载；新增插件需先写入注册表。
+> Reviewer 类型目录为预留（v1.1 落地），暂不提供注册示例。
 
 ## 开发新插件
 
@@ -139,9 +137,11 @@ def my_parse(self, file_path):
 - **openclaw**: OpenClaw 格式采集器
 
 ### Curators
-- **openclaw**: OpenClaw 审核器
+- **openclaw**: OpenClaw 审核器（`curator_manager_score_before` 窄钩子）
 
 ### Reviewers
+
+暂无（预留目录，v1.1 落地）
 
 ### Services
 - **infisical**: Infisical 密钥管理服务

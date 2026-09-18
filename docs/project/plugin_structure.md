@@ -14,39 +14,37 @@ plugins/
 ├── plugins.yaml              # 插件注册表
 ├── common.py                 # 插件公共辅助（call_on_load 等）
 ├── collectors/               # 采集器插件
-│   ├── default/              # 占位（空目录，未注册）
-│   └── openclaw/
+│   └── openclaw/             # OpenClaw JSONL 采集器（已启用）
 │       ├── __init__.py
 │       ├── plugin.yaml       # 插件清单
 │       ├── hooks.py          # 钩子定义
 │       └── backend.py        # 后端实现
-├── curators/                 # 审核器插件
-│   ├── default/              # 占位（空目录，未注册）
-│   └── openclaw/             # 入口待实现（backend 存在但 __init__ 为空，未生效）
-├── reviewers/                # 人工审核插件
-│   └── default/              # 占位（空目录，未注册）
+├── curators/                 # 自动审核插件
+│   └── openclaw/             # OpenClaw 评分（curator_manager_score_before 窄钩子，已启用）
+├── reviewers/                # 人工审核插件（预留，v1.1 落地）
 ├── services/                 # 服务插件
 │   └── infisical/
 │       ├── __init__.py
 │       ├── plugin.yaml
 │       └── hooks.py
-└── examples/                 # 插件示例模板（collector/curator/reviewer/service 各一）
-    └── collector_example/
-        ├── __init__.py
-        ├── plugin.yaml
-        ├── hooks.py
-        └── backend.py
+├── examples/                 # 插件示例模板（collector/curator/reviewer/service 各一）
+│   └── collector_example/
+│       ├── __init__.py
+│       ├── plugin.yaml
+│       ├── hooks.py
+│       └── backend.py
+└── plugin-openclaw-to-harvestflow/   # OpenClaw 扩展（git submodule，非后端插件）
 ```
 
 ## 插件注册表（plugins.yaml）
 
 ```yaml
 plugins:
-  collectors/default:
-    enabled: true              # 是否启用
-
   collectors/openclaw:
-    enabled: false
+    enabled: true
+
+  curators/openclaw:
+    enabled: true
 
   services/infisical:
     enabled: true
@@ -111,8 +109,10 @@ from plugins.common import call_on_load
 call_on_load(on_load, "[OpenClaw]")
 ```
 
-> 注意：`curators/openclaw` 的入口（`__init__.py`）尚未实现，
-> 当前加载该插件不会注册任何钩子。
+> 说明：`curators/openclaw` 已通过 `curator_manager_score_before` 窄钩子接入
+> （只接管评分算法，校验与回写由 `CuratorManager` 模板负责），详见
+> [plugin_development.md](plugin_development.md)。`reviewers/` 为预留目录，
+> 加载约定与前端扩展字段规划于 v1.1。
 
 ## 钩子定义（hooks.py）
 
@@ -123,12 +123,12 @@ call_on_load(on_load, "[OpenClaw]")
 from core.hook_manager import hook_manager
 
 @hook_manager.hook("collector_manager_scan_after")
-def default_collector_scan(args, result):
-    """默认采集器扫描钩子"""
-    pass
+def default_collector_scan(result, self, folder_path=None):
+    """扫描后钩子：返回非 None 时替换扫描结果"""
+    return result
 
 @hook_manager.hook("collector_manager_import_after")
-def default_collector_import(args, result):
-    """默认采集器导入钩子"""
-    pass
+def default_collector_import(result, self, file_path):
+    """导入后钩子：返回非 None 时替换导入结果"""
+    return result
 ```
