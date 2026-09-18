@@ -127,6 +127,17 @@ class PluginManager:
         """插件 key → 模块名：plugins.{key 中的路径分隔符替换为 .}"""
         return f"plugins.{key.replace(os.sep, '.').replace('/', '.')}"
 
+    def _resolve_plugin_path(self, key: str, cfg: Dict) -> Path:
+        """解析插件路径：优先 cfg.path（相对 plugins_dir），否则 plugins_dir/{key}"""
+        if "path" in cfg:
+            path = Path(cfg["path"])
+            if not path.is_absolute():
+                path = (self.plugins_dir / path).resolve()
+            else:
+                path = path.resolve()
+            return path
+        return (self.plugins_dir / key).resolve()
+
     def _read_yaml(self, path: Path) -> Optional[Dict]:
         """读取 yaml 文件，异常记录错误返回 None
 
@@ -168,25 +179,23 @@ class PluginManager:
         """
         if cfg is None:
             return None
+
+        path = self._resolve_plugin_path(key, cfg)
+
         if not cfg.get("enabled", True):
-            # 保留禁用插件到注册表（供 enable API 查找），但不加载
-            self.logger.debug(f"插件 {key} 已禁用，跳过")
+            # 保留禁用插件到注册表（供 enable API 查找与前端展示名/描述），但不导入
+            manifest = {}
+            if path.is_dir():
+                manifest = self._read_yaml(path / "plugin.yaml") or {}
+            elif path.suffix == ".py":
+                manifest = self._read_manifest(path) or {}
             return {
                 "enabled": False,
-                "path": "",
-                "name": key.split("/")[-1],
-                "type": "unknown",
-                "manifest": {},
+                "path": str(path) if path.exists() else "",
+                "name": manifest.get("name", key.split("/")[-1]),
+                "type": manifest.get("type", "unknown"),
+                "manifest": manifest,
             }
-
-        if "path" in cfg:
-            path = Path(cfg["path"])
-            if not path.is_absolute():
-                path = (self.plugins_dir / path).resolve()
-            else:
-                path = path.resolve()
-        else:
-            path = (self.plugins_dir / key).resolve()
 
         if not path.exists():
             self.logger.warning(f"插件路径不存在: {path}，跳过插件 {key}")

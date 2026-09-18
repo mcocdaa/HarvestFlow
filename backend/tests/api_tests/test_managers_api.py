@@ -322,6 +322,23 @@ class TestPluginsAPI:
         assert resp.status_code == 404
         assert resp.json()["detail"] == "Plugin not found"
 
+    def test_enable_persist_failure_400(self, client, monkeypatch):
+        """插件存在但注册表不可写（如只读挂载）应返回 400 而非 404"""
+        from core import plugin_manager
+
+        monkeypatch.setitem(plugin_manager.plugins, "reviewers/example", {
+            "enabled": False,
+            "path": "",
+            "name": "example",
+            "type": "reviewer",
+            "manifest": {},
+        })
+        monkeypatch.setattr(plugin_manager, "_set_enabled_in_yaml", lambda key, enabled: False)
+
+        resp = client.post("/api/v1/plugins/enable", params={"key": "reviewers/example"})
+        assert resp.status_code == 400
+        assert "read-only" in resp.json()["detail"]
+
     def test_toggle_with_inline_comment(self, client, tmp_path, monkeypatch):
         """key 行带同行注释时 enable/disable 应仍生效（回归测试）"""
         from core import plugin_manager
