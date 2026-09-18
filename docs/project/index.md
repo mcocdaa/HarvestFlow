@@ -11,6 +11,7 @@ version: "1.0"
 
 ## 文件列表
 
+- [positioning.md](positioning.md): 项目定位（差异化能力/场景/边界）
 - [architecture_guide.md](architecture_guide.md): 架构指南（分层职责/抽象约定/依赖方向）
 - [hook_overview.md](hook_overview.md): Hook 插件概述
 - [hook_api.md](hook_api.md): Hook Manager API
