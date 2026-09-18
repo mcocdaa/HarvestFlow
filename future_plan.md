@@ -380,3 +380,13 @@ POSIX 上反斜杠不是分隔符，返回整串 → 回退文件永远找不到
 实测通过项：目录监听 30s 轮询自动导入 10 个 Codex 会话、自动评分与阈值自动通过、
 人工拒绝/恢复 + 审计、批量通过、导出 23 条（2MB）与单文件/zip 下载（穿越 400）、
 Reviewer 插件字段 schema / 校验拦截 / `review_meta` 落库。
+
+### 11.7 前端工具链大版本升级（Dependabot 驱动）
+
+- React 18 → 19（含 `@types/react`），接入 `@ant-design/v5-patch-for-react-19`
+  修复 antd 静态方法兼容；`useRef()` 补初始值（React 19 类型要求）
+- Vite 5 → 8（rolldown 构建，构建耗时 33s → 2.6s）；vitest 4 → 5；
+  `@vitejs/plugin-react` 4 → 6；`@vitest/coverage-v8` 4 → 5
+- 测试 jest-dom 适配：`@testing-library/jest-dom/vitest`
+- Dependabot 增加 react / vite / vitest 成对主版本分组，避免拆成不兼容 PR
+- 后端 ruff 固定规则集（`select = ["E4","E7","E9","F"]`），ruff 0.16 默认规则扩展不再误报
