@@ -6,12 +6,7 @@ import { routes } from './routes';
 
 const App: React.FC = () => {
   return (
-    <BrowserRouter
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}
-    >
+    <BrowserRouter>
       <MainLayout>
         <Suspense
           fallback={
