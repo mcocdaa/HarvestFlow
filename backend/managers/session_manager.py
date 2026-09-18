@@ -153,7 +153,8 @@ class SessionManager(BaseManager):
         target_status: SessionStatus,
         action: str,
         notes: str = None,
-        score: int = None
+        score: int = None,
+        extras: Dict = None
     ) -> Dict:
         """审批落库唯一入口：状态流转校验 + 原子更新（状态+评分+审计日志）
 
@@ -166,6 +167,7 @@ class SessionManager(BaseManager):
             action: 审计动作名（"approve" / "reject" / "auto_approve"）
             notes: 备注
             score: 评分，缺省沿用现有 quality_manual_score
+            extras: 审核插件扩展字段值，存入 sessions.review_meta
 
         Returns:
             更新后的会话数据；会话不存在或状态流转非法时返回
@@ -185,7 +187,7 @@ class SessionManager(BaseManager):
 
         manual_score = score if score is not None else session.get("quality_manual_score", 0)
         return database_manager.session_review_apply(
-            session_id, target_status.value, manual_score, action, notes
+            session_id, target_status.value, manual_score, action, notes, extras
         )
 
     @hook_manager.wrap_hooks("session_manager_delete_before", "session_manager_delete_after")

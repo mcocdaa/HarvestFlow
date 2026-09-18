@@ -9,10 +9,11 @@
 ## 为什么是 HarvestFlow
 
 - **本地优先，数据不出机**：FastAPI + SQLite + 本地文件，`docker compose` 单机一键起，不依赖任何云平台；可选 Bearer 鉴权
+- **自动监听采集**：监听目录持久化，后台轮询新文件自动导入，前端展示运行状态与最近导入结果
 - **与 OpenClaw 双向打通**：服务端插件解析 OpenClaw v3 导出并给出专用评分；扩展仓库向 OpenClaw Agent 暴露 `harvestflow_*` 工具（列表 / 采集 / 评分 / 复核）
 - **可解释的自动评分**：每份评分附带理由（工具调用成功、多步决策链、明确输出、消息数），不是黑盒分数
 - **完整闭环与审计**：`raw → curated → approved/rejected` 状态机 + 唯一落库入口 + 全链路审计日志（人工修改同样留痕）
-- **插件热插拔**：Collector / Curator / Service 三类插件已落地，before/after 短路钩子；替换评分算法无需改编排
+- **插件热插拔**：Collector / Curator / Reviewer / Service 四类插件已落地，before/after 短路钩子；替换评分算法无需改编排
 - **后端能力全量上界面**：全中文 UI（React 18 + Ant Design 5），六个页面覆盖采集 / 会话 / 审核 / 导出 / 插件
 
 ## 工作流
@@ -26,6 +27,7 @@ flowchart LR
     D -->|拒绝| F["rejected"]
     E -->|导出| G["ShareGPT / Alpaca<br/>+ 导出历史"]
     H["OpenClaw Agent 扩展"] -. "harvestflow_list / scan_import /<br/>evaluate / review" .-> A
+    W["目录监听（轮询）"] -. "新文件自动导入" .-> A
 ```
 
 ## 与常见方案对比
@@ -119,7 +121,7 @@ docker compose up -d    # 让配置生效
 | 概览 | 状态分布环形图、平均自动评分/通过率、待审核入口、最近会话、清洗器状态，一键运行自动清洗 |
 | 会话 | 状态筛选与排序、对话与工具调用查看、编辑（状态流转/评分/标签/工具）、删除、单条自动评分 |
 | 审核 | 逐条评审（评分/意见/快捷键）、批量通过或拒绝、审计日志（可按会话过滤） |
-| 采集 | 监听目录增删、目录扫描、单条/批量导入与结果汇总 |
+| 采集 | 监听目录增删（持久化）、自动监听开关与状态、目录扫描、单条/批量导入与结果汇总 |
 | 导出 | ShareGPT / Alpaca、最低分/角色/任务/标签筛选、导出历史（含筛选条件回看）与路径复制 |
 | 插件 | 插件卡片（采集器/清洗器/服务）、启停开关（停用需确认） |
 
@@ -132,7 +134,8 @@ docker compose up -d    # 让配置生效
 | `BACKEND_EXTERNAL_PORT` / `FRONTEND_EXTERNAL_PORT` | `3001` / `8001` | Docker 对外端口 |
 | `PORT` | `3000` | 本地源码模式后端端口 |
 | `HARVESTFLOW_API_KEY` / `VITE_API_KEY` | 空 | Bearer 鉴权，留空关闭；设置后需重建前端 |
-| `WATCH_FOLDERS` | 空 | 默认扫描目录（自动监听采集见 Roadmap） |
+| `WATCH_FOLDERS` | 空 | 监听目录（逗号分隔），作为自动监听与扫描的初始目录 |
+| `WATCH_ENABLED` / `WATCH_INTERVAL_SECONDS` | `false` / `30` | 自动监听开关与轮询间隔（秒）；采集页设置优先并持久化 |
 | `OPENCLAW_AGENTS_DIR` | 空 | OpenClaw 导出数据目录（如 `./backend/data/test_sessions/agents`） |
 | `CURATOR_ENABLED` / `AUTO_APPROVE_THRESHOLD` | `true` / `4` | 自动审核开关与自动通过阈值 |
 | `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
@@ -147,9 +150,10 @@ docker compose up -d    # 让配置生效
 | GET/PATCH/DELETE | `/api/v1/sessions/{id}` | 会话详情 / 更新 / 删除 |
 | GET | `/api/v1/stats` | 统计信息 |
 | GET/POST | `/api/v1/collector/scan`、`import`、`import-all` | 采集与导入 |
+| GET/POST | `/api/v1/collector/watch-state`、`watch-start`、`watch-stop`、`watch-run` | 目录监听状态与手动运行 |
 | GET/POST | `/api/v1/curator/status`、`evaluate/{id}`、`evaluate-all` | 自动审核 |
-| GET/POST | `/api/v1/reviewer/pending`、`approve/{id}`、`reject/{id}`、`batch-*` | 人工审核 |
-| GET/POST | `/api/v1/exporter/formats`、`export`、`history` | 导出 |
+| GET/POST | `/api/v1/reviewer/pending`、`approve/{id}`、`reject/{id}`、`batch-*`、`extra-fields` | 人工审核与插件扩展字段 |
+| GET/POST | `/api/v1/exporter/formats`、`export`、`history`、`download`、`download-zip` | 导出与文件下载 |
 | GET/POST | `/api/v1/plugins`、`enable`、`disable` | 插件管理 |
 
 > 鉴权：设置 `HARVESTFLOW_API_KEY` 后，`/api/*` 需携带 `Authorization: Bearer <key>`；`/health` 不受限制。
@@ -158,7 +162,8 @@ docker compose up -d    # 让配置生效
 
 插件接口定义、开发指南与配置说明见 [plugins/README.md](plugins/README.md)；架构与 Hook 机制见 [docs/project/architecture_guide.md](docs/project/architecture_guide.md)。
 
-已落地 Collector / Curator / Service 三类插件；Reviewer 插件体系预留目录，规划见 Roadmap。
+已落地 Collector / Curator / Reviewer / Service 四类插件；Reviewer 为 schema 驱动
+（扩展字段 + 提交校验 + `review_meta` 持久化），示例插件默认停用。
 
 ## 项目结构
 
@@ -179,12 +184,17 @@ HarvestFlow/
 
 ## Roadmap
 
-**v1.1（规划）**
+**v1.1（当前版本）已实现**
 
-- 真实目录监听：新文件自动导入、监听列表持久化、前端监听状态
-- 导出文件下载：浏览器直接下载，支持批量打包
-- Reviewer 插件体系：`plugins/reviewers/` 加载约定、后端钩子与前端扩展字段
-- 技术债：Hook 双分发合并、数据库连接模型、SQL 参数化
+- 目录监听自动采集：监听目录持久化、后台轮询导入新文件、前端展示运行状态与最近结果
+- 导出文件下载：单文件下载 + 多选打包 zip（含路径穿越防护）
+- Reviewer 插件体系：字段 schema 聚合、提交前校验、`review_meta` 持久化
+- 技术债安全项：导出状态查询参数化
+
+**后续（v1.2 候选）**
+
+- Hook sync/async 双分发合并（future_plan 6.6，风险较高需完整回归）
+- 数据库单连接 + 写锁模型优化（高并发场景）
 
 详细说明见 [future_plan.md](future_plan.md)。
 

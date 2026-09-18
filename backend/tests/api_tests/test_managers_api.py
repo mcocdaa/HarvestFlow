@@ -3,6 +3,8 @@
 # @create 2026-08-15
 
 import json
+import io
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -145,6 +147,91 @@ class TestReviewerAPI:
         assert resp.status_code == 200
         assert resp.json()["success"] == 2
 
+    def test_extra_fields_from_hook(self, client):
+        """审核插件经 after 钩子贡献扩展字段"""
+        def extra_fields(result, self):
+            return list(result) + [{"name": "use_case", "label": "使用场景", "type": "text"}]
+
+        hook_manager.register("reviewer_manager_extra_fields_after", extra_fields)
+        resp = client.get("/api/v1/reviewer/extra-fields")
+        assert resp.status_code == 200
+        assert resp.json()["fields"] == [{"name": "use_case", "label": "使用场景", "type": "text"}]
+
+    def test_review_validation_hook_blocks(self, client, import_session):
+        """before 钩子返回错误时短路审批（400）"""
+        def block(self, session_id, target_status, action, notes=None, score=None, extras=None):
+            return {"session_id": session_id, "error": "插件校验失败"}
+
+        hook_manager.register("reviewer_manager_review_before", block)
+        import_session("rev-block")
+        client.post("/api/v1/curator/evaluate/rev-block")
+
+        resp = client.post("/api/v1/reviewer/approve/rev-block")
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "插件校验失败"
+
+    def test_review_extras_persisted(self, client, tmp_path):
+        """审批携带的 extras 存入 sessions.review_meta"""
+        session_id = "rev-ext"
+        session_file = tmp_path / f"{session_id}.json"
+        session_file.write_text(json.dumps({
+            "session_id": session_id,
+            "messages": [
+                {"role": "user", "content": "hi"},
+                {"role": "assistant", "content": "yo"},
+            ],
+        }), encoding="utf-8")
+        client.post("/api/v1/collector/import", params={"file_path": str(session_file)})
+        client.post(f"/api/v1/curator/evaluate/{session_id}")
+
+        resp = client.post(
+            f"/api/v1/reviewer/approve/{session_id}",
+            json={"extras": {"use_case": "coding", "data_quality": "优秀"}},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["session"]["review_meta"] == {"use_case": "coding", "data_quality": "优秀"}
+
+
+class TestCollectorWatchAPI:
+    def test_watch_state_shape(self, client):
+        resp = client.get("/api/v1/collector/watch-state")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert {"enabled", "running", "interval", "folders", "last_runs"} <= set(body.keys())
+
+    def test_watch_start_stop(self, client):
+        resp = client.post("/api/v1/collector/watch-start")
+        assert resp.status_code == 200
+        assert resp.json()["enabled"] is True
+        assert resp.json()["running"] is True
+
+        resp = client.post("/api/v1/collector/watch-stop")
+        assert resp.status_code == 200
+        assert resp.json()["enabled"] is False
+        assert resp.json()["running"] is False
+
+    def test_watch_run_imports_folder(self, client, tmp_path):
+        folder = tmp_path / "inbox"
+        folder.mkdir()
+        (folder / "auto-1.json").write_text(
+            json.dumps({
+                "session_id": "auto-1",
+                "messages": [{"role": "user", "content": "hi"}],
+            }),
+            encoding="utf-8",
+        )
+        client.post("/api/v1/collector/watch-folder", params={"folder_path": str(folder)})
+
+        resp = client.post("/api/v1/collector/watch-run")
+        assert resp.status_code == 200
+        first = resp.json()["results"][str(folder)]
+        assert first["imported"] == 1
+
+        # 再次运行：已导入的会话被跳过
+        resp = client.post("/api/v1/collector/watch-run")
+        second = resp.json()["results"][str(folder)]
+        assert second["skipped"] == 1
+
 
 class TestExporterAPI:
     def test_formats(self, client):
@@ -168,6 +255,55 @@ class TestExporterAPI:
         resp = client.get("/api/v1/exporter/history")
         assert resp.status_code == 200
         assert resp.json()["exports"][0]["export_format"] == "sharegpt"
+
+    def test_download_export(self, client, import_session, tmp_path, monkeypatch):
+        from managers.exporter_manager import exporter_manager
+
+        monkeypatch.setattr(exporter_manager, "output_dir", str(tmp_path))
+        import_session("dl-001")
+        client.post("/api/v1/curator/evaluate/dl-001")
+        client.post("/api/v1/reviewer/approve/dl-001")
+        export_resp = client.post("/api/v1/exporter/export", json={"format": "sharegpt"})
+        filename = export_resp.json()["filename"]
+
+        resp = client.get("/api/v1/exporter/download", params={"filename": filename})
+        assert resp.status_code == 200
+        assert "attachment" in resp.headers["content-disposition"]
+        assert resp.content
+
+    def test_download_export_rejects_traversal(self, client, tmp_path, monkeypatch):
+        from managers.exporter_manager import exporter_manager
+
+        monkeypatch.setattr(exporter_manager, "output_dir", str(tmp_path))
+        resp = client.get("/api/v1/exporter/download", params={"filename": "../app.db"})
+        assert resp.status_code == 400
+
+    def test_download_export_missing(self, client, tmp_path, monkeypatch):
+        from managers.exporter_manager import exporter_manager
+
+        monkeypatch.setattr(exporter_manager, "output_dir", str(tmp_path))
+        resp = client.get("/api/v1/exporter/download", params={"filename": "none.jsonl"})
+        assert resp.status_code == 404
+
+    def test_download_export_zip(self, client, import_session, tmp_path, monkeypatch):
+        from managers.exporter_manager import exporter_manager
+
+        monkeypatch.setattr(exporter_manager, "output_dir", str(tmp_path))
+        import_session("zip-001")
+        client.post("/api/v1/curator/evaluate/zip-001")
+        client.post("/api/v1/reviewer/approve/zip-001")
+        export_resp = client.post("/api/v1/exporter/export", json={"format": "alpaca"})
+        filename = export_resp.json()["filename"]
+
+        resp = client.post("/api/v1/exporter/download-zip", json={"filenames": [filename]})
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/zip"
+        with zipfile.ZipFile(io.BytesIO(resp.content)) as archive:
+            assert archive.namelist() == [filename]
+
+    def test_download_export_zip_empty(self, client):
+        resp = client.post("/api/v1/exporter/download-zip", json={"filenames": []})
+        assert resp.status_code == 400
 
 
 class TestPluginsAPI:

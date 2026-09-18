@@ -45,3 +45,25 @@ def remove_watch_folder(folder_path: str) -> dict:
 @router.get("/collector/watch-folders")
 def get_watch_folders() -> dict:
     return {"watch_folders": collector_manager.watch_folders}
+
+
+@router.get("/collector/watch-state")
+def get_watch_state() -> dict:
+    """监听状态：开关、运行中、间隔、目录与各目录最近一次导入结果"""
+    return collector_manager.get_watch_state()
+
+
+@router.post("/collector/watch-start")
+def start_watching() -> dict:
+    return collector_manager.set_watch_enabled(True)
+
+
+@router.post("/collector/watch-stop")
+def stop_watching() -> dict:
+    return collector_manager.set_watch_enabled(False)
+
+
+@router.post("/collector/watch-run")
+def watch_run_now() -> dict:
+    """立即对所有监听目录执行一次导入"""
+    return {"results": collector_manager.watch_run_once()}

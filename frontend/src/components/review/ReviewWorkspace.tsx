@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Collapse, Divider, Flex, Input, Progress, Rate, Space, Tag, Typography, message } from 'antd';
+import { Button, Card, Checkbox, Collapse, Divider, Flex, Input, InputNumber, Progress, Rate, Select, Space, Tag, Typography, message } from 'antd';
 import {
   CheckOutlined,
   CloseOutlined,
@@ -14,13 +14,63 @@ import { reviewerApi, sessionApi } from '../../services';
 import { useAsyncData, useKeyboardShortcut } from '../../hooks';
 import { CopyText, EmptyState, JsonView, MessageBubble, ScoreTag, StatusTag } from '../common';
 import { getScoreColor, getScoreLabel, scoreLabels, truncateSessionId } from '../../utils';
-import type { Session, SessionContent } from '../../types';
+import type { ReviewerExtraField, ReviewerExtraFields, ReviewExtras, Session, SessionContent } from '../../types';
 import '../../styles/Review.css';
 
 const PREVIEW_COUNT = 4;
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 const MOD_KEY = isMac ? 'Cmd' : 'Ctrl';
+
+interface ExtraFieldInputProps {
+  field: ReviewerExtraField;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}
+
+const ExtraFieldInput: React.FC<ExtraFieldInputProps> = ({ field, value, onChange }) => {
+  switch (field.type) {
+    case 'select':
+      return (
+        <Select
+          allowClear
+          style={{ width: '100%' }}
+          placeholder={field.placeholder ?? `请选择${field.label}`}
+          value={value as string | undefined}
+          onChange={(selected) => onChange(selected)}
+          options={(field.options ?? []).map((option) => ({ value: option, label: option }))}
+        />
+      );
+    case 'textarea':
+      return (
+        <Input.TextArea
+          rows={2}
+          value={value as string | undefined}
+          placeholder={field.placeholder}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      );
+    case 'checkbox':
+      return <Checkbox checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />;
+    case 'number':
+      return (
+        <InputNumber
+          style={{ width: '100%' }}
+          value={value as number | undefined}
+          placeholder={field.placeholder}
+          onChange={(number) => onChange(number)}
+        />
+      );
+    default:
+      return (
+        <Input
+          value={value as string | undefined}
+          placeholder={field.placeholder}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      );
+  }
+};
 
 interface ReviewWorkspaceProps {
   onCurrentChange?: (sessionId: string | null) => void;
@@ -36,6 +86,10 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
   const [notes, setNotes] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [extras, setExtras] = useState<ReviewExtras>({});
+
+  const { data: extraFieldsData } = useAsyncData<ReviewerExtraFields>(() => reviewerApi.getExtraFields());
+  const extraFields = useMemo(() => extraFieldsData?.fields ?? [], [extraFieldsData]);
 
   useEffect(() => {
     setQueue(data?.sessions ?? []);
@@ -45,6 +99,10 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
 
   const current = queue[index] ?? null;
   const currentId = current?.session_id ?? null;
+
+  useEffect(() => {
+    setExtras({});
+  }, [currentId]);
 
   useEffect(() => {
     onCurrentChange?.(currentId);
@@ -60,13 +118,24 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
 
   const handleReview = async (approve: boolean) => {
     if (!current || submitting) return;
+
+    for (const field of extraFields) {
+      if (!field.required) continue;
+      const value = extras[field.name];
+      if (value === undefined || value === null || value === '') {
+        message.warning(`请填写「${field.label}」`);
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
+      const payload = Object.keys(extras).length > 0 ? extras : undefined;
       if (approve) {
-        await reviewerApi.approveSession(current.session_id, notes, score);
+        await reviewerApi.approveSession(current.session_id, notes, score, payload);
         message.success('已通过评审');
       } else {
-        await reviewerApi.rejectSession(current.session_id, notes, score);
+        await reviewerApi.rejectSession(current.session_id, notes, score, payload);
         message.success('已拒绝');
       }
       const next = queue.filter((item) => item.session_id !== current.session_id);
@@ -74,6 +143,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
       setIndex((prev) => Math.min(prev, Math.max(next.length - 1, 0)));
       setNotes('');
       setScore(3);
+      setExtras({});
       if (next.length === 0) {
         message.info('审核队列已清空');
         reload();
@@ -226,6 +296,29 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
               maxLength={200}
             />
           </div>
+
+          {extraFields.length > 0 && (
+            <div>
+              <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                插件扩展字段
+              </Typography.Text>
+              <Flex vertical gap={12}>
+                {extraFields.map((field) => (
+                  <div key={field.name}>
+                    <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>
+                      {field.label}
+                      {field.required ? ' *' : ''}
+                    </Typography.Text>
+                    <ExtraFieldInput
+                      field={field}
+                      value={extras[field.name]}
+                      onChange={(value) => setExtras((prev) => ({ ...prev, [field.name]: value }))}
+                    />
+                  </div>
+                ))}
+              </Flex>
+            </div>
+          )}
 
           <Flex vertical gap={8}>
             <Button

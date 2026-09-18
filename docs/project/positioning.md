@@ -28,12 +28,13 @@ Agent 会话，变成可审核、可追溯、可直接用于训练的数据集�
 | 能力 | 说明 | 代码入口 |
 |------|------|----------|
 | 本地优先 | FastAPI + SQLite + 本地文件，无任何云依赖；可选 Bearer 鉴权 | `backend/core/database_manager.py` |
+| 自动监听采集 | 监听目录持久化，后台轮询自动导入新文件，前端展示运行状态与最近结果 | `backend/managers/collector_manager.py` |
 | OpenClaw 双向集成 | 服务端解析 OpenClaw 导出（含 Windows 路径回退）并专用评分；Agent 侧扩展提供 `harvestflow_*` 工具主动上报 | `plugins/collectors/openclaw/`、`plugins/plugin-openclaw-to-harvestflow/` |
 | 可解释自动评分 | 评分附 `score_reasons`：工具调用成功、多步决策链、明确输出、消息数 | `plugins/curators/openclaw/backend.py` |
 | 状态机 + 唯一落库入口 | `raw → curated → approved/rejected`，流转校验集中在 `apply_review` | `backend/managers/session_manager.py` |
 | 全链路审计 | approve / reject / modify 均写审计日志，支持按会话过滤 | `backend/managers/reviewer_manager.py` |
-| 插件热插拔 | Collector / Curator / Service 三类插件，before/after 短路钩子，评分算法与编排解耦 | `backend/core/hook_manager.py`、`plugins/README.md` |
-| 训练格式导出 | ShareGPT / Alpaca，支持分数/角色/任务/标签筛选，筛选条件随导出历史留存 | `backend/managers/exporter_manager.py` |
+| 插件热插拔 | 四类插件（含 Reviewer 字段 schema 与提交校验），before/after 短路钩子 | `backend/core/hook_manager.py`、`plugins/README.md` |
+| 训练格式导出与下载 | ShareGPT / Alpaca，筛选条件随导出历史留存；支持单文件下载与批量打包 | `backend/managers/exporter_manager.py` |
 | 能力全量上界面 | 全中文 UI，六个页面覆盖后端全部端点 | `frontend/src/pages/` |
 
 ## 4. 与相关方案的边界
@@ -54,6 +55,7 @@ Agent 会话，变成可审核、可追溯、可直接用于训练的数据集�
 
 ## 6. 演进
 
-v1.1 规划（目录监听自动采集、导出下载、Reviewer 插件体系、技术债清理）
-见 [future_plan.md](../../future_plan.md)；架构分层见
+v1.1 已实现：目录监听自动采集、导出文件下载、Reviewer 插件体系、技术债安全项。
+v1.2 候选：Hook sync/async 双分发合并与数据库连接模型优化（见
+[future_plan.md](../../future_plan.md)）；架构分层见
 [architecture_guide.md](architecture_guide.md)。

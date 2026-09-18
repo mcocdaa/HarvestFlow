@@ -5,6 +5,7 @@ import Review from '../pages/Review'
 vi.mock('../services', () => ({
   reviewerApi: {
     getPending: vi.fn(),
+    getExtraFields: vi.fn(),
     approveSession: vi.fn(),
     rejectSession: vi.fn(),
     batchApprove: vi.fn(),
@@ -50,6 +51,7 @@ describe('Review Component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(reviewerApi.getAuditLogs).mockResolvedValue(mockResponse({ logs: [] }))
+    vi.mocked(reviewerApi.getExtraFields).mockResolvedValue(mockResponse({ fields: [] }))
   })
 
   it('should render review page with queue and approve button', async () => {
@@ -90,7 +92,7 @@ describe('Review Component', () => {
 
     await waitFor(() => {
       expect(reviewerApi.approveSession).toHaveBeenCalledTimes(1)
-      expect(reviewerApi.approveSession).toHaveBeenCalledWith('s1', '', 3)
+      expect(reviewerApi.approveSession).toHaveBeenCalledWith('s1', '', 3, undefined)
     })
 
     // 本地移除后自动前进到 s2，队列总数减少
@@ -157,6 +159,45 @@ describe('Review Component', () => {
     },
     15000
   )
+
+  it('should render plugin extra fields and submit values', async () => {
+    vi.mocked(reviewerApi.getPending).mockResolvedValue(mockResponse({ sessions: [mockSession('s1')] }))
+    vi.mocked(sessionApi.getSessionContent).mockResolvedValue(mockResponse({ content: mockContent }))
+    vi.mocked(reviewerApi.getExtraFields).mockResolvedValue(
+      mockResponse({
+        fields: [
+          { name: 'use_case', label: '使用场景', type: 'text', required: true, placeholder: '请输入使用场景' },
+          { name: 'needs_review', label: '需要复查', type: 'checkbox' },
+        ],
+      })
+    )
+    vi.mocked(reviewerApi.approveSession).mockResolvedValue(mockResponse({ success: true }))
+
+    render(<Review />)
+
+    await screen.findByText('插件扩展字段')
+    await waitFor(() => {
+      expect(sessionApi.getSessionContent).toHaveBeenCalledWith('s1')
+    })
+
+    // 必填项为空时阻止提交
+    fireEvent.click(screen.getByText('通过评审'))
+    await waitFor(() => {
+      expect(reviewerApi.approveSession).not.toHaveBeenCalled()
+    })
+
+    fireEvent.change(screen.getByPlaceholderText('请输入使用场景'), { target: { value: 'coding' } })
+    const checkboxes = screen.getAllByRole('checkbox')
+    fireEvent.click(checkboxes[checkboxes.length - 1])
+    fireEvent.click(screen.getByText('通过评审'))
+
+    await waitFor(() => {
+      expect(reviewerApi.approveSession).toHaveBeenCalledWith('s1', '', 3, {
+        use_case: 'coding',
+        needs_review: true,
+      })
+    })
+  })
 
   it('should open audit log drawer', async () => {
     vi.mocked(reviewerApi.getPending).mockResolvedValue(mockResponse({ sessions: [] }))

@@ -21,7 +21,7 @@ plugins/
 │       └── backend.py        # 后端实现
 ├── curators/                 # 自动审核插件
 │   └── openclaw/             # OpenClaw 评分（curator_manager_score_before 窄钩子，已启用）
-├── reviewers/                # 人工审核插件（预留，v1.1 落地）
+├── reviewers/                # 人工审核插件（example/ 示例，默认停用）
 ├── services/                 # 服务插件
 │   └── infisical/
 │       ├── __init__.py
@@ -111,8 +111,9 @@ call_on_load(on_load, "[OpenClaw]")
 
 > 说明：`curators/openclaw` 已通过 `curator_manager_score_before` 窄钩子接入
 > （只接管评分算法，校验与回写由 `CuratorManager` 模板负责），详见
-> [plugin_development.md](plugin_development.md)。`reviewers/` 为预留目录，
-> 加载约定与前端扩展字段规划于 v1.1。
+> [plugin_development.md](plugin_development.md)。`reviewers/` 已落地 schema 驱动
+> 的审核插件（示例见 `plugins/reviewers/example/`，钩子为
+> `reviewer_manager_extra_fields_after` 与 `reviewer_manager_review_before`）。
 
 ## 钩子定义（hooks.py）
 

@@ -12,4 +12,8 @@ export const collectorApi = {
   removeWatchFolder: (folderPath: string) =>
     api.delete('/collector/watch-folder', { params: { folder_path: folderPath } }),
   getWatchFolders: () => api.get('/collector/watch-folders'),
+  getWatchState: () => api.get('/collector/watch-state'),
+  watchStart: () => api.post('/collector/watch-start'),
+  watchStop: () => api.post('/collector/watch-stop'),
+  watchRun: () => api.post('/collector/watch-run'),
 };

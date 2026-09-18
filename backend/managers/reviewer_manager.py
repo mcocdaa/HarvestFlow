@@ -41,9 +41,13 @@ class ReviewerManager(BaseManager):
         """
         pass
 
+    @hook_manager.wrap_hooks("reviewer_manager_review_before", "reviewer_manager_review_after")
     def _review(self, session_id: str, target_status: SessionStatus, action: str,
-                notes: str = None, score: int = None) -> Dict:
+                notes: str = None, score: int = None, extras: Dict = None) -> Dict:
         """审批/拒绝公共逻辑（委托 session_manager.apply_review 统一入口）
+
+        经 `reviewer_manager_review_before/after` 钩子暴露给审核插件：
+        before 钩子返回非 None 时短路（例如返回 {"error": ...} 阻止提交）。
 
         Args:
             session_id: 会话 ID
@@ -51,21 +55,34 @@ class ReviewerManager(BaseManager):
             action: 审计动作名（"approve" / "reject"）
             notes: 备注
             score: 人工评分（缺省沿用现有 quality_manual_score）
+            extras: 审核插件扩展字段值（存入 sessions.review_meta）
 
         Returns:
             更新后的会话，失败返回 {"session_id", "error"}
         """
-        return session_manager.apply_review(session_id, target_status, action, notes, score)
+        return session_manager.apply_review(session_id, target_status, action, notes, score, extras)
+
+    @hook_manager.wrap_hooks("reviewer_manager_extra_fields_before", "reviewer_manager_extra_fields_after")
+    def get_extra_fields(self) -> List[Dict]:
+        """获取审核扩展字段定义（默认空，审核插件经 after 钩子追加）
+
+        Returns:
+            字段定义列表，如
+            [{"name": "use_case", "label": "使用场景", "type": "text", "required": false}]
+        """
+        return []
 
     @hook_manager.wrap_hooks("reviewer_manager_approve_before", "reviewer_manager_approve_after")
-    def approve_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
+    def approve_session(self, session_id: str, notes: str = None, score: int = None,
+                        extras: Dict = None) -> Dict:
         """审批会话"""
-        return self._review(session_id, SessionStatus.APPROVED, "approve", notes, score)
+        return self._review(session_id, SessionStatus.APPROVED, "approve", notes, score, extras)
 
     @hook_manager.wrap_hooks("reviewer_manager_reject_before", "reviewer_manager_reject_after")
-    def reject_session(self, session_id: str, notes: str = None, score: int = None) -> Dict:
+    def reject_session(self, session_id: str, notes: str = None, score: int = None,
+                       extras: Dict = None) -> Dict:
         """拒绝会话"""
-        return self._review(session_id, SessionStatus.REJECTED, "reject", notes, score)
+        return self._review(session_id, SessionStatus.REJECTED, "reject", notes, score, extras)
 
     def _batch_operation(self, session_ids: List[str], operation_func) -> Dict:
         """批量操作的通用方法"""

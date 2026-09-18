@@ -6,5 +6,7 @@ plugins:
     enabled: true
   curators/openclaw:     # OpenClaw 自动审核（通过 curator_manager_score_before 窄钩子接入评分）
     enabled: true
+  reviewers/example:     # 示例审核插件（扩展字段 + 提交校验，默认停用）
+    enabled: false
   services/infisical:    # Infisical 密钥服务
     enabled: true
