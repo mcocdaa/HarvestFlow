@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Button, Card, Col, Form, Input, InputNumber, Row, Select, Space, Table, Tag, Typography, message } from 'antd';
-import { ExportOutlined, ReloadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, ExportOutlined, ReloadOutlined } from '@ant-design/icons';
 import { exporterApi, sessionApi } from '../services';
 import { useAsyncData } from '../hooks';
 import { CopyText, EmptyState, PageHeader } from '../components';
@@ -9,7 +9,7 @@ import {
   DEFAULT_TASK_TYPES,
   EXPORT_FORMAT_LABELS,
 } from '../constants/display';
-import { formatDateTime, parseJsonSafe } from '../utils';
+import { basename, filenameFromDisposition, formatDateTime, parseJsonSafe, saveBlob } from '../utils';
 import type { ExportFormats, ExportHistory, ExportParams, ExportResult, Session } from '../types';
 
 const { Option } = Select;
@@ -30,6 +30,9 @@ const Export: React.FC = () => {
   const [form] = Form.useForm();
   const [exporting, setExporting] = useState(false);
   const [lastResult, setLastResult] = useState<ExportResult | null>(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [zipping, setZipping] = useState(false);
 
   const { data: formatsData } = useAsyncData<ExportFormats>(() => exporterApi.getFormats());
   const { data: historyData, loading: historyLoading, reload: reloadHistory } = useAsyncData<{
@@ -79,6 +82,40 @@ const Export: React.FC = () => {
       // 拦截器已统一提示
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleDownload = async (filename: string) => {
+    setDownloading(filename);
+    try {
+      const res = await exporterApi.downloadExport(filename);
+      saveBlob(res.data as Blob, filenameFromDisposition(res.headers?.['content-disposition'] as string, filename));
+    } catch {
+      // 拦截器已统一提示
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    const filenames = history
+      .filter((item) => selectedRowKeys.includes(item.id))
+      .map((item) => basename(item.file_path))
+      .filter(Boolean);
+    if (filenames.length === 0) return;
+
+    setZipping(true);
+    try {
+      const res = await exporterApi.downloadZip(filenames);
+      saveBlob(
+        res.data as Blob,
+        filenameFromDisposition(res.headers?.['content-disposition'] as string, 'harvestflow-exports.zip')
+      );
+      message.success(`已开始下载 ${filenames.length} 个文件`);
+    } catch {
+      // 拦截器已统一提示
+    } finally {
+      setZipping(false);
     }
   };
 
@@ -149,6 +186,25 @@ const Export: React.FC = () => {
           display={<span style={{ fontSize: 12 }}>{filePath}</span>}
         />
       ),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 100,
+      render: (_: unknown, record: ExportHistory) => {
+        const filename = basename(record.file_path);
+        return (
+          <Button
+            type="link"
+            size="small"
+            icon={<DownloadOutlined />}
+            loading={downloading === filename}
+            onClick={() => handleDownload(filename)}
+          >
+            下载
+          </Button>
+        );
+      },
     },
   ];
 
@@ -257,12 +313,35 @@ const Export: React.FC = () => {
         </Form>
       </Card>
 
-      <Card title="导出历史" variant="borderless">
+      <Card
+        title="导出历史"
+        variant="borderless"
+        extra={
+          <Space>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              已选 {selectedRowKeys.length} 项
+            </Typography.Text>
+            <Button
+              icon={<DownloadOutlined />}
+              disabled={selectedRowKeys.length === 0}
+              loading={zipping}
+              onClick={handleDownloadZip}
+            >
+              打包下载
+            </Button>
+          </Space>
+        }
+      >
         <Table
           columns={columns}
           dataSource={history}
           rowKey="id"
           loading={historyLoading}
+          rowSelection={{
+            selectedRowKeys,
+            onChange: setSelectedRowKeys,
+            preserveSelectedRowKeys: true,
+          }}
           pagination={{ pageSize: 10, showTotal: (total) => `共 ${total} 条` }}
           locale={{ emptyText: <EmptyState description="暂无导出记录" /> }}
         />

@@ -7,6 +7,8 @@ vi.mock('../services', () => ({
     getHistory: vi.fn(),
     getFormats: vi.fn(),
     exportSessions: vi.fn(),
+    downloadExport: vi.fn(),
+    downloadZip: vi.fn(),
   },
   sessionApi: {
     getSessions: vi.fn(),
@@ -17,9 +19,32 @@ import { exporterApi, sessionApi } from '../services';
 
 const mockResponse = (data: unknown) => ({ data }) as never;
 
+const mockHistory = [
+  {
+    id: 1,
+    export_format: 'sharegpt',
+    version: 'v1',
+    record_count: 12,
+    file_path: '/data/export/sharegpt_v1_abc.jsonl',
+    filters: null,
+    created_at: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 2,
+    export_format: 'alpaca',
+    version: 'v2',
+    record_count: 3,
+    file_path: '/data/export/alpaca_v2_def.jsonl',
+    filters: null,
+    created_at: '2026-01-02T00:00:00Z',
+  },
+];
+
 describe('Export Page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    URL.createObjectURL = vi.fn(() => 'blob:mock');
+    URL.revokeObjectURL = vi.fn();
 
     vi.mocked(exporterApi.getHistory).mockResolvedValue(mockResponse({ exports: [] }))
     vi.mocked(exporterApi.getFormats).mockResolvedValue(mockResponse({ formats: ['sharegpt', 'alpaca'] }))
@@ -110,6 +135,57 @@ describe('Export Page', () => {
     await waitFor(() => {
       expect(screen.getByText('min_score: 4')).toBeInTheDocument();
       expect(screen.getByText('tags: math')).toBeInTheDocument();
+    });
+  });
+
+  it('should download a single export file', async () => {
+    vi.mocked(exporterApi.getHistory).mockResolvedValue(mockResponse({ exports: [mockHistory[0]] }));
+    vi.mocked(exporterApi.downloadExport).mockResolvedValue({
+      data: new Blob(['x']),
+      headers: { 'content-disposition': 'attachment; filename="sharegpt_v1_abc.jsonl"' },
+    } as never);
+
+    render(<Export />);
+
+    await waitFor(() => {
+      expect(screen.getByText('下载')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('下载').closest('button')!);
+
+    await waitFor(() => {
+      expect(exporterApi.downloadExport).toHaveBeenCalledWith('sharegpt_v1_abc.jsonl');
+    });
+    expect(URL.createObjectURL).toHaveBeenCalled();
+  });
+
+  it('should zip selected export files', async () => {
+    vi.mocked(exporterApi.getHistory).mockResolvedValue(mockResponse({ exports: mockHistory }));
+    vi.mocked(exporterApi.downloadZip).mockResolvedValue({
+      data: new Blob(['zip']),
+      headers: { 'content-disposition': 'attachment; filename="harvestflow-exports.zip"' },
+    } as never);
+
+    render(<Export />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('下载')).toHaveLength(2);
+    });
+
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[1]);
+    fireEvent.click(checkboxes[2]);
+
+    const zipButton = screen.getByRole('button', { name: /打包下载/ });
+    await waitFor(() => {
+      expect(zipButton).toBeEnabled();
+    });
+    fireEvent.click(zipButton);
+
+    await waitFor(() => {
+      expect(exporterApi.downloadZip).toHaveBeenCalledWith([
+        'sharegpt_v1_abc.jsonl',
+        'alpaca_v2_def.jsonl',
+      ]);
     });
   });
 });

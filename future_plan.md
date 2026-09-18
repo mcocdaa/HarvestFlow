@@ -134,6 +134,8 @@ WHERE s.status = 'approved'
 - `hook_manager` sync/async 双分发合并（有注释说明理由，风险大于收益）
 - `database_manager.session_get_for_export` 状态常量写死在 SQL 字符串中
   （`status = 'approved'`），可用参数化枚举
+
+> Round 11 已参数化为 `SessionStatus.APPROVED.value`。
 - `database_manager` 单连接 + 写锁模型在超高并发下仍是瓶颈
 
 ---
@@ -314,10 +316,51 @@ POSIX 上反斜杠不是分隔符，返回整串 → 回退文件永远找不到
 
 - `hook_manager` sync/async 双分发合并
 - `database_manager` 单连接 + 写锁模型
-- `session_get_for_export` 状态常量参数化
+- `session_get_for_export` 状态常量参数化 — 已在 Round 11 完成
 
 ### 10.5 已完成的本轮校准
 
 - README / plugins 文档按「三类插件已落地 + Reviewer 预留」校准
 - `plugin_structure.md` 过时说明（curators/openclaw 未实现）修正
 - 子模块指针 `ff61054` 推送至扩展仓库 main，`clone --recurse-submodules` 可用
+
+---
+
+## 11. v1.1 功能落地（Round 11）
+
+### 11.1 目录监听自动采集
+
+- 监听目录持久化到 `DATA_DIR/watch_folders.json`（`WATCH_FOLDERS` 为初始值，
+  JSON 优先；`WATCH_ENABLED` / `WATCH_INTERVAL_SECONDS` 控制开关与轮询间隔）
+- 后台守护线程按间隔调用 `watch_run_once()`：逐目录 `import_all`（已导入会话
+  由 session_id 去重跳过），记录每目录最近一次结果（时间/导入/跳过/失败）
+- `app_lifespan_start/shutdown` 钩子自动启停；API：`watch-state` / `watch-start` /
+  `watch-stop` / `watch-run`；前端采集页展示状态与结果并定时刷新
+
+### 11.2 导出文件下载
+
+- `GET /exporter/download?filename=`：仅允许导出目录内 `.jsonl`
+  （basename + realpath 双重校验）；`POST /exporter/download-zip`：内存打包多文件
+- 前端导出历史支持单行下载与多选打包下载（blob + Content-Disposition 文件名）
+
+### 11.3 Reviewer 插件体系
+
+- 新钩子：`reviewer_manager_extra_fields_before/after`（聚合字段 schema）、
+  `reviewer_manager_review_before/after`（审批公共路径，before 可返回
+  `{"error": ...}` 短路）
+- 审批支持 `extras`（JSON body），持久化到新列 `sessions.review_meta`
+  （`PRAGMA table_info` 迁移，兼容旧库）；前端按 schema 动态渲染
+  text / textarea / select / checkbox / number
+- 示例插件 `plugins/reviewers/example/`（默认停用）：3 个扩展字段 + 通过前校验
+
+### 11.4 技术债安全项
+
+- `session_get_for_export` 的 `status = 'approved'` 参数化为
+  `SessionStatus.APPROVED.value`；hook 双分发与 DB 连接模型保持现状（见 6.6）
+
+### 11.5 验证
+
+- 后端新增导出下载（含路径穿越）、目录监听（持久化/线程生命周期）、审核插件
+  （字段聚合/校验短路/extras 落库）测试；前端新增导出下载、监听卡片、扩展字段
+  表单测试
+- 版本号提升至 1.1.0

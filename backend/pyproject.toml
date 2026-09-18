@@ -3,7 +3,7 @@
 
 [project]
 name = "harvestflow-backend"
-version = "1.0.0"
+version = "1.1.0"
 description = "HarvestFlow 后端 - AI Agent 会话数据采集与审核系统"
 requires-python = ">=3.12"
 dependencies = [

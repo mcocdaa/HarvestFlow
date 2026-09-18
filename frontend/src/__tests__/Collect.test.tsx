@@ -10,6 +10,10 @@ vi.mock('../services', () => ({
     scan: vi.fn(),
     importFile: vi.fn(),
     importAll: vi.fn(),
+    getWatchState: vi.fn(),
+    watchStart: vi.fn(),
+    watchStop: vi.fn(),
+    watchRun: vi.fn(),
   },
 }));
 
@@ -22,6 +26,9 @@ describe('Collect Page', () => {
     vi.clearAllMocks();
     vi.mocked(collectorApi.getWatchFolders).mockResolvedValue(
       mockResponse({ watch_folders: ['/data/sessions'] })
+    );
+    vi.mocked(collectorApi.getWatchState).mockResolvedValue(
+      mockResponse({ enabled: false, running: false, interval: 30, folders: ['/data/sessions'], last_runs: {} })
     );
   });
 
@@ -48,6 +55,50 @@ describe('Collect Page', () => {
 
     await waitFor(() => {
       expect(collectorApi.addWatchFolder).toHaveBeenCalledWith('/data/new');
+    });
+  });
+
+  it('should render watch state and toggle watching', async () => {
+    vi.mocked(collectorApi.getWatchState).mockResolvedValue(
+      mockResponse({
+        enabled: false,
+        running: false,
+        interval: 15,
+        folders: ['/data/sessions'],
+        last_runs: {
+          '/data/sessions': { total: 2, imported: 1, skipped: 1, failed: 0, at: '2026-01-01T00:00:00Z' },
+        },
+      })
+    );
+    vi.mocked(collectorApi.watchStart).mockResolvedValue(mockResponse({ enabled: true, running: true }));
+
+    render(<Collect />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/每 15 秒/)).toBeInTheDocument();
+    });
+    expect(screen.getByText('未运行')).toBeInTheDocument();
+    expect(screen.getByText(/导入 1 \/ 跳过 1 \/ 失败 0/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('switch'));
+    await waitFor(() => {
+      expect(collectorApi.watchStart).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('should run watch scan once', async () => {
+    vi.mocked(collectorApi.getWatchState).mockResolvedValue(
+      mockResponse({ enabled: true, running: true, interval: 30, folders: [], last_runs: {} })
+    );
+    vi.mocked(collectorApi.watchRun).mockResolvedValue(
+      mockResponse({ results: { '/a': { total: 1, imported: 1, skipped: 0, failed: 0 } } })
+    );
+
+    render(<Collect />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /立即运行一次/ }));
+    await waitFor(() => {
+      expect(collectorApi.watchRun).toHaveBeenCalledTimes(1);
     });
   });
 

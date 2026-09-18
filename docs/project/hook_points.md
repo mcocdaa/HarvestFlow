@@ -8,7 +8,7 @@ version: "2.0"
 # 内置 Hook 点列表
 
 > 以下清单由代码中的 `@hook_manager.wrap_hooks(...)` 与 `@hook_manager.hook(...)`
-> 自动生成式核对（Round 5 批次 4 校准）。
+> 自动生成式核对（Round 5 批次 4 校准，Round 11 补充导出下载/目录监听/审核插件钩子）。
 
 ## 应用生命周期（backend/main.py）
 
@@ -83,6 +83,9 @@ version: "2.0"
 | `collector_manager_parse_before` / `collector_manager_parse_after` | 解析前后 | 解析会话文件（openclaw 插件短路于此） |
 | `collector_manager_import_before` / `collector_manager_import_after` | 导入前后 | 导入单个会话 |
 | `collector_manager_import_all_before` / `collector_manager_import_all_after` | 批量导入前后 | 导入全部会话 |
+| `collector_manager_get_watch_state_before` / `collector_manager_get_watch_state_after` | 监听状态查询前后 | 获取监听状态（开关/间隔/目录/最近结果） |
+| `collector_manager_set_watch_enabled_before` / `collector_manager_set_watch_enabled_after` | 监听启停前后 | 启用/停用目录监听（持久化并即时生效） |
+| `collector_manager_watch_run_before` / `collector_manager_watch_run_after` | 监听执行前后 | 立即对所有监听目录执行一次导入 |
 
 ### Curator Manager
 
@@ -104,6 +107,8 @@ version: "2.0"
 | `reviewer_manager_register_arguments` | 参数注册后（after-only） | 追加评审参数 |
 | `reviewer_manager_approve_before` / `reviewer_manager_approve_after` | 批准前后 | 人工批准 |
 | `reviewer_manager_reject_before` / `reviewer_manager_reject_after` | 拒绝前后 | 人工拒绝 |
+| `reviewer_manager_review_before` / `reviewer_manager_review_after` | 审批公共路径前后 | 批准/拒绝共用（审核插件 before 可返回 `{"error": ...}` 阻止提交） |
+| `reviewer_manager_extra_fields_before` / `reviewer_manager_extra_fields_after` | 扩展字段查询前后 | 审核插件经 after 钩子追加字段 schema（前端动态渲染） |
 | `reviewer_manager_batch_approve_before` / `reviewer_manager_batch_approve_after` | 批量批准前后 | 批量批准 |
 | `reviewer_manager_batch_reject_before` / `reviewer_manager_batch_reject_after` | 批量拒绝前后 | 批量拒绝 |
 | `reviewer_manager_get_pending_before` / `reviewer_manager_get_pending_after` | 待审列表前后 | 获取待审列表 |
@@ -118,6 +123,8 @@ version: "2.0"
 | `exporter_manager_register_arguments` | 参数注册后（after-only） | 追加导出参数 |
 | `exporter_manager_export_before` / `exporter_manager_export_after` | 导出前后 | 执行导出 |
 | `exporter_manager_get_history_before` / `exporter_manager_get_history_after` | 历史查询前后 | 获取导出历史 |
+| `exporter_manager_resolve_file_before` / `exporter_manager_resolve_file_after` | 路径解析前后 | 下载前解析文件名（防路径穿越） |
+| `exporter_manager_build_zip_before` / `exporter_manager_build_zip_after` | 打包前后 | 批量下载打包 zip |
 
 ## 插件注册的 Hook 点（plugins/）
 
@@ -126,5 +133,7 @@ version: "2.0"
 | `collector_manager_scan_after` | collectors/openclaw | 合并 OpenClaw 扫描到的 jsonl 文件 |
 | `collector_manager_parse_before` | collectors/openclaw | 短路内置解析，改由 OpenClaw 采集器解析 |
 | `curator_manager_score_before` | curators/openclaw | 短路内置评分步骤，改由 OpenClaw 审核器评分（校验/回写仍由模板负责） |
+| `reviewer_manager_extra_fields_after` | reviewers/example | 向审核面板追加扩展字段 schema |
+| `reviewer_manager_review_before` | reviewers/example | 审批前校验，失败时短路并返回错误 |
 | `secrets_manager_register_arguments` | services/infisical | 追加 Infisical SDK 参数 |
 | `secrets_manager_init_before` | services/infisical | 配置凭证时启用 Infisical 密钥客户端 |

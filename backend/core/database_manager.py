@@ -90,16 +90,20 @@ class DatabaseManager:
                 task_type TEXT,
                 tools_used TEXT,
                 tags TEXT,
+                review_meta TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
         conn.commit()
 
-        # 添加 content 列（如果不存在，兼容旧数据库）
+        # 添加 content / review_meta 列（如果不存在，兼容旧数据库）
         existing_columns = [row[1] for row in self.connection.execute("PRAGMA table_info(sessions)").fetchall()]
         if "content" not in existing_columns:
             self.connection.execute("ALTER TABLE sessions ADD COLUMN content TEXT")
+            self.connection.commit()
+        if "review_meta" not in existing_columns:
+            self.connection.execute("ALTER TABLE sessions ADD COLUMN review_meta TEXT")
             self.connection.commit()
 
         self._create_table("""
@@ -329,17 +333,24 @@ class DatabaseManager:
             )
         return [dict(row) for row in cursor.fetchall()]
 
-    def session_review_apply(self, session_id: str, status: str, score: int, action: str, notes: str = None) -> Optional[Dict]:
-        """原子性地更新状态+评分并创建审计日志"""
+    def session_review_apply(self, session_id: str, status: str, score: int, action: str,
+                             notes: str = None, review_meta: Dict = None) -> Optional[Dict]:
+        """原子性地更新状态+评分（可选扩展字段）并创建审计日志"""
         conn = self._ensure()
 
         with self._write_lock:
             conn.execute("BEGIN IMMEDIATE")
             try:
-                conn.execute(
-                    "UPDATE sessions SET status = ?, quality_manual_score = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
-                    (status, score, session_id)
-                )
+                if review_meta is not None:
+                    conn.execute(
+                        "UPDATE sessions SET status = ?, quality_manual_score = ?, review_meta = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
+                        (status, score, json.dumps(review_meta, ensure_ascii=False), session_id)
+                    )
+                else:
+                    conn.execute(
+                        "UPDATE sessions SET status = ?, quality_manual_score = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
+                        (status, score, session_id)
+                    )
                 conn.execute(
                     "INSERT INTO audit_logs (session_id, action, operator, details) VALUES (?, ?, 'user', ?)",
                     (session_id, action, notes)
@@ -388,8 +399,8 @@ class DatabaseManager:
         """获取用于导出的会话"""
         conn = self._ensure()
 
-        query = "SELECT * FROM sessions WHERE status = 'approved'"
-        params = []
+        query = "SELECT * FROM sessions WHERE status = ?"
+        params = [SessionStatus.APPROVED.value]
 
         if min_score is not None:
             query += " AND quality_manual_score >= ?"
@@ -468,7 +479,7 @@ class DatabaseManager:
 
     def _deserialize_session_fields(self, session: Dict) -> Dict:
         """反序列化会话的 JSON 字段"""
-        for key in ("tags", "tools_used", "content"):
+        for key in ("tags", "tools_used", "content", "review_meta"):
             self._deserialize_json_field(session, key)
         return session
 

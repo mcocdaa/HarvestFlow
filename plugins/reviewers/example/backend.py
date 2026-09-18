@@ -1,6 +1,6 @@
-# @file plugins/examples/reviewer_example/backend.py
-# @brief Example reviewer plugin implementation
-# @create 2026-03-28
+# @file plugins/reviewers/example/backend.py
+# @brief 示例审核插件：扩展字段定义与提交校验逻辑
+# @create 2026-09-18
 
 import logging
 from typing import Dict, List, Optional
@@ -24,6 +24,12 @@ EXAMPLE_FIELDS: List[Dict] = [
         "placeholder": "请输入该会话的使用场景",
         "required": False,
     },
+    {
+        "name": "needs_review",
+        "label": "需要复查",
+        "type": "checkbox",
+        "required": False,
+    },
 ]
 
 
@@ -39,5 +45,8 @@ def validate_review(session_id: str, action: str, extras: Optional[Dict] = None)
     messages = (session.get("content") or {}).get("messages", [])
     if len(messages) < 2:
         return "会话消息不足 2 条，不允许通过"
+
+    if (extras or {}).get("data_quality") == "较差":
+        return "数据质量标记为「较差」时不允许直接通过"
 
     return None

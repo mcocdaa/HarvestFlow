@@ -6,7 +6,7 @@
 plugins/
 ├── collectors/      # 采集插件
 ├── curators/        # 自动审核插件
-├── reviewers/       # 人工审核插件（预留，v1.1 落地）
+├── reviewers/       # 人工审核插件（schema 驱动，示例见 example/）
 ├── services/        # 服务插件
 ├── examples/       # 插件示例模板
 ├── plugins.yaml    # 插件配置文件
@@ -57,24 +57,31 @@ class CuratorPlugin:
         pass
 ```
 
-### 3. Reviewer (人工审核插件) — 预留，v1.1 落地
+### 3. Reviewer (人工审核插件)
 
-扩展人工审核界面的功能。当前 `plugins/reviewers/` 为空目录，以下接口为设计草案，
-加载约定与前端扩展字段渲染将在 v1.1 实现。
+通过钩子扩展人工审核面板：
 
-**接口定义：**
+- `reviewer_manager_extra_fields_after`：向 `GET /api/v1/reviewer/extra-fields` 聚合字段
+  schema，前端按 schema 自动渲染表单（`text` / `textarea` / `select` / `checkbox` / `number`）
+- `reviewer_manager_review_before`：审批/拒绝提交前校验；返回 `{"session_id", "error"}`
+  会短路审批并映射为 400
+
+审批时提交的字段值存入 `sessions.review_meta`（JSON 列，审计日志仍记录 notes）。
+
+**钩子示例（完整示例见 `plugins/reviewers/example/`）：**
+
 ```python
-class ReviewerPlugin:
-    name: str
-    description: str
+@hook_manager.hook("reviewer_manager_extra_fields_after")
+def my_extra_fields(result, self):
+    return list(result) + [
+        {"name": "use_case", "label": "使用场景", "type": "text", "required": False}
+    ]
 
-    def get_extra_fields() -> List[dict]:
-        """返回额外字段定义"""
-        pass
-
-    def validate(session: dict) -> bool:
-        """验证会话"""
-        pass
+@hook_manager.hook("reviewer_manager_review_before")
+def my_validate(self, session_id, target_status, action, notes=None, score=None, extras=None):
+    if action == "approve" and (extras or {}).get("data_quality") == "较差":
+        return {"session_id": session_id, "error": "数据质量较差时不允许通过"}
+    return None
 ```
 
 ### 4. Service (服务插件)
@@ -91,12 +98,13 @@ plugins:
     enabled: true
   curators/openclaw:
     enabled: true
+  reviewers/example:      # 示例审核插件（默认停用，启用后审核面板显示扩展字段）
+    enabled: false
   services/infisical:
     enabled: true
 ```
 
 > `plugins.yaml` 中不存在的插件不会被加载；新增插件需先写入注册表。
-> Reviewer 类型目录为预留（v1.1 落地），暂不提供注册示例。
 
 ## 开发新插件
 

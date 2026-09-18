@@ -3,8 +3,10 @@
 # @create 2026-03-18
 
 import json
+import io
 import os
 import uuid
+import zipfile
 from typing import Dict, List
 from datetime import datetime, timezone
 import argparse
@@ -19,6 +21,7 @@ FORMAT_SHAREGPT = ExportFormat.SHAREGPT.value
 FORMAT_ALPACA = ExportFormat.ALPACA.value
 DEFAULT_VERSION = "v1"
 DEFAULT_HISTORY_LIMIT = 20
+EXPORT_FILE_SUFFIX = ".jsonl"
 ROLE_USER = "user"
 ROLE_ASSISTANT = "assistant"
 ROLE_GPT = "gpt"
@@ -225,6 +228,49 @@ class ExporterManager(BaseManager):
     def get_export_history(self, limit: int = DEFAULT_HISTORY_LIMIT) -> List[Dict]:
         """获取导出历史"""
         return database_manager.export_record_get_history(limit=limit)
+
+    @hook_manager.wrap_hooks("exporter_manager_resolve_file_before", "exporter_manager_resolve_file_after")
+    def resolve_export_file(self, filename: str) -> str:
+        """将导出文件名解析为输出目录内的真实路径（防路径穿越）
+
+        Args:
+            filename: 导出文件名（仅允许输出目录的直接子文件）
+
+        Returns:
+            文件绝对路径
+
+        Raises:
+            ValueError: 文件名为空、包含路径或非导出文件
+            FileNotFoundError: 文件不存在
+        """
+        if not filename or os.path.basename(filename) != filename or not filename.endswith(EXPORT_FILE_SUFFIX):
+            raise ValueError("Invalid filename")
+
+        export_dir = os.path.realpath(self.output_dir)
+        file_path = os.path.realpath(os.path.join(export_dir, filename))
+        if os.path.dirname(file_path) != export_dir or not os.path.isfile(file_path):
+            raise FileNotFoundError(filename)
+        return file_path
+
+    @hook_manager.wrap_hooks("exporter_manager_build_zip_before", "exporter_manager_build_zip_after")
+    def build_export_zip(self, filenames: List[str]) -> bytes:
+        """将多个导出文件打包为 zip（内存中构建）
+
+        Args:
+            filenames: 导出文件名列表（自动去重）
+
+        Returns:
+            zip 文件字节内容
+        """
+        if not filenames:
+            raise ValueError("No files to download")
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+            for filename in dict.fromkeys(filenames):
+                file_path = self.resolve_export_file(filename)
+                archive.write(file_path, arcname=os.path.basename(file_path))
+        return buffer.getvalue()
 
 
 exporter_manager = ExporterManager()

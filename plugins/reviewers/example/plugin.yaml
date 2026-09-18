@@ -1,0 +1,14 @@
+name: Reviewer Example
+type: reviewer
+version: 1.0.0
+description: 示例审核插件 - 贡献扩展字段并在审批前校验（默认停用）
+author: HarvestFlow Team
+
+# 钩子声明（仅文档说明，实际以 hooks.py 注册为准）
+hooks:
+  - reviewer_manager_extra_fields_after
+  - reviewer_manager_review_before
+
+# 插件配置
+config:
+  backend_entry: backend.py

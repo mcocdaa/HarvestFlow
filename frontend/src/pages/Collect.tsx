@@ -10,6 +10,7 @@ import {
   Popconfirm,
   Row,
   Space,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -26,13 +27,23 @@ import {
 import { collectorApi } from '../services';
 import { useAsyncData } from '../hooks';
 import { CopyText, EmptyState, PageHeader } from '../components';
-import type { ImportAllResult, ScanResult } from '../types';
+import { formatDateTime } from '../utils';
+import type { ImportAllResult, ScanResult, WatchRunResponse, WatchState } from '../types';
 
 const Collect: React.FC = () => {
   const { data, loading, reload } = useAsyncData<{ watch_folders?: string[] }>(
     () => collectorApi.getWatchFolders()
   );
   const folders = useMemo(() => data?.watch_folders ?? [], [data]);
+
+  const { data: watchStateData, loading: watchLoading, reload: reloadWatch } = useAsyncData<WatchState>(
+    () => collectorApi.getWatchState()
+  );
+  const watchState = watchStateData;
+  const lastRuns = useMemo(
+    () => Object.entries(watchState?.last_runs ?? {}),
+    [watchState]
+  );
 
   const [newFolder, setNewFolder] = useState('');
   const [scanFolder, setScanFolder] = useState('');
@@ -41,12 +52,49 @@ const Collect: React.FC = () => {
   const [importingFile, setImportingFile] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [importResult, setImportResult] = useState<ImportAllResult | null>(null);
+  const [togglingWatch, setTogglingWatch] = useState(false);
+  const [runningWatch, setRunningWatch] = useState(false);
 
   useEffect(() => {
     if (!scanFolder && folders.length > 0) {
       setScanFolder(folders[0]);
     }
   }, [folders, scanFolder]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      reloadWatch();
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [reloadWatch]);
+
+  const handleToggleWatch = async (enabled: boolean) => {
+    setTogglingWatch(true);
+    try {
+      await (enabled ? collectorApi.watchStart() : collectorApi.watchStop());
+      message.success(enabled ? '自动监听已开启' : '自动监听已关闭');
+      reloadWatch();
+    } catch {
+      // 拦截器已统一提示
+    } finally {
+      setTogglingWatch(false);
+    }
+  };
+
+  const handleWatchRun = async () => {
+    setRunningWatch(true);
+    try {
+      const res = await collectorApi.watchRun();
+      const results = (res.data as WatchRunResponse)?.results ?? {};
+      const imported = Object.values(results).reduce((sum, item) => sum + (item.imported ?? 0), 0);
+      message.success(`监听扫描完成：新导入 ${imported} 条会话`);
+      reloadWatch();
+    } catch {
+      // 拦截器已统一提示
+    } finally {
+      setRunningWatch(false);
+    }
+  };
 
   const handleAddFolder = async () => {
     const path = newFolder.trim();
@@ -150,7 +198,55 @@ const Collect: React.FC = () => {
 
   return (
     <div>
-      <PageHeader title="采集" description="从本地目录扫描并导入会话文件（JSON）" />
+      <PageHeader title="采集" description="从本地目录扫描并导入会话文件（JSON），支持自动监听新文件" />
+
+      <Card
+        title="自动监听"
+        variant="borderless"
+        style={{ marginBottom: 16 }}
+        extra={
+          <Button type="text" icon={<ReloadOutlined />} onClick={reloadWatch} loading={watchLoading} />
+        }
+      >
+        <Flex justify="space-between" align="center" wrap gap={12}>
+          <Space wrap>
+            <Switch
+              checked={watchState?.enabled}
+              loading={togglingWatch}
+              onChange={handleToggleWatch}
+              checkedChildren="开"
+              unCheckedChildren="关"
+            />
+            <Tag color={watchState?.running ? 'green' : 'default'} bordered={false}>
+              {watchState?.running ? '运行中' : '未运行'}
+            </Tag>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              每 {watchState?.interval ?? 30} 秒扫描一次监听目录，新文件自动导入
+            </Typography.Text>
+          </Space>
+          <Button icon={<ScanOutlined />} loading={runningWatch} onClick={handleWatchRun}>
+            立即运行一次
+          </Button>
+        </Flex>
+
+        {lastRuns.length > 0 && (
+          <List
+            size="small"
+            style={{ marginTop: 12 }}
+            dataSource={lastRuns}
+            renderItem={([folder, run]) => (
+              <List.Item>
+                <Typography.Text className="flow-mono" style={{ fontSize: 12 }} ellipsis>
+                  {folder}
+                </Typography.Text>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {run.at ? formatDateTime(run.at) : '—'} · 导入 {run.imported} / 跳过 {run.skipped} / 失败 {run.failed}
+                </Typography.Text>
+              </List.Item>
+            )}
+          />
+        )}
+      </Card>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={9}>

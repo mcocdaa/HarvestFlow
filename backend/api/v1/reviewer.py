@@ -2,12 +2,17 @@
 # @brief Reviewer API 路由
 # @create 2026-03-22
 
-from fastapi import APIRouter
-from typing import Optional, List
+from fastapi import APIRouter, Body
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel
 from managers.reviewer_manager import reviewer_manager
 from api.v1.common import ok, raise_from_result, not_found
 
 router = APIRouter()
+
+
+class ReviewPayload(BaseModel):
+    extras: Dict[str, Any] = {}
 
 
 def _review_ok(result: dict) -> dict:
@@ -22,14 +27,24 @@ def get_pending_sessions(page: int = 1, page_size: int = 20) -> dict:
     return reviewer_manager.get_pending_sessions(page, page_size)
 
 
+@router.get("/reviewer/extra-fields")
+def get_extra_fields() -> dict:
+    """审核插件贡献的扩展字段定义"""
+    return {"fields": reviewer_manager.get_extra_fields()}
+
+
 @router.post("/reviewer/approve/{session_id}")
-def approve_session(session_id: str, notes: Optional[str] = None, score: Optional[int] = None) -> dict:
-    return _review_ok(reviewer_manager.approve_session(session_id, notes, score))
+def approve_session(session_id: str, notes: Optional[str] = None, score: Optional[int] = None,
+                    payload: Optional[ReviewPayload] = Body(default=None)) -> dict:
+    extras = payload.extras if payload else None
+    return _review_ok(reviewer_manager.approve_session(session_id, notes, score, extras))
 
 
 @router.post("/reviewer/reject/{session_id}")
-def reject_session(session_id: str, notes: Optional[str] = None, score: Optional[int] = None) -> dict:
-    return _review_ok(reviewer_manager.reject_session(session_id, notes, score))
+def reject_session(session_id: str, notes: Optional[str] = None, score: Optional[int] = None,
+                   payload: Optional[ReviewPayload] = Body(default=None)) -> dict:
+    extras = payload.extras if payload else None
+    return _review_ok(reviewer_manager.reject_session(session_id, notes, score, extras))
 
 
 @router.post("/reviewer/batch-approve")
