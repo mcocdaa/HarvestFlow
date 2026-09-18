@@ -82,7 +82,7 @@ docker network create harvestflow
 docker run -d --name harvestflow-backend --network harvestflow \
   -p 3001:3000 \
   -v "$PWD/backend/data:/app/data" \
-  -v "$PWD/plugins:/app/plugins:ro" \
+  -v "$PWD/plugins:/app/plugins" \
   ghcr.io/mcocdaa/harvestflow-backend:latest
 
 docker run -d --name harvestflow-frontend --network harvestflow \

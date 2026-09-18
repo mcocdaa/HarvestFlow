@@ -4,9 +4,18 @@
 
 from fastapi import APIRouter
 from core import plugin_manager
-from api.v1.common import ok, not_found
+from api.v1.common import ok, not_found, bad_request
 
 router = APIRouter()
+
+
+def _set_plugin_enabled(key: str, enabled: bool) -> dict:
+    """启停插件：不存在 404；存在但持久化失败（如只读挂载）返回 400"""
+    if key not in plugin_manager.plugins:
+        raise not_found("Plugin not found")
+    if not plugin_manager.set_enabled(key, enabled):
+        raise bad_request("Failed to persist plugin state (plugins.yaml may be read-only)")
+    return ok()
 
 
 @router.get("/plugins")
@@ -24,15 +33,9 @@ def get_plugins_by_type(plugin_type: str) -> dict:
 
 @router.post("/plugins/enable")
 def enable_plugin(key: str) -> dict:
-    success = plugin_manager.set_enabled(key, True)
-    if not success:
-        raise not_found("Plugin not found")
-    return ok()
+    return _set_plugin_enabled(key, True)
 
 
 @router.post("/plugins/disable")
 def disable_plugin(key: str) -> dict:
-    success = plugin_manager.set_enabled(key, False)
-    if not success:
-        raise not_found("Plugin not found")
-    return ok()
+    return _set_plugin_enabled(key, False)

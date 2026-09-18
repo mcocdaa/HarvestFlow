@@ -37,7 +37,8 @@ services:
       WATCH_FOLDERS: ${WATCH_FOLDERS:-}
     volumes:
       - ./backend/data:/app/data
-      - ./plugins:/app/plugins:ro
+      # rw：插件页启停需回写 plugins.yaml（只读挂载会导致启停失败）
+      - ./plugins:/app/plugins
     networks:
       - harvestflow-network
 

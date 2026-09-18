@@ -364,3 +364,19 @@ POSIX 上反斜杠不是分隔符，返回整串 → 回退文件永远找不到
   （字段聚合/校验短路/extras 落库）测试；前端新增导出下载、监听卡片、扩展字段
   表单测试
 - 版本号提升至 1.1.0
+
+### 11.6 Docker 实测与修复（Round 11 验证轮）
+
+以本地 Codex rollout 转换的 10 个真实会话（122–645 条消息）在 Docker 部署实测，
+发现并修复：
+
+- **禁用插件 manifest 丢失**：`_load_entry` 对禁用插件返回空 stub，插件页显示名/
+  描述为空。现禁用条目仍读取 `plugin.yaml`（不导入模块），并支持 `cfg.path`
+  自定义目录（`backend/core/plugin_manager.py`）
+- **Docker 插件启停不可用**：`plugins` 只读挂载导致回写 `plugins.yaml` 失败，
+  API 误报 404。compose 与 README 改为可写挂载；API 对「插件存在但持久化失败」
+  返回 400 并给出明确文案（`backend/api/v1/plugins.py`）
+
+实测通过项：目录监听 30s 轮询自动导入 10 个 Codex 会话、自动评分与阈值自动通过、
+人工拒绝/恢复 + 审计、批量通过、导出 23 条（2MB）与单文件/zip 下载（穿越 400）、
+Reviewer 插件字段 schema / 校验拦截 / `review_meta` 落库。
