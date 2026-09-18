@@ -3,7 +3,7 @@
 # 支持双模式密钥管理
 # ============================================
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # 安装 uv（官方静态二进制，用于按锁文件安装依赖）
 COPY --from=ghcr.io/astral-sh/uv:0.11.19 /uv /uvx /bin/
