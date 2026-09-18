@@ -19,7 +19,7 @@ import type { Session, SessionContent } from '../types';
 const STATUS_FILTER_OPTIONS = [{ value: 'all', label: '全部' }, ...STATUS_OPTIONS];
 
 const Sessions: React.FC = () => {
-  const actionRef = useRef<ActionType>();
+  const actionRef = useRef<ActionType | undefined>(undefined);
   const [status, setStatus] = useState('all');
   const [sort, setSort] = useState('recent');
   const [drawerOpen, setDrawerOpen] = useState(false);

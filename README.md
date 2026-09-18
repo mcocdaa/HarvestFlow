@@ -14,7 +14,7 @@
 - **可解释的自动评分**：每份评分附带理由（工具调用成功、多步决策链、明确输出、消息数），不是黑盒分数
 - **完整闭环与审计**：`raw → curated → approved/rejected` 状态机 + 唯一落库入口 + 全链路审计日志（人工修改同样留痕）
 - **插件热插拔**：Collector / Curator / Reviewer / Service 四类插件已落地，before/after 短路钩子；替换评分算法无需改编排
-- **后端能力全量上界面**：全中文 UI（React 18 + Ant Design 5），六个页面覆盖采集 / 会话 / 审核 / 导出 / 插件
+- **后端能力全量上界面**：全中文 UI（React 19 + Ant Design 5），六个页面覆盖采集 / 会话 / 审核 / 导出 / 插件
 
 ## 工作流
 
@@ -174,7 +174,7 @@ HarvestFlow/
 │   ├── core/                # 配置/数据库/插件/钩子等基础设施
 │   ├── managers/            # 采集/审核/导出等业务逻辑
 │   └── tests/               # pytest
-├── frontend/                # React 18 + Ant Design 5 + ProComponents + Recharts + Vite
+├── frontend/                # React 19 + Ant Design 5 + ProComponents + Recharts + Vite 8
 ├── plugins/                 # 采集/审核/服务插件 + OpenClaw 扩展子模块
 ├── scripts/                 # start.sh / stop.sh
 ├── docs/                    # 架构/插件/定位等文档
