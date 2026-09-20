@@ -2,12 +2,36 @@
 # @brief Collector API 路由
 # @create 2026-03-22
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from typing import Optional
+from pydantic import BaseModel
 from managers.collector_manager import collector_manager
 from api.v1.common import ok, bad_request
 
+
+class ContentImportRequest(BaseModel):
+    content: str
+    filename: Optional[str] = "upload.json"
+
+
 router = APIRouter()
+
+
+@router.post("/collector/upload")
+async def upload_dataset(request: Request) -> dict:
+    """接收外部通用格式数据集 (OpenAI Messages, ShareGPT, Alpaca, HarvestFlow) 流式导入"""
+    body = await request.body()
+    content_str = body.decode("utf-8", errors="ignore")
+    filename = request.headers.get("x-filename", "upload.json")
+    result = collector_manager.import_from_text(content_str, filename=filename)
+    return ok(**result)
+
+
+@router.post("/collector/import-content")
+def import_content(request: ContentImportRequest) -> dict:
+    """通过 JSON 请求体直接导入会话文本"""
+    result = collector_manager.import_from_text(request.content, filename=request.filename or "upload.json")
+    return ok(**result)
 
 
 @router.get("/collector/scan")

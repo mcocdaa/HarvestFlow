@@ -34,7 +34,7 @@ const Export: React.FC = () => {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [zipping, setZipping] = useState(false);
 
-  const { data: formatsData } = useAsyncData<ExportFormats>(() => exporterApi.getFormats());
+  const { data: formatsData } = useAsyncData<ExportFormats>(() => exporterApi.getFormats(true));
   const { data: historyData, loading: historyLoading, reload: reloadHistory } = useAsyncData<{
     exports?: ExportHistory[];
   }>(() => exporterApi.getHistory(50));

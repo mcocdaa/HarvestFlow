@@ -1,0 +1,13 @@
+name: pii_cleaner
+type: curator
+version: 1.0.0
+description: PII & Secret Redactor - automatically masks API keys, bearer tokens, phone numbers and emails
+author: HarvestFlow Team
+
+# 插件配置
+config:
+  backend_entry: backend.py
+  mask_api_keys: true
+  mask_phone_numbers: true
+  mask_emails: true
+  mask_id_cards: true

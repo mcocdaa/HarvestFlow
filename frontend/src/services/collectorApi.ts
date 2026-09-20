@@ -16,4 +16,6 @@ export const collectorApi = {
   watchStart: () => api.post('/collector/watch-start'),
   watchStop: () => api.post('/collector/watch-stop'),
   watchRun: () => api.post('/collector/watch-run'),
+  importContent: (content: string, filename?: string) =>
+    api.post('/collector/import-content', { content, filename }),
 };

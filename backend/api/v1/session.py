@@ -43,9 +43,10 @@ def get_sessions(
     status: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
-    sort: str = "recent"
+    sort: str = "recent",
+    cursor: Optional[str] = None
 ) -> dict:
-    return session_manager.get_sessions(status, page, page_size, sort)
+    return session_manager.get_sessions(status, page, page_size, sort, cursor=cursor)
 
 
 @router.patch("/sessions/{session_id}")

@@ -1,5 +1,5 @@
 # @file backend/core/database_manager.py
-# @brief 数据库管理器 - 封装所有数据库操作
+# @brief 数据库管理器 - 封装所有数据库操作，基于 1 写 + 4~8 读连接池架构
 # @create 2026-03-22
 
 import os
@@ -19,14 +19,17 @@ from core.constants import (
     DEFAULT_HISTORY_LIMIT,
     SessionStatus,
 )
+from core.db import DatabasePool, encode_cursor, decode_cursor
+
 
 class DatabaseManager:
     """数据库管理器
 
     职责：
-    1. 管理 SQLite 数据库连接
-    2. 初始化数据库表结构
+    1. 管理 SQLite 数据库读写分离连接池 (1 写连接 + 4~8 读连接池)
+    2. 初始化数据库表结构与复合索引
     3. 封装所有数据库业务操作（外部不允许调用 raw SQL）
+    4. 支持传统分页与 Keyset 游标分页
 
     使用流程：
     1. register_arguments(parser) 注册参数
@@ -37,8 +40,9 @@ class DatabaseManager:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.db_path: str = ""
+        self._pool: Optional[DatabasePool] = None
         self.connection: Optional[sqlite3.Connection] = None
-        self._write_lock = threading.Lock()
+        self._write_lock = threading.RLock()
 
     @hook_manager.wrap_hooks(after="database_manager_register_arguments")
     def register_arguments(self, parser: argparse.ArgumentParser):
@@ -58,7 +62,7 @@ class DatabaseManager:
 
     @hook_manager.wrap_hooks("database_manager_initialize_before", "database_manager_initialize_after")
     def init(self, args: argparse.Namespace):
-        """初始化数据库连接
+        """初始化数据库连接池与表结构
 
         Args:
             args: 解析后的参数
@@ -67,15 +71,15 @@ class DatabaseManager:
 
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
-        self.connection = sqlite3.connect(self.db_path, check_same_thread=False, timeout=5.0)
-        self.connection.row_factory = sqlite3.Row
-        self.connection.execute("PRAGMA journal_mode=WAL")
+        self._pool = DatabasePool(self.db_path)
+        self.connection = self._pool.write_conn
+        self._write_lock = self._pool._write_lock
 
         self._initialize_tables()
-        self.logger.info(f"✓ 数据库连接已建立: {self.db_path}")
+        self.logger.info(f"✓ 数据库连接池已建立 (1 写 + 4~8 读): {self.db_path}")
 
     def _initialize_tables(self):
-        """初始化数据库表结构"""
+        """初始化数据库表结构与复合索引"""
         conn = self._ensure()
 
         conn.execute("""
@@ -98,13 +102,13 @@ class DatabaseManager:
         conn.commit()
 
         # 添加 content / review_meta 列（如果不存在，兼容旧数据库）
-        existing_columns = [row[1] for row in self.connection.execute("PRAGMA table_info(sessions)").fetchall()]
+        existing_columns = [row[1] for row in conn.execute("PRAGMA table_info(sessions)").fetchall()]
         if "content" not in existing_columns:
-            self.connection.execute("ALTER TABLE sessions ADD COLUMN content TEXT")
-            self.connection.commit()
+            conn.execute("ALTER TABLE sessions ADD COLUMN content TEXT")
+            conn.commit()
         if "review_meta" not in existing_columns:
-            self.connection.execute("ALTER TABLE sessions ADD COLUMN review_meta TEXT")
-            self.connection.commit()
+            conn.execute("ALTER TABLE sessions ADD COLUMN review_meta TEXT")
+            conn.commit()
 
         self._create_table("""
             CREATE TABLE IF NOT EXISTS audit_logs (
@@ -129,38 +133,40 @@ class DatabaseManager:
             )
         """)
 
-        self.logger.debug("✓ 数据库表结构已初始化")
+        # 加固复合索引以消除深分页与筛选的全表扫描
+        if self._pool:
+            self._pool.create_indexes()
+
+        self.logger.debug("✓ 数据库表结构与索引已初始化")
 
     def _ensure(self) -> sqlite3.Connection:
-        """确保连接可用并返回连接对象，未初始化时抛错"""
-        if not self.connection:
+        """确保连接可用并返回写连接对象，未初始化时抛错"""
+        if not self._pool or not self.connection:
             raise RuntimeError("数据库未初始化")
         return self.connection
 
     def _write(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
-        """写操作统一入口：写锁 + 执行 + 提交
+        """写操作统一入口：写连接 + 独占锁 + 执行 + 提交
 
         Returns:
-            execute 返回的 Cursor（需要 rowcount 时使用）
+            execute 返回的 Cursor
         """
-        conn = self._ensure()
-        with self._write_lock:
+        self._ensure()
+        with self._pool.writer() as conn:
             cursor = conn.execute(sql, params)
-            conn.commit()
         return cursor
 
     def _create_table(self, sql: str):
         """创建表（内部方法）"""
-        conn = self._ensure()
-        conn.execute(sql)
-        conn.commit()
+        self._write(sql)
 
     def close(self):
-        """关闭数据库连接"""
-        if self.connection:
-            self.connection.close()
-            self.connection = None
-            self.logger.info("✓ 数据库连接已关闭")
+        """关闭数据库读写连接池"""
+        if self._pool:
+            self._pool.close()
+            self._pool = None
+        self.connection = None
+        self.logger.info("✓ 数据库连接已关闭")
 
     def session_create(self, session_data: Dict) -> Dict:
         """创建会话（重复 session_id 时返回已有记录）"""
@@ -190,13 +196,15 @@ class DatabaseManager:
         return self.session_get(session_data.get("session_id"))
 
     def session_get(self, session_id: str) -> Optional[Dict]:
-        """获取单个会话"""
-        conn = self._ensure()
+        """获取单个会话（从读连接池查询）"""
+        self._ensure()
 
-        cursor = conn.execute(
-            "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
-        )
-        row = cursor.fetchone()
+        with self._pool.reader() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
+            )
+            row = cursor.fetchone()
+
         if row:
             session = self._row_to_dict(row)
             session = self._deserialize_session_fields(session)
@@ -208,52 +216,128 @@ class DatabaseManager:
         status: str = None,
         page: int = 1,
         page_size: int = 20,
-        sort: str = "recent"
+        sort: str = "recent",
+        cursor: str = None
     ) -> Dict:
-        """获取会话列表（不含 content 字段，减少传输量）"""
-        conn = self._ensure()
+        """获取会话列表（支持传统分页与 Keyset 游标分页，消除深分页全表扫描）
 
-        # clamp page_size and page to prevent unbounded queries
+        Args:
+            status: 会话状态过滤
+            page: 传统分页页码（当 cursor 为空时生效）
+            page_size: 每页条数
+            sort: "recent" (降序) 或 "oldest" (升序)
+            cursor: Keyset 分页游标
+
+        Returns:
+            {"sessions", "total", "page", "page_size", "next_cursor", "has_more"}
+        """
+        self._ensure()
+
         page_size = self._clamp_limit(page_size, DEFAULT_PAGE_SIZE)
-        page = max(1, page)
-
-        where_clause = ""
-        params = []
-        if status:
-            where_clause = "WHERE status = ?"
-            params = [status]
-
         sort_order = "DESC" if sort == "recent" else "ASC"
-        offset = (page - 1) * page_size
 
-        count_cursor = conn.execute(
-            f"SELECT COUNT(*) as total FROM sessions {where_clause}", tuple(params)
-        )
-        total = dict(count_cursor.fetchone())["total"]
+        with self._pool.reader() as conn:
+            # 1. 优先使用 Keyset 游标分页
+            if cursor:
+                cursor_info = decode_cursor(cursor)
+                if cursor_info:
+                    cur_time, cur_id = cursor_info
+                    where_clauses = []
+                    params = []
 
-        query = f"""SELECT session_id, file_path, status, quality_auto_score,
-                           quality_manual_score, agent_role, task_type, tools_used,
-                           tags, created_at, updated_at
-                    FROM sessions {where_clause}
-                    ORDER BY created_at {sort_order}
-                    LIMIT ? OFFSET ?"""
-        params.extend([page_size, offset])
+                    if status:
+                        where_clauses.append("status = ?")
+                        params.append(status)
 
-        cursor = conn.execute(query, tuple(params))
-        rows = cursor.fetchall()
+                    if sort == "recent":
+                        where_clauses.append("(created_at < ? OR (created_at = ? AND session_id < ?))")
+                        params.extend([cur_time, cur_time, cur_id])
+                        order_clause = "ORDER BY created_at DESC, session_id DESC"
+                    else:
+                        where_clauses.append("(created_at > ? OR (created_at = ? AND session_id > ?))")
+                        params.extend([cur_time, cur_time, cur_id])
+                        order_clause = "ORDER BY created_at ASC, session_id ASC"
 
-        sessions = []
-        for row in rows:
-            session = self._row_to_dict(row)
-            session = self._deserialize_session_fields(session)
-            sessions.append(session)
+                    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
-        return {
-            "sessions": sessions,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-        }
+                    count_params = [status] if status else []
+                    count_where = "WHERE status = ?" if status else ""
+                    count_cursor = conn.execute(f"SELECT COUNT(*) as total FROM sessions {count_where}", tuple(count_params))
+                    total = count_cursor.fetchone()["total"]
+
+                    query = f"""SELECT session_id, file_path, status, quality_auto_score,
+                                       quality_manual_score, agent_role, task_type, tools_used,
+                                       tags, created_at, updated_at
+                                FROM sessions {where_sql}
+                                {order_clause}
+                                LIMIT ?"""
+                    params.append(page_size + 1)
+                    rows = conn.execute(query, tuple(params)).fetchall()
+
+                    has_more = len(rows) > page_size
+                    result_rows = rows[:page_size]
+
+                    next_cursor = None
+                    if result_rows and has_more:
+                        last = result_rows[-1]
+                        next_cursor = encode_cursor(last["created_at"], last["session_id"])
+
+                    sessions = [self._deserialize_session_fields(self._row_to_dict(r)) for r in result_rows]
+                    return {
+                        "sessions": sessions,
+                        "total": total,
+                        "page": page,
+                        "page_size": page_size,
+                        "next_cursor": next_cursor,
+                        "has_more": has_more,
+                    }
+
+            # 2. 传统 Offset 分页（向后兼容）
+            page = max(1, page)
+            where_clause = ""
+            params = []
+            if status:
+                where_clause = "WHERE status = ?"
+                params = [status]
+
+            offset = (page - 1) * page_size
+
+            count_cursor = conn.execute(
+                f"SELECT COUNT(*) as total FROM sessions {where_clause}", tuple(params)
+            )
+            total = dict(count_cursor.fetchone())["total"]
+
+            query = f"""SELECT session_id, file_path, status, quality_auto_score,
+                               quality_manual_score, agent_role, task_type, tools_used,
+                               tags, created_at, updated_at
+                        FROM sessions {where_clause}
+                        ORDER BY created_at {sort_order}, session_id {sort_order}
+                        LIMIT ? OFFSET ?"""
+            params.extend([page_size, offset])
+
+            cursor_res = conn.execute(query, tuple(params))
+            rows = cursor_res.fetchall()
+
+            sessions = []
+            for row in rows:
+                session = self._row_to_dict(row)
+                session = self._deserialize_session_fields(session)
+                sessions.append(session)
+
+            has_more = (offset + len(sessions)) < total
+            next_cursor = None
+            if sessions and has_more:
+                last_session = sessions[-1]
+                next_cursor = encode_cursor(last_session.get("created_at", ""), last_session.get("session_id", ""))
+
+            return {
+                "sessions": sessions,
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "next_cursor": next_cursor,
+                "has_more": has_more,
+            }
 
     def session_update(self, session_id: str, updates: Dict) -> Optional[Dict]:
         """更新会话"""
@@ -286,7 +370,7 @@ class DatabaseManager:
         return self.session_get(session_id)
 
     def session_delete(self, session_id: str) -> bool:
-        """删除会话记录（物理文件删除由 session_manager.delete_session 负责）
+        """删除会话记录
 
         Args:
             session_id: 会话 ID
@@ -301,12 +385,13 @@ class DatabaseManager:
 
     def session_get_by_status(self, status: str) -> List[Dict]:
         """按状态获取会话"""
-        conn = self._ensure()
+        self._ensure()
 
-        cursor = conn.execute(
-            "SELECT session_id FROM sessions WHERE status = ?", (status,)
-        )
-        return [dict(row) for row in cursor.fetchall()]
+        with self._pool.reader() as conn:
+            cursor = conn.execute(
+                "SELECT session_id FROM sessions WHERE status = ?", (status,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
 
     def audit_log_create(self, session_id: str, action: str, operator: str = "system", details: str = None) -> None:
         """创建审计日志"""
@@ -317,28 +402,29 @@ class DatabaseManager:
 
     def audit_log_get(self, session_id: str = None, limit: int = 100) -> List[Dict]:
         """获取审计日志"""
-        conn = self._ensure()
+        self._ensure()
 
         limit = self._clamp_limit(limit, 100)
 
-        if session_id:
-            cursor = conn.execute(
-                "SELECT * FROM audit_logs WHERE session_id = ? ORDER BY created_at DESC LIMIT ?",
-                (session_id, limit)
-            )
-        else:
-            cursor = conn.execute(
-                "SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?",
-                (limit,)
-            )
-        return [dict(row) for row in cursor.fetchall()]
+        with self._pool.reader() as conn:
+            if session_id:
+                cursor = conn.execute(
+                    "SELECT * FROM audit_logs WHERE session_id = ? ORDER BY created_at DESC LIMIT ?",
+                    (session_id, limit)
+                )
+            else:
+                cursor = conn.execute(
+                    "SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?",
+                    (limit,)
+                )
+            return [dict(row) for row in cursor.fetchall()]
 
     def session_review_apply(self, session_id: str, status: str, score: int, action: str,
                              notes: str = None, review_meta: Dict = None) -> Optional[Dict]:
         """原子性地更新状态+评分（可选扩展字段）并创建审计日志"""
-        conn = self._ensure()
+        self._ensure()
 
-        with self._write_lock:
+        with self._pool.writer() as conn:
             conn.execute("BEGIN IMMEDIATE")
             try:
                 if review_meta is not None:
@@ -379,15 +465,16 @@ class DatabaseManager:
 
     def export_record_get_history(self, limit: int = 20) -> List[Dict]:
         """获取导出历史"""
-        conn = self._ensure()
+        self._ensure()
 
         limit = self._clamp_limit(limit, DEFAULT_HISTORY_LIMIT)
 
-        cursor = conn.execute(
-            "SELECT * FROM export_records ORDER BY created_at DESC LIMIT ?",
-            (limit,)
-        )
-        return [dict(row) for row in cursor.fetchall()]
+        with self._pool.reader() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM export_records ORDER BY created_at DESC LIMIT ?",
+                (limit,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
 
     def session_get_for_export(
         self,
@@ -397,7 +484,7 @@ class DatabaseManager:
         tags: List[str] = None
     ) -> List[Dict]:
         """获取用于导出的会话"""
-        conn = self._ensure()
+        self._ensure()
 
         query = "SELECT * FROM sessions WHERE status = ?"
         params = [SessionStatus.APPROVED.value]
@@ -423,20 +510,22 @@ class DatabaseManager:
             )
             params.extend(tags)
 
-        cursor = conn.execute(query, tuple(params))
-        sessions = [self._deserialize_session_fields(self._row_to_dict(row)) for row in cursor.fetchall()]
+        with self._pool.reader() as conn:
+            cursor = conn.execute(query, tuple(params))
+            sessions = [self._deserialize_session_fields(self._row_to_dict(row)) for row in cursor.fetchall()]
         return sessions
 
     def stats_get(self) -> Dict[str, Any]:
         """获取会话统计信息"""
-        conn = self._ensure()
+        self._ensure()
 
-        status_counts = conn.execute(
-            "SELECT status, COUNT(*) AS c FROM sessions GROUP BY status"
-        ).fetchall()
-        avg_row = conn.execute(
-            "SELECT AVG(quality_auto_score) AS avg_score FROM sessions WHERE quality_auto_score IS NOT NULL"
-        ).fetchone()
+        with self._pool.reader() as conn:
+            status_counts = conn.execute(
+                "SELECT status, COUNT(*) AS c FROM sessions GROUP BY status"
+            ).fetchall()
+            avg_row = conn.execute(
+                "SELECT AVG(quality_auto_score) AS avg_score FROM sessions WHERE quality_auto_score IS NOT NULL"
+            ).fetchone()
 
         counts = {row["status"]: row["c"] for row in status_counts}
         raw = counts.get(SessionStatus.RAW.value, 0)

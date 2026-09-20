@@ -85,7 +85,8 @@ class SessionManager(BaseManager):
         status: str = None,
         page: int = 1,
         page_size: int = 20,
-        sort: str = "recent"
+        sort: str = "recent",
+        cursor: str = None
     ) -> Dict:
         """获取会话列表
 
@@ -94,6 +95,7 @@ class SessionManager(BaseManager):
             page: 页码
             page_size: 每页数量
             sort: 排序方式
+            cursor: Keyset 分页游标
 
         Returns:
             会话列表分页结果
@@ -102,7 +104,8 @@ class SessionManager(BaseManager):
             status=status,
             page=page,
             page_size=page_size,
-            sort=sort
+            sort=sort,
+            cursor=cursor
         )
 
     @hook_manager.wrap_hooks("session_manager_update_before", "session_manager_update_after")
