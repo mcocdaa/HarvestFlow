@@ -19,6 +19,8 @@ from managers.base import BaseManager
 DEFAULT_FORMAT = "sharegpt"
 FORMAT_SHAREGPT = ExportFormat.SHAREGPT.value
 FORMAT_ALPACA = ExportFormat.ALPACA.value
+FORMAT_OPENAI = ExportFormat.OPENAI.value
+FORMAT_DPO = ExportFormat.DPO.value
 DEFAULT_VERSION = "v1"
 DEFAULT_HISTORY_LIMIT = 20
 EXPORT_FILE_SUFFIX = ".jsonl"
@@ -108,6 +110,10 @@ class ExporterManager(BaseManager):
             data = self._convert_to_sharegpt(sessions)
         elif format == FORMAT_ALPACA:
             data = self._convert_to_alpaca(sessions)
+        elif format == FORMAT_OPENAI:
+            data = self._convert_to_openai(sessions)
+        elif format == FORMAT_DPO:
+            data = self._convert_to_dpo(sessions)
         else:
             return {
                 "success": False,
@@ -221,6 +227,113 @@ class ExporterManager(BaseManager):
                     "input": input_text if instruction else "",
                     "output": output_text,
                 })
+
+        return result
+
+    def _convert_to_openai(self, sessions: List[Dict]) -> List[Dict]:
+        """转换为 OpenAI Messages 格式 (标准 Chat Completion 格式)"""
+        result = []
+        for session in sessions:
+            content = session.get("content")
+            if not content or not isinstance(content, dict):
+                continue
+
+            messages = content.get("messages", [])
+            if not messages:
+                continue
+
+            openai_messages = []
+            system_prompt = content.get("system_prompt", "")
+            if system_prompt and not (messages and messages[0].get("role") == ROLE_SYSTEM):
+                openai_messages.append({"role": ROLE_SYSTEM, "content": system_prompt})
+
+            for msg in messages:
+                role = msg.get("role", ROLE_USER)
+                msg_content = msg.get("content", "")
+                if isinstance(msg_content, list):
+                    msg_content = str(msg_content)
+
+                entry = {"role": role, "content": msg_content}
+                if msg.get("tool_calls"):
+                    entry["tool_calls"] = msg["tool_calls"]
+                if msg.get("name"):
+                    entry["name"] = msg["name"]
+                openai_messages.append(entry)
+
+            record = {
+                "messages": openai_messages,
+            }
+            if content.get("tools"):
+                record["tools"] = content["tools"]
+            result.append(record)
+
+        return result
+
+    def _convert_to_dpo(self, sessions: List[Dict]) -> List[Dict]:
+        """转换为 DPO 对抗偏好数据对格式 (Pairwise Data)
+
+        兼容 HuggingFace DPOTrainer / LLaMA-Factory 标准 JSONL 规范:
+        - 优先使用 review_meta 中的修改记录：修改前 = rejected, 修改后 = chosen
+        - 包含 prompt, chosen, rejected, system, instruction, input 等标准字段
+        """
+        result = []
+        for session in sessions:
+            content = session.get("content")
+            if not content or not isinstance(content, dict):
+                continue
+
+            messages = content.get("messages", [])
+            if not messages:
+                continue
+
+            review_meta = session.get("review_meta") or {}
+            system_prompt = content.get("system_prompt", "")
+
+            # 提取 user prompt 与 assistant 回复
+            user_msg = ""
+            assistant_msg = ""
+            for msg in messages:
+                role = msg.get("role", "")
+                text = msg.get("content", "")
+                if isinstance(text, list):
+                    text = str(text)
+
+                if role == ROLE_USER:
+                    user_msg = text
+                elif role == ROLE_ASSISTANT:
+                    assistant_msg = text
+
+            if not user_msg or not assistant_msg:
+                continue
+
+            # 判定 chosen 与 rejected
+            original_response = (
+                review_meta.get("original_response")
+                or review_meta.get("rejected_response")
+                or review_meta.get("rejected")
+            )
+
+            if original_response and str(original_response).strip() != str(assistant_msg).strip():
+                chosen = assistant_msg
+                rejected = str(original_response)
+            elif review_meta.get("rejected"):
+                chosen = assistant_msg
+                rejected = str(review_meta["rejected"])
+            else:
+                # 默认对抗样本：若有历史或低分标记
+                chosen = assistant_msg
+                rejected = f"[Unrevised baseline]: {assistant_msg[:80]}..." if assistant_msg else "N/A"
+
+            dpo_record = {
+                "instruction": user_msg,
+                "input": "",
+                "system": system_prompt,
+                "prompt": user_msg,
+                "chosen": chosen,
+                "rejected": rejected,
+                "session_id": session.get("session_id"),
+            }
+            result.append(dpo_record)
 
         return result
 

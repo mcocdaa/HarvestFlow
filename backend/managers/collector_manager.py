@@ -333,6 +333,34 @@ class CollectorManager(BaseManager):
             results[folder] = result
         return results
 
+    def import_from_text(self, content_str: str, filename: str = "upload.json") -> Dict:
+        """从字符串内容导入会话 (支持 OpenAI Messages, ShareGPT, Alpaca, HarvestFlow 格式)"""
+        records = parsers.parse_multiformat_content(content_str, source_name=filename)
+        imported = []
+        skipped = []
+        failed = []
+
+        for record in records:
+            session_id = record.get("session_id")
+            if session_id and session_manager.get_session(session_id):
+                skipped.append(session_id)
+                continue
+
+            created_id = self._import_parsed(filename, record)
+            if created_id:
+                imported.append(created_id)
+            else:
+                failed.append(session_id or "unknown")
+
+        return {
+            "total": len(records),
+            "imported": len(imported),
+            "skipped": len(skipped),
+            "failed": len(failed),
+            "session_ids": imported,
+            "skipped_ids": skipped,
+        }
+
 
 collector_manager = CollectorManager()
 

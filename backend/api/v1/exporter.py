@@ -49,7 +49,10 @@ def get_export_history(limit: int = 20) -> dict:
 
 
 @router.get("/exporter/formats")
-def get_supported_formats() -> dict:
+def get_supported_formats(all: bool = False) -> dict:
+    from core.constants import ExportFormat
+    if all:
+        return {"formats": [f.value for f in ExportFormat]}
     return {"formats": ["sharegpt", "alpaca"]}
 
 

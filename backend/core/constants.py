@@ -21,6 +21,8 @@ class ExportFormat(StrEnum):
 
     SHAREGPT = "sharegpt"
     ALPACA = "alpaca"
+    OPENAI = "openai"
+    DPO = "dpo"
 
 
 # ---- 通用业务常量（收敛重复魔法数字）----

@@ -7,12 +7,13 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT/backend"
 echo "==> [HarvestFlow] Backend ruff check..."
 uv run ruff check .
+uv run ruff check ../plugins
 echo "==> [HarvestFlow] Backend pytest..."
 uv run pytest -q
 
 cd "$PROJECT_ROOT/frontend"
 echo "==> [HarvestFlow] Frontend lint & test..."
 npm run lint
-npm test
+npm test -- --run
 
 echo "✓ 全部检查通过 (HarvestFlow)"
