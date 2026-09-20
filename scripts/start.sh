@@ -44,12 +44,12 @@ usage() {
     exit 1
 }
 
-if [ $# -lt 1 ]; then
-    usage
-fi
-
-MODE="$1"
+MODE="${1:-dev}"
 SERVICE="${2:-full}"
+
+if [ "$MODE" = "docker" ]; then
+    MODE="dev"
+fi
 
 case "$MODE" in
     local|dev) ;;

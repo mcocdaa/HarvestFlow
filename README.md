@@ -1,10 +1,13 @@
 # HarvestFlow
 
-本地化的 AI Agent 会话数据采集与审核系统：**采集 → 自动评分 → 人工复核 → 导出训练格式**。
+> 本地化 AI Agent 会话数据采集、自动评分、人工复核与微调格式导出系统（采集 → 自动评分 → 人工复核 → 导出训练格式）。
 
+[![Family: *Flow](https://img.shields.io/badge/family-*Flow-8A2BE2.svg)](https://github.com/mcocdaa)
 [![CI](https://github.com/mcocdaa/HarvestFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/mcocdaa/HarvestFlow/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/mcocdaa/HarvestFlow?label=release)](https://github.com/mcocdaa/HarvestFlow/releases)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/mcocdaa/HarvestFlow?display_name=tag&sort=semver)](https://github.com/mcocdaa/HarvestFlow/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](docker-compose.yml)
 
 ## 为什么是 HarvestFlow
 
