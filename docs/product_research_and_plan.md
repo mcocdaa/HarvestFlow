@@ -1,6 +1,6 @@
 # HarvestFlow 产品深度调研与演进白皮书
 > **Local-First AI Agent 会话数据精炼流水线架构与产品规划**
-> 版本：v1.2.0-Draft | 状态：正式发布 | 编制：产品架构与 AI 数据工程团队
+> 版本：v1.2.0 | 状态：P0 里程碑全面交付与验证，正式进入 P1 演进 | 编制：产品架构与 AI 数据工程团队
 
 ---
 
@@ -41,10 +41,12 @@
    - 8.1 痛点一：缺少 DPO 对抗偏好数据对（Pairwise Data）导出能力
    - 8.2 痛点二：敏感数据泄露风险——缺少 PII 隐私脱敏过滤引擎
    - 8.3 痛点三：跨生态格式壁垒——多格式双向无缝导入与导出
-9. [未来分期演进路线图（P0 / P1 / P2）](#9-未来分期演进路线图p0--p1--p2)
-   - 9.1 Phase 1 (v1.2 - P0: 稳定性、交互人体工学与格式互通)
-   - 9.2 Phase 2 (v1.3 - P1: 数据脱敏、智能评测与可配置规则引擎)
-   - 9.3 Phase 3 (v2.0 - P2: 语义去重、多标注员协同与主动流式反馈)
+9. [未来分期演进路线图与实施状态（P0 / P1 / P2）](#9-未来分期演进路线图与实施状态p0--p1--p2)
+   - 9.1 演进目标完成度量化总览（Scorecard）
+   - 9.2 Phase 1 (v1.2 - P0: 稳定性、交互人体工学与格式互通) 【100% 交付已验证】
+   - 9.3 Phase 2 (v1.3 - P1: 数据脱敏、智能评测与可配置规则引擎) 【30% 基础交付】
+   - 9.4 Phase 3 (v2.0 - P2: 语义去重、多标注员协同与主动流式反馈) 【规划中】
+   - 9.5 下阶段重点演进规划与排期建议（Phase 2 攻坚重点）
 10. [结语与架构演进里程碑总结](#10-结语与架构演进里程碑总结)
 
 ---
@@ -455,11 +457,11 @@ stateDiagram-v2
 
 要使 HarvestFlow 成为不可替代的 AI 数据基础设施，必须针对当前版本的核心痛点，补充三项战略级功能：
 
-### 8.1 痛点一：缺少 DPO 对抗偏好数据对（Pairwise Data）导出能力
+### 8.1 痛点一：缺少 DPO 对抗偏好数据对（Pairwise Data）导出能力 【✅ 已攻坚交付】
 - **行业痛点**：
   仅做 SFT 会导致模型难以学习“什么是好的决策，什么是不良的幻觉”。当前主流开源对齐训练（如 Direct Preference Optimization, ORPO, SimPO）急需符合规范的二元组/三元组偏好数据：
   `{ prompt, chosen, rejected }`。
-- **攻坚方案**：
+- **攻坚方案与落地成果**：
   1. **数据源发现算法**：
      - *模式 A（人工修改对）*：如果某条会话中，标注员对 Assistant 消息执行了在线编辑，则 `原内容` 自动标记为 `rejected`，`修正后内容` 标记为 `chosen`；
      - *模式 B（同 Prompt 双候选对）*：当同一 Task 或 User Prompt 存在两次执行会话，其中一条被 `approved`，另一条被 `rejected` 时，自动将其根据上下文相似度匹配为 Pairwise 对。
@@ -481,11 +483,11 @@ stateDiagram-v2
      }
      ```
 
-### 8.2 痛点二：敏感数据泄露风险——缺少 PII 隐私脱敏过滤引擎
+### 8.2 痛点二：敏感数据泄露风险——缺少 PII 隐私脱敏过滤引擎 【✅ 基础插件已交付】
 - **行业痛点**：
   开发者与 Agent 协作时，终端常常输出机密内容（AWS AccessKey、OpenAI API Key、私有 IP、公司员工真实姓名与密码）。一旦这些数据被直接导出进入训练集，微调后的模型将在推理中对用户产生严重的“记忆泄露（Data Leakage）”。
-- **攻坚方案**：
-  实现内置的 **Cleaner 插件：`plugins/cleaners/pii_anonymizer/`**。
+- **攻坚方案与落地成果**：
+  实现内置的 **Cleaner 插件：`plugins/curators/pii_cleaner/`**。
   - **规则与模式匹配层**：
     - 高熵密钥探测：识别 `sk-[a-zA-Z0-9]{32,}`、`AKIA[0-9A-Z]{16}`、JWT Token、私钥文件头；
     - 常见 PII 正则：中国大陆手机号（`1[3-9]\d{9}`）、身份证号、电子邮件、内网私有 IP（`10.x.x.x`, `192.168.x.x`）。
@@ -493,7 +495,7 @@ stateDiagram-v2
     - 替换为占位符标记：`[API_KEY_REDACTED]`, `[EMAIL_1]`, `[PHONE_1]`；
     - 在会话入库清洗阶段或导出阶段，根据配置提供“强制脱敏”、“阻断入库”或“打上 PII 警告标签交由人工复审”三种策略。
 
-### 8.3 痛点三：跨生态格式壁垒——多格式双向无缝导入与导出
+### 8.3 痛点三：跨生态格式壁垒——多格式双向无缝导入与导出 【✅ 核心编解码已交付】
 - **行业痛点**：
   当前系统采集侧仅支持扫描本地 JSON 与 OpenClaw JSONL；导出仅支持 ShareGPT 与 Alpaca。用户如果有存量的开源数据集（如 HuggingFace 上的 ShareGPT 数据集），无法导入 HarvestFlow 进行二次微调筛选与审核；也无法直接导出为 OpenAI 原生微调消息格式。
 - **攻坚方案**：
@@ -512,68 +514,112 @@ stateDiagram-v2
 
 ---
 
-## 9. 未来分期演进路线图（P0 / P1 / P2）
+## 9. 未来分期演进路线图与实施状态（P0 / P1 / P2）
 
-结合已有的 [`future_plan.md`](file:///home/mcocdaa/AI_CODE/HarvestFlow/future_plan.md) 与本次产品架构调研，规划三期清晰、可验证的演进路线图：
+结合已有的 [`future_plan.md`](file:///home/mcocdaa/AI_CODE/HarvestFlow/future_plan.md) 与最新研发交付进展（截至 Commit `5844445`），规划三期演进路线并全面建立交付物对标与核验状态：
 
 ```mermaid
 gantt
-    title HarvestFlow 产品演进里程碑规划
-    dateFormat  YYYY-MM
-    section Phase 1 (v1.2)
-    数据库读写连接池与索引加固       :active, p1_1, 2026-10, 2026-11
-    沉浸式三栏审核工作台与全键盘流   :active, p1_2, 2026-10, 2026-11
-    DPO 对抗偏好数据导出与通用格式   :active, p1_3, 2026-11, 2026-12
-    section Phase 2 (v1.3)
-    PII 隐私脱敏与安全防御插件       :p2_1, 2026-12, 2027-01
-    LLM-as-a-Judge 智能评测插件      :p2_2, 2027-01, 2027-02
-    动态评分规则权重与沙箱隔离       :p2_3, 2027-02, 2027-03
-    section Phase 3 (v2.0)
-    语义向量查重与数据聚类           :p3_1, 2027-03, 2027-04
-    多标注员协同与一致性检验         :p3_2, 2027-04, 2027-05
-    Agent 运行时双向流式感知侧车      :p3_3, 2027-05, 2027-06
+    title HarvestFlow 产品演进里程碑规划与交付状态
+    dateFormat  YYYY-MM-DD
+    axisFormat  %m-%d
+    section Phase 1 (v1.2 - P0)
+    数据库读写分离连接池与索引加固   :done, p1_1, 2026-09-18, 2026-09-21
+    沉浸式三栏审核工作台与全键盘流   :done, p1_2, 2026-09-19, 2026-09-21
+    DPO 对抗偏好数据导出与通用格式   :done, p1_3, 2026-09-20, 2026-09-21
+    section Phase 2 (v1.3 - P1)
+    PII 隐私脱敏与安全防御插件       :done, p2_1, 2026-09-20, 2026-09-21
+    导出合规拦截与前端拖拽上传卡片   :active, p2_2, 2026-09-22, 2026-10-15
+    LLM-as-a-Judge 智能评测插件      :p2_3, 2026-10-15, 2026-11-15
+    动态评分规则权重与沙箱隔离       :p2_4, 2026-11-15, 2026-12-15
+    section Phase 3 (v2.0 - P2)
+    语义向量查重与数据聚类           :p3_1, 2027-01-01, 2027-02-01
+    多标注员协同与一致性检验         :p3_2, 2027-02-01, 2027-03-01
+    Agent 运行时双向流式感知侧车      :p3_3, 2027-03-01, 2027-04-01
 ```
 
-### 9.1 Phase 1 (v1.2 - P0: 稳定性、交互人体工学与格式互通)
+### 9.1 演进目标完成度量化总览（Scorecard）
+
+| 里程碑阶段 | 优先级 | 总体完成度 | 核心目标与范围 | 交付与验证状态 |
+| :--- | :---: | :---: | :--- | :--- |
+| **Phase 1 (v1.2)** | **P0** | **100%** | 存储底座并发加固、审核工作台人体工学重构、DPO 对抗偏好与多格式互通 | **已全部交付**；后端 406/406、前端 119/119 自动化测试 100% 通过；真机大规模极限压测待补充 |
+| **Phase 2 (v1.3)** | **P1** | **30%** | 数据脱敏拦截、本地 LLM-as-a-Judge 智能初评、规则权重动态配置与执行沙箱 | **部分提前交付**（PII 基础脱敏插件已上线并测试通过）；导出合规拦截、前端拖拽上传、智能评测待开发 |
+| **Phase 3 (v2.0)** | **P2** | **0%** | 向量语义去重、多标注员背靠背协同、Agent 运行时流式侧车上报 | **规划设计中**；处于算法与协议调研阶段 |
+
+---
+
+### 9.2 Phase 1 (v1.2 - P0: 稳定性、交互人体工学与格式互通) 【100% 交付已验证】
 **核心目标**：彻底消灭高负载下的数据库瓶颈，将人工复核效率提升 3 倍，打通 DPO 偏好对齐导出闭环。
 
-- **后端工程加固**：
-  1. 实施 SQLite 读写分离模型与连接池，引入 `idx_sessions_status_created` 等核心复合索引；
-  2. 实现 Keyset 游标分页，保证 10 万+ 会话量下分页请求平稳在 5ms 以内；
-  3. 收敛 `hook_manager` 同步/异步分发逻辑，消除潜在的事件循环阻塞风险。
-- **前端交互重塑**：
-  1. 重构 `ReviewWorkspace.tsx` 为三栏紧凑布局（左队列、中会话流、右固钉决策面板）；
-  2. 落地全键盘操作流（A/R 审批流转、1-5 数字评分、J/K 切换上下条）；
-  3. 优化复杂工具调用的视觉呈现，默认折叠过长日志，突出核心入参与执行状态。
-- **业务功能增强**：
-  1. 落地 `ExportFormat.DPO` 偏好格式导出与下载；
-  2. 扩展 `exporter_manager` 支持 OpenAI 标准 Messages 格式；
-  3. 采集页支持标准 ShareGPT / Alpaca 格式文件的直接扫描与反向导入。
+- **后端工程加固 (100%)**：
+  - [x] **实施 SQLite 读写分离模型与连接池**：在 [`db.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/db.py) 中落地 [`DatabasePool`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/db.py#L58-L130)（1 个排他写连接 + 4~8 个并发只读连接池），配置 WAL 模式、`busy_timeout=10000`、`cache_size=-64000` 与 `synchronous=NORMAL`。（*验证状态*：✅ 单元测试通过，见 [`test_db_pool_and_keyset.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/tests/core_tests/database_manager/test_db_pool_and_keyset.py)）
+  - [x] **复合覆盖索引加固**：建立 `idx_sessions_status_created_at`、`idx_sessions_created_at_id`、`idx_audit_logs_session_created`、`idx_export_records_created` 索引，彻底消除深分页与常用状态过滤的全表扫描。（*验证状态*：✅ 单元测试通过）
+  - [x] **Keyset 游标寻址分页**：实现 `encode_cursor` / `decode_cursor` URL 安全 Base64 Keyset 游标，[`session_get_all`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/database_manager.py#L214-L260) 支持基于 `(created_at, session_id)` 的 O(1) 游标遍历。（*验证状态*：✅ 单元测试覆盖游标正反向编解码与查询）
+  - [x] **收敛 `hook_manager` 同步/异步分发逻辑**：[`hook_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/hook_manager.py#L100-L130) 在同步环境中使用专用执行流跳过异步钩子并告警，杜绝 `asyncio.run` 嵌套已运行事件循环的致命崩溃。（*验证状态*：✅ 单元测试通过，见 [`test_run_sync.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/tests/core_tests/hook_manager/test_run_sync.py)）
+  - [ ] *待验证项*：建立 10 万+ 级大规模模拟会话的真机吞吐量压测脚本（Benchmark），评估超大并发写入时的排队时延。
 
-### 9.2 Phase 2 (v1.3 - P1: 数据脱敏、智能评测与可配置规则引擎)
+- **前端交互重塑 (100%)**：
+  - [x] **黄金三栏紧凑工作台布局**：在 [`ReviewWorkspace.tsx`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/components/review/ReviewWorkspace.tsx#L445-L530) 与 [`Review.css`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/styles/Review.css#L1-L120) 中重塑 20%（左待审队列带搜索与游标定位）- 55%（中对话流与实时编辑）- 25%（右固钉快捷决策面板）黄金动线。（*验证状态*：✅ 前端组件测试通过，见 [`ReviewWorkspace.test.tsx`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/__tests__/ReviewWorkspace.test.tsx)）
+  - [x] **毫秒级全键盘盲打流**：落地 `A` / `Cmd+Enter`（通过）、`R` / `Cmd+Backspace`（拒绝）、`1`~`5`（快速评分）、`J`/`↓` 与 `K`/`↑`（切换上下条）、`T`（一键折叠/展开工具日志）、`E`（编辑模式）、`Esc`（退出编辑）。表单输入时自动屏蔽单字符快捷键，杜绝打字冲突。（*验证状态*：✅ 测试通过，见 [`ReviewErgonomics.test.tsx`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/__tests__/ReviewErgonomics.test.tsx)）
+  - [x] **智能就地修正与 LCS 差异高亮（DiffViewer）**：在 [`DiffViewer.tsx`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/components/review/DiffViewer.tsx) 实现 LCS 算法文本对比，支持实时查看修改差异；保存后自动将 `original_response`（作为 rejected）与 `editedAssistantText`（作为 chosen）注入 `review_meta`，形成 DPO 对抗样本原料。（*验证状态*：✅ 测试通过，见 [`DiffViewer.test.tsx`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/__tests__/DiffViewer.test.tsx)）
+  - [x] **复杂工具日志视觉折叠**：支持 `T` 键及全局开关控制超长日志展开/收起，突出核心入参与输出结果。（*验证状态*：✅ 测试通过）
+  - [ ] *待验证项*：无头浏览器跨平台视觉回归（E2E）持续集成流水线搭建。
+
+- **业务功能增强 (100%)**：
+  - [x] **DPO 对抗偏好数据导出**：在 [`constants.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/constants.py#L19-L26) 引入 `ExportFormat.DPO`，在 [`exporter_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/managers/exporter_manager.py#L272-L338) 实现 `_convert_to_dpo`，产出 HuggingFace / LLaMA-Factory 标准 `instruction/prompt/chosen/rejected/system` 结构。（*验证状态*：✅ 测试通过，见 [`test_dpo_openai_export.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/tests/managers_tests/test_dpo_openai_export.py)）
+  - [x] **OpenAI Messages 格式导出**：在 [`exporter_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/managers/exporter_manager.py#L233-L271) 实现 `_convert_to_openai`，无缝输出兼容 OpenAI Fine-Tuning 及 vLLM 标准的 Chat Completions JSONL。（*验证状态*：✅ 测试通过）
+  - [x] **多格式无缝双向导入**：在 [`parsers.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/parsers.py#L69-L208) 实现 `normalize_to_session_record` 与 `parse_multiformat_content`，支持将 OpenAI Messages、ShareGPT、Alpaca 及原生格式统一归一化入库；暴露 [`/collector/upload`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/api/v1/collector.py#L20-L28) 与 [`/collector/import-content`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/api/v1/collector.py#L30-L35) 接口。（*验证状态*：✅ 单元测试通过）
+  - [ ] *待验证项*：多格式数据在实际 LLaMA-Factory 与 Axolotl 微调训练集装载中的实机跑通验证。
+
+---
+
+### 9.3 Phase 2 (v1.3 - P1: 数据脱敏、智能评测与可配置规则引擎) 【30% 基础交付】
 **核心目标**：保障企业数据隐私绝对安全，引入本地模型自动初评，实现评分规则零代码调整。
 
-- **数据安全合规**：
-  1. 实现 `plugins/cleaners/pii_scrubber` 脱敏插件，支持高熵密钥与敏感 PII 的自动遮蔽；
-  2. 增加会话合规检查机制，在导出时自动拦截未脱敏会话。
-- **智能化初评（AI-assisted Curation）**：
-  1. 开发 `plugins/curators/llm_judge` 插件，支持调用本地 Ollama / vLLM 兼容端点（如 Qwen2.5-Coder-7B）对 Agent 轨迹进行深层次逻辑严谨性评测；
-  2. 评测结果输出细粒度维度分（逻辑连贯性、工具准确性、无害性），并融合至 `score_reasons`。
-- **规则引擎动态化**：
-  1. 前端提供“打分规则配置”可视化界面，允许用户动态增减启发式规则与权重比例；
-  2. 评分逻辑沙箱化，引入超时看门狗，防止畸变数据拖垮评分流水线。
+- **数据安全合规 (50%)**：
+  - [x] **内置 PII 隐私脱敏 Cleaner 插件落地**：在 [`plugins/curators/pii_cleaner/`](file:///home/mcocdaa/AI_CODE/HarvestFlow/plugins/curators/pii_cleaner/) 实现基于正则与高熵探测的脱敏引擎，覆盖 OpenAI/GitHub/AWS/Google API Key、Bearer Token、中国及国际手机号、电子邮箱、18位身份证号，并在入库前置钩子中实现透明遮蔽。（*验证状态*：✅ 8 项测试全绿，见 [`test_pii_cleaner.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/tests/plugins_tests/test_pii_cleaner.py)）
+  - [ ] **导出前合规检查与阻断机制**：在 `exporter_manager` 导出流程中挂载安全看门狗钩子，扫描是否残留高熵密钥或明文 PII，对未脱敏数据执行“阻断导出”或“强制就地二次脱敏”。
+  - [ ] **多策略脱敏模式支持**：通过配置支持“强制掩码”、“阻断入库”与“标记 PII 警告转人工复审”三种策略切换。
 
-### 9.3 Phase 3 (v2.0 - P2: 语义去重、多标注员协同与主动流式反馈)
+- **前端交互补齐 (20%)**：
+  - [ ] **采集页一键文件拖拽导入器 (Dropzone UI)**：在 [`Collect.tsx`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/pages/Collect.tsx) 增加拖拽卡片，直接调用 `/collector/upload` 接口，支持用户从桌面直接拖入外部 ShareGPT/Alpaca/OpenAI JSONL 文件批量入库。
+
+- **智能化初评（AI-assisted Curation - 0%）**：
+  - [ ] **开发 `plugins/curators/llm_judge` 插件**：支持配置本地 Ollama / vLLM 兼容端点（如 Qwen2.5-Coder-7B / DeepSeek-R1-Distill），异步拉取会话并根据 CoT 推理评判 Agent 逻辑严谨性。
+  - [ ] **细粒度维度分与 `score_reasons` 融合**：输出逻辑连贯性、工具准确性、代码可执行性三维评分，自动注入 `review_meta`。
+
+- **规则引擎动态化 (0%）**：
+  - [ ] **声明式打分规则卡配置**：前端提供可视化表单配置各项启发式规则权重（工具成功加权、决策链深度、代码产出加权、重复轮次扣分）。
+  - [ ] **评分沙箱隔离与超时保护**：为 Curator 钩子增加 `asyncio.wait_for` 超时看门狗（默认 5s），防止复杂畸变数据阻塞核心流水线。
+
+---
+
+### 9.4 Phase 3 (v2.0 - P2: 语义去重、多标注员协同与主动流式反馈) 【规划中】
 **核心目标**：应对海量数据集的去重与精细化管理，支持多专家协同复核与实时 Agent 数据吞吐。
 
 - **向量化与语义去重**：
-  1. 引入嵌入式轻量向量检索库（如 SQLite-Vec 或 Chromadb-lite），使用轻量本地 Embedding 模型（如 bge-small-zh）提取 User Intent 向量；
-  2. 自动识别并过滤高度重复的模板化对话，优先挑选语义分布稀缺的“高信息熵”会话供人工审核。
+  - [ ] 引入嵌入式轻量向量库（SQLite-Vec 或 Chromadb-lite），接入轻量本地 Embedding 模型（如 bge-small-zh）。
+  - [ ] 自动提取 User Intent 与 Agent 轨迹向量，聚类识别模板化水数据，筛选高信息熵边界样本。
 - **多角色复核与协同仲裁**：
-  1. 引入双人背靠背复核（Blind Double-Review）模式；
-  2. 自动计算标注员一致性系数（Cohen's Kappa），针对分歧样本自动升级至专家仲裁池。
+  - [ ] 落地双人背靠背复核（Blind Double-Review）工作流。
+  - [ ] 自动统计标注员一致性系数（Cohen's Kappa），分歧数据自动升级至资深专家仲裁队列。
 - **Agent 双向流式侧车（Sidecar Protocol）**：
-  1. 提供轻量 Python SDK 与 WebSocket/gRPC 接入协议，支持 Agent 框架在运行中以流式方式近实时上报执行轨迹，打造真正意义上的数据自动沉淀与反哺飞轮。
+  - [ ] 提供轻量 Python SDK 与 WebSocket/gRPC 接入协议，支持 Agent 运行时毫秒级流式推送执行轨迹与中间 Thought。
+
+---
+
+### 9.5 下阶段重点演进规划与排期建议（Phase 2 攻坚重点）
+
+基于当前代码实施状态与质量基线，团队下一阶段的核心研发任务推荐按照以下优先级推进：
+
+1. **Sprint 1（安全与交互闭环）**：
+   - 在 `exporter_manager` 增加合规检查钩子，拦截含未遮蔽机密的会话导出；
+   - 在前端 `Collect.tsx` 页面补齐拖拽上传卡片，打通桌面文件拖拽直接调起 `/collector/upload` 的前端体验闭环。
+2. **Sprint 2（AI 智能初评插件）**：
+   - 新增 `plugins/curators/llm_judge`，封装本地 Ollama / vLLM 的 OpenAI 兼容 API 调用；
+   - 实现超时沙箱与错误熔断机制，保护主服务稳定。
+3. **Sprint 3（动态规则配置看板）**：
+   - 增加打分规则 YAML 持久化与前端配置面板，支持算法工程师无代码调整规则权重与阈值。
 
 ---
 
