@@ -129,3 +129,35 @@ class TestMultiFormatParsers:
         assert len(records) == 2
         assert records[0]["content"]["messages"][0]["content"] == "Q1"
         assert records[1]["content"]["messages"][0]["content"] == "Q2"
+
+    def test_import_from_text_preserves_top_level_content_and_scrubs_pii(self, args_with_db_path):
+        """回归测试：import_from_text 不再双层嵌套 content，且触发 collector_manager_parse_after 脱敏"""
+        import importlib
+        from core import database_manager
+        from core.hook_manager import hook_manager
+        from managers.collector_manager import collector_manager
+        from managers.session_manager import session_manager
+        import plugins.curators.pii_cleaner.hooks as pii_hooks
+
+        hook_manager.clear()
+        importlib.reload(pii_hooks)
+        database_manager.init(args_with_db_path)
+
+        payload = (
+            '{"session_id": "txt-import-1", "messages": ['
+            '{"role": "user", "content": "My key is sk-abcdef1234567890abcdef1234567890"}, '
+            '{"role": "assistant", "content": "Got it!"}'
+            ']}'
+        )
+        res = collector_manager.import_from_text(payload, filename="upload.json")
+        assert res["imported"] == 1
+
+        stored = session_manager.get_session("txt-import-1")
+        assert stored is not None
+        assert "messages" in stored["content"]
+        assert "content" not in stored["content"]
+        assert "sk-[REDACTED_API_KEY]" in stored["content"]["messages"][0]["content"]
+        assert "abcdef1234567890" not in stored["content"]["messages"][0]["content"]
+
+        database_manager.close()
+        hook_manager.clear()

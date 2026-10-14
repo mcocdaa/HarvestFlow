@@ -72,9 +72,11 @@ class ExporterManager(BaseManager):
         if self.default_format is None:
             self.default_format = setting_manager.get("EXPORT_DEFAULT_FORMAT", DEFAULT_FORMAT)
 
-        export_output_dir_val = getattr(args, 'export_output_dir', setting_manager.get("EXPORT_OUTPUT_DIR"))
+        export_output_dir_val = getattr(args, 'export_output_dir', None) or setting_manager.get("EXPORT_OUTPUT_DIR")
         if export_output_dir_val:
             self.output_dir = export_output_dir_val
+        elif getattr(args, 'data_dir', None):
+            self.output_dir = os.path.join(args.data_dir, "export")
 
     @hook_manager.wrap_hooks("exporter_manager_export_before", "exporter_manager_export_after")
     def export(
@@ -274,7 +276,8 @@ class ExporterManager(BaseManager):
 
         兼容 HuggingFace DPOTrainer / LLaMA-Factory 标准 JSONL 规范:
         - 优先使用 review_meta 中的修改记录：修改前 = rejected, 修改后 = chosen
-        - 包含 prompt, chosen, rejected, system, instruction, input 等标准字段
+        - 保留多轮对话上下文 (messages[:-1])
+        - 仅导出具备真实偏好对比对 (chosen != rejected) 的会话，跳过未修改会话
         """
         result = []
         for session in sessions:
@@ -283,52 +286,80 @@ class ExporterManager(BaseManager):
                 continue
 
             messages = content.get("messages", [])
-            if not messages:
+            if not messages or not isinstance(messages, list):
                 continue
 
-            review_meta = session.get("review_meta") or {}
+            review_meta = session.get("review_meta") if isinstance(session.get("review_meta"), dict) else {}
             system_prompt = content.get("system_prompt", "")
 
-            # 提取 user prompt 与 assistant 回复
-            user_msg = ""
+            # 定位最后一条 assistant 消息及之前的上下文消息
+            last_asst_idx = -1
             assistant_msg = ""
-            for msg in messages:
-                role = msg.get("role", "")
-                text = msg.get("content", "")
-                if isinstance(text, list):
-                    text = str(text)
+            explicit_msg_rejected = None
+            for idx in range(len(messages) - 1, -1, -1):
+                msg = messages[idx]
+                if isinstance(msg, dict) and msg.get("role") == ROLE_ASSISTANT:
+                    last_asst_idx = idx
+                    text = msg.get("content", "")
+                    assistant_msg = str(text) if isinstance(text, list) else str(text or "")
+                    if msg.get("rejected"):
+                        explicit_msg_rejected = msg.get("rejected")
+                    break
 
-                if role == ROLE_USER:
-                    user_msg = text
-                elif role == ROLE_ASSISTANT:
-                    assistant_msg = text
-
-            if not user_msg or not assistant_msg:
+            if last_asst_idx <= 0:
                 continue
 
-            # 判定 chosen 与 rejected
-            original_response = (
-                review_meta.get("original_response")
-                or review_meta.get("rejected_response")
-                or review_meta.get("rejected")
-            )
+            context_messages = messages[:last_asst_idx]
+            non_system_context = []
+            last_user_msg = ""
+            for msg in context_messages:
+                if not isinstance(msg, dict):
+                    continue
+                role = msg.get("role", "")
+                text = msg.get("content", "")
+                text_str = str(text) if isinstance(text, list) else str(text or "")
+                if role == ROLE_SYSTEM:
+                    if not system_prompt:
+                        system_prompt = text_str
+                    continue
+                non_system_context.append({"role": role, "content": text_str})
+                if role == ROLE_USER:
+                    last_user_msg = text_str
 
-            if original_response and str(original_response).strip() != str(assistant_msg).strip():
-                chosen = assistant_msg
-                rejected = str(original_response)
-            elif review_meta.get("rejected"):
-                chosen = assistant_msg
-                rejected = str(review_meta["rejected"])
+            if not last_user_msg:
+                continue
+
+            # 判定 chosen 与 rejected（要求具备真实偏好对且 chosen != rejected）
+            chosen_meta = review_meta.get("chosen")
+            chosen = str(chosen_meta) if chosen_meta is not None and str(chosen_meta).strip() else assistant_msg
+
+            rejected_raw = (
+                review_meta.get("rejected")
+                or review_meta.get("original_response")
+                or review_meta.get("rejected_response")
+                or content.get("rejected")
+                or explicit_msg_rejected
+            )
+            if not rejected_raw or not str(rejected_raw).strip():
+                continue
+
+            rejected = str(rejected_raw)
+            if not chosen or not chosen.strip() or chosen.strip() == rejected.strip():
+                continue
+
+            if len(non_system_context) > 1:
+                prompt_text = "\n".join(f"{m['role']}: {m['content']}" for m in non_system_context)
+                prior_input = "\n".join(f"{m['role']}: {m['content']}" for m in non_system_context[:-1])
             else:
-                # 默认对抗样本：若有历史或低分标记
-                chosen = assistant_msg
-                rejected = f"[Unrevised baseline]: {assistant_msg[:80]}..." if assistant_msg else "N/A"
+                prompt_text = last_user_msg
+                prior_input = ""
 
             dpo_record = {
-                "instruction": user_msg,
-                "input": "",
+                "instruction": last_user_msg,
+                "input": prior_input,
                 "system": system_prompt,
-                "prompt": user_msg,
+                "prompt": prompt_text,
+                "history": non_system_context,
                 "chosen": chosen,
                 "rejected": rejected,
                 "session_id": session.get("session_id"),

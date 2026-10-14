@@ -110,12 +110,13 @@ class TestValidStatusTransitionsShape:
 
 
 class TestDeleteSessionFileCleanup:
-    """delete_session 承接物理文件删除（DB 层不再删文件）"""
+    """delete_session 承接物理文件删除（仅允许删除 DATA_DIR 下的文件）"""
 
-    def test_delete_removes_db_record_and_file(self, args_with_db_path, tmp_path):
-        from core import database_manager
+    def test_delete_removes_db_record_and_file(self, args_with_db_path, tmp_path, monkeypatch):
+        from core import database_manager, setting_manager
         from managers.session_manager import session_manager
 
+        monkeypatch.setitem(setting_manager.config, "DATA_DIR", str(tmp_path))
         database_manager.init(args_with_db_path)
         session_file = tmp_path / "session.json"
         session_file.write_text("{}", encoding="utf-8")
@@ -129,6 +130,26 @@ class TestDeleteSessionFileCleanup:
         assert session_manager.delete_session("sess-del-1") is True
         assert database_manager.session_get("sess-del-1") is None
         assert not session_file.exists()
+
+    def test_delete_blocks_file_outside_data_dir(self, args_with_db_path, tmp_path, monkeypatch):
+        from core import database_manager, setting_manager
+        from managers.session_manager import session_manager
+
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        outside_file = tmp_path / "outside.json"
+        outside_file.write_text("{}", encoding="utf-8")
+
+        monkeypatch.setitem(setting_manager.config, "DATA_DIR", str(data_dir))
+        database_manager.init(args_with_db_path)
+        session_manager.create_session({
+            "session_id": "sess-outside",
+            "file_path": str(outside_file),
+        })
+
+        assert session_manager.delete_session("sess-outside") is True
+        assert database_manager.session_get("sess-outside") is None
+        assert outside_file.exists()
 
     def test_delete_missing_file_returns_true(self, args_with_db_path):
         from core import database_manager

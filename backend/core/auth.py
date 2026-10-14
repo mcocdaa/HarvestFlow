@@ -2,6 +2,7 @@
 # @brief API 鉴权 - Bearer token 验证
 # @create 2026-08-10
 
+import hmac
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from core import setting_manager
@@ -14,7 +15,9 @@ async def require_api_key(credentials: HTTPAuthorizationCredentials | None = Dep
     expected = setting_manager.get("HARVESTFLOW_API_KEY")
     if not expected:
         return  # auth disabled
-    if credentials is None or credentials.credentials != expected:
+    if credentials is None or not hmac.compare_digest(
+        str(credentials.credentials).encode("utf-8"), str(expected).encode("utf-8")
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",

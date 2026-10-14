@@ -5,7 +5,6 @@
 
 import sys
 import os
-import sqlite3
 import argparse
 from pathlib import Path
 
@@ -52,14 +51,19 @@ def import_sessions(dry_run=False):
         print(f"\n处理文件: {jsonl_file.name}")
 
         try:
-            if dry_run:
-                print(f"  [dry-run] 将复制到: {target_path}")
+            same_file = jsonl_file.resolve() == target_path.resolve()
+            if not same_file:
+                if dry_run:
+                    print(f"  [dry-run] 将复制到: {target_path}")
+                else:
+                    with open(jsonl_file, 'rb') as fsrc, open(target_path, 'wb') as fdst:
+                        fdst.write(fsrc.read())
+                    print(f"  ✓ 已复制到: {target_path}")
             else:
-                with open(jsonl_file, 'rb') as fsrc, open(target_path, 'wb') as fdst:
-                    fdst.write(fsrc.read())
-                print(f"  ✓ 已复制到: {target_path}")
+                print(f"  - 源文件已在目标目录，无需复制: {target_path}")
 
-            parsed = collector_manager.parse_session_file(str(target_path))
+            parse_target = str(jsonl_file.resolve()) if dry_run else str(target_path.resolve())
+            parsed = collector_manager.parse_session_file(parse_target)
             if parsed:
                 session_id = parsed["session_id"]
                 print(f"  ✓ 解析会话: {session_id}")
@@ -74,19 +78,12 @@ def import_sessions(dry_run=False):
                     imported_count += 1
                     continue
 
-                session_data = {
-                    "session_id": session_id,
-                    "file_path": str(target_path.resolve()),
-                    "status": "raw",
-                    "agent_role": "unknown",
-                    "task_type": None,
-                    "tools_used": [],
-                    "tags": []
-                }
-
-                database_manager.session_create(session_data)
-                print(f"  ✓ 已创建会话记录: {session_id}")
-                imported_count += 1
+                created_id = collector_manager.import_session(str(target_path.resolve()))
+                if created_id:
+                    print(f"  ✓ 已创建会话记录: {created_id}")
+                    imported_count += 1
+                else:
+                    print(f"  ✗ 创建会话记录失败: {session_id}")
             else:
                 print(f"  ✗ 解析失败: {jsonl_file.name}")
 
@@ -95,10 +92,10 @@ def import_sessions(dry_run=False):
             import traceback
             traceback.print_exc()
 
-    print(f"\n=== 导入完成 ===")
+    print("\n=== 导入完成 ===")
     print(f"成功导入 {imported_count} 个会话")
 
-    print(f"\n=== 数据库中的会话 ===")
+    print("\n=== 数据库中的会话 ===")
     result = database_manager.session_get_all(page_size=100)
     for s in result["sessions"]:
         print(f"  - {s['session_id']}: {s['file_path']}")
@@ -129,10 +126,15 @@ def check_sessions():
         if exists:
             try:
                 parsed = collector_manager.parse_session_file(file_path)
-                if parsed and parsed["messages"]:
-                    print(f"  ✓ 有 {len(parsed['messages'])} 条消息")
+                messages = None
+                if parsed:
+                    messages = parsed.get("messages") or (
+                        parsed["content"].get("messages") if isinstance(parsed.get("content"), dict) else None
+                    )
+                if messages:
+                    print(f"  ✓ 有 {len(messages)} 条消息")
                 else:
-                    print(f"  ✗ 没有消息内容")
+                    print("  ✗ 没有消息内容")
             except Exception as e:
                 print(f"  ✗ 读取失败: {e}")
 

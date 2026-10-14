@@ -9,6 +9,7 @@ import ToolCallList from './ToolCallList';
 interface MessageBubbleProps {
   message: Message;
   index: number;
+  toolsCollapsed?: boolean;
 }
 
 const renderContent = (content: unknown): React.ReactNode => {
@@ -34,7 +35,7 @@ const renderContent = (content: unknown): React.ReactNode => {
   return <JsonView value={content} maxHeight={240} />;
 };
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, index }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, index, toolsCollapsed = false }) => {
   return (
     <div className={`message-bubble ${message.role}`}>
       <RoleAvatar role={message.role} className="bubble-avatar" />
@@ -44,7 +45,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, index }) => {
           <span className="bubble-index">#{index + 1}</span>
         </div>
         <div className="bubble-text">{renderContent(message.content)}</div>
-        <ToolCallList toolCalls={message.tool_calls} />
+        <ToolCallList toolCalls={message.tool_calls} collapsed={toolsCollapsed} />
       </div>
     </div>
   );

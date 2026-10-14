@@ -31,7 +31,7 @@ from managers import (
 
 # ---- 应用信息 ----
 APP_TITLE = "HarvestFlow"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.2.0"
 
 # ---- 日志格式 ----
 LOG_SEPARATOR_LENGTH = 50

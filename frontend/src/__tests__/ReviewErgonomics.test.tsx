@@ -35,7 +35,11 @@ function mockSession(id: string) {
 const mockContent = {
   messages: [
     { role: 'user', content: 'Fix the memory leak in worker' },
-    { role: 'assistant', content: 'Here is the fix: use WeakMap instead of Map' },
+    {
+      role: 'assistant',
+      content: 'Here is the fix: use WeakMap instead of Map',
+      tool_calls: [{ type: 'tool_use', name: 'inspect_heap' }],
+    },
   ],
   metadata: { tokens: 80 },
 };
@@ -131,6 +135,26 @@ describe('Review Ergonomics & Three-Column Workspace', () => {
     fireEvent.keyDown(window, { key: 'k' });
     await waitFor(() => {
       expect(screen.getByText(/第 1 \/ 3 条/)).toBeInTheDocument();
+    });
+  });
+
+  it('should support T key to collapse and expand tool call logs', async () => {
+    render(<Review />);
+
+    await waitFor(() => {
+      expect(screen.getByText('inspect_heap')).toBeInTheDocument();
+    });
+
+    // 按 't' 折叠工具日志
+    fireEvent.keyDown(window, { key: 't' });
+    await waitFor(() => {
+      expect(screen.queryByText('inspect_heap')).not.toBeInTheDocument();
+    });
+
+    // 再按 't' 展开工具日志
+    fireEvent.keyDown(window, { key: 't' });
+    await waitFor(() => {
+      expect(screen.getByText('inspect_heap')).toBeInTheDocument();
     });
   });
 

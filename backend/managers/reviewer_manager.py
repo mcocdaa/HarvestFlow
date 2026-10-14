@@ -60,6 +60,13 @@ class ReviewerManager(BaseManager):
         Returns:
             更新后的会话，失败返回 {"session_id", "error"}
         """
+        if isinstance(extras, dict) and extras.get("chosen"):
+            extras = dict(extras)
+            orig = extras.get("original_response") or extras.get("rejected")
+            if orig:
+                extras.setdefault("original_response", orig)
+                extras.setdefault("rejected", orig)
+            extras.setdefault("diff_applied", True)
         return session_manager.apply_review(session_id, target_status, action, notes, score, extras)
 
     @hook_manager.wrap_hooks("reviewer_manager_extra_fields_before", "reviewer_manager_extra_fields_after")

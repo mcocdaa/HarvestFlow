@@ -77,25 +77,42 @@ class OpenClawCurator:
             return False
 
         messages = session.get("messages", [])
+        has_tool_use = False
         for msg in messages:
-            if msg.get("role") != "assistant":
+            if not isinstance(msg, dict):
                 continue
 
-            tool_calls = msg.get("tool_calls")
-            if not tool_calls:
-                continue
+            if msg.get("role") == "tool":
+                if msg.get("is_error"):
+                    return False
+                msg_content = msg.get("content", "")
+                if isinstance(msg_content, str) and "error" in msg_content.lower():
+                    return False
 
-            for tc in tool_calls:
-                if isinstance(tc, dict):
-                    tc_type = tc.get("type", "")
-                    if tc_type == "tool_result":
-                        content = tc.get("content", "")
-                        if isinstance(content, str) and "error" in content.lower():
-                            return False
-                    if tc_type == "tool_use":
-                        return True
+            blocks = []
+            if isinstance(msg.get("tool_calls"), list):
+                blocks.extend(msg["tool_calls"])
+            if isinstance(msg.get("content"), list):
+                blocks.extend(msg["content"])
 
-        return session.get("has_tool_calls", False)
+            for tc in blocks:
+                if not isinstance(tc, dict):
+                    continue
+                tc_type = tc.get("type", "")
+                if tc_type == "tool_result":
+                    if tc.get("is_error"):
+                        return False
+                    content = tc.get("content", "")
+                    if isinstance(content, str) and "error" in content.lower():
+                        return False
+                    if isinstance(content, list):
+                        for item in content:
+                            if isinstance(item, dict) and "error" in str(item.get("text", "")).lower():
+                                return False
+                elif tc_type == "tool_use":
+                    has_tool_use = True
+
+        return has_tool_use
 
     def _check_decision_chain(self, session: Dict) -> bool:
         """检查是否有 ≥3 轮 assistant 消息（每轮含 tool_use）

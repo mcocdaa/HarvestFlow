@@ -166,7 +166,11 @@ class CollectorManager(BaseManager):
         """构造入库记录：content 保存原始数据快照，file_path 附加来源路径"""
         record = dict(session_data)
         record["file_path"] = file_path
-        record["content"] = dict(session_data)
+        existing_content = session_data.get("content")
+        if isinstance(existing_content, dict) and "messages" in existing_content:
+            record["content"] = dict(existing_content)
+        else:
+            record["content"] = dict(session_data)
         return record
 
     def _create_session(self, record: Dict) -> Optional[str]:
@@ -341,6 +345,14 @@ class CollectorManager(BaseManager):
         failed = []
 
         for record in records:
+            results, _ = hook_manager.run_sync(
+                "collector_manager_parse_after", record, self, filename
+            )
+            record = hook_manager._chain_result(record, results)
+            if not isinstance(record, dict):
+                failed.append("unknown")
+                continue
+
             session_id = record.get("session_id")
             if session_id and session_manager.get_session(session_id):
                 skipped.append(session_id)

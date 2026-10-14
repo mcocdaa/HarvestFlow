@@ -6,10 +6,11 @@ import JsonView from './JsonView';
 
 interface ToolCallListProps {
   toolCalls?: ToolCall[] | null;
+  collapsed?: boolean;
 }
 
-const ToolCallList: React.FC<ToolCallListProps> = ({ toolCalls }) => {
-  if (!toolCalls || toolCalls.length === 0) return null;
+const ToolCallList: React.FC<ToolCallListProps> = ({ toolCalls, collapsed = false }) => {
+  if (!toolCalls || toolCalls.length === 0 || collapsed) return null;
 
   return (
     <Space size={4} wrap className="tool-call-list">

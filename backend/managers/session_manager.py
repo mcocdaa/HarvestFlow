@@ -4,10 +4,11 @@
 
 import json
 import os
+from pathlib import Path
 from typing import Optional, Dict, List
 import argparse
 
-from core import database_manager, hook_manager
+from core import database_manager, hook_manager, setting_manager
 from core.constants import SessionStatus
 from managers.base import BaseManager
 
@@ -213,7 +214,14 @@ class SessionManager(BaseManager):
         file_path = session.get("file_path")
         if file_path and os.path.exists(file_path):
             try:
-                os.remove(file_path)
+                data_dir = Path(setting_manager.get("DATA_DIR", "./data")).resolve()
+                resolved_file = Path(file_path).resolve()
+                if resolved_file.is_relative_to(data_dir) and resolved_file != data_dir:
+                    os.remove(resolved_file)
+                else:
+                    self.logger.warning(
+                        f"跳过删除非 DATA_DIR 下的文件: {file_path} (DATA_DIR={data_dir})"
+                    )
             except Exception as e:
                 self.logger.warning(f"删除会话文件失败 {file_path}: {e}", exc_info=True)
 

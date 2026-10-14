@@ -69,6 +69,9 @@ class DatabaseManager:
         """
         self.db_path = getattr(args, 'db_path', setting_manager.get("DB_PATH", "./data/db/harvestflow.db"))
 
+        if self._pool:
+            self.close()
+
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
         self._pool = DatabasePool(self.db_path)
@@ -345,7 +348,7 @@ class DatabaseManager:
 
         allowed_fields = [
             "status", "quality_auto_score", "quality_manual_score",
-            "agent_role", "task_type", "tools_used", "tags"
+            "agent_role", "task_type", "tools_used", "tags", "content"
         ]
 
         set_clauses = []
@@ -355,6 +358,8 @@ class DatabaseManager:
                 value = updates[field]
                 if field in ("tools_used", "tags"):
                     value = json.dumps(value) if isinstance(value, list) else value
+                elif field == "content":
+                    value = json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value
                 set_clauses.append(f"{field} = ?")
                 params.append(value)
 
@@ -421,30 +426,61 @@ class DatabaseManager:
 
     def session_review_apply(self, session_id: str, status: str, score: int, action: str,
                              notes: str = None, review_meta: Dict = None) -> Optional[Dict]:
-        """原子性地更新状态+评分（可选扩展字段）并创建审计日志"""
+        """原子性地更新状态+评分（可选扩展字段与在线编辑内容）并创建审计日志"""
         self._ensure()
 
         with self._pool.writer() as conn:
-            conn.execute("BEGIN IMMEDIATE")
-            try:
-                if review_meta is not None:
+            updated_content_json = None
+            meta_copy = dict(review_meta) if isinstance(review_meta, dict) else review_meta
+
+            if isinstance(meta_copy, dict) and meta_copy.get("chosen"):
+                chosen_text = str(meta_copy["chosen"])
+                row = conn.execute(
+                    "SELECT content FROM sessions WHERE session_id = ?", (session_id,)
+                ).fetchone()
+                if row and row["content"]:
+                    try:
+                        content_obj = (
+                            json.loads(row["content"])
+                            if isinstance(row["content"], str)
+                            else row["content"]
+                        )
+                        if isinstance(content_obj, dict) and isinstance(content_obj.get("messages"), list):
+                            messages = content_obj["messages"]
+                            for i in range(len(messages) - 1, -1, -1):
+                                if isinstance(messages[i], dict) and messages[i].get("role") == "assistant":
+                                    prev_text = messages[i].get("content", "")
+                                    if isinstance(prev_text, str):
+                                        if not meta_copy.get("original_response"):
+                                            meta_copy["original_response"] = prev_text
+                                        if not meta_copy.get("rejected"):
+                                            meta_copy["rejected"] = prev_text
+                                    messages[i]["content"] = chosen_text
+                                    updated_content_json = json.dumps(content_obj, ensure_ascii=False)
+                                    break
+                    except Exception as e:
+                        self.logger.warning(f"更新会话在线编辑内容失败 {session_id}: {e}")
+
+            if meta_copy is not None:
+                if updated_content_json is not None:
                     conn.execute(
-                        "UPDATE sessions SET status = ?, quality_manual_score = ?, review_meta = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
-                        (status, score, json.dumps(review_meta, ensure_ascii=False), session_id)
+                        "UPDATE sessions SET status = ?, quality_manual_score = ?, content = ?, review_meta = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
+                        (status, score, updated_content_json, json.dumps(meta_copy, ensure_ascii=False), session_id)
                     )
                 else:
                     conn.execute(
-                        "UPDATE sessions SET status = ?, quality_manual_score = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
-                        (status, score, session_id)
+                        "UPDATE sessions SET status = ?, quality_manual_score = ?, review_meta = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
+                        (status, score, json.dumps(meta_copy, ensure_ascii=False), session_id)
                     )
+            else:
                 conn.execute(
-                    "INSERT INTO audit_logs (session_id, action, operator, details) VALUES (?, ?, 'user', ?)",
-                    (session_id, action, notes)
+                    "UPDATE sessions SET status = ?, quality_manual_score = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
+                    (status, score, session_id)
                 )
-                conn.commit()
-            except Exception:
-                conn.rollback()
-                raise
+            conn.execute(
+                "INSERT INTO audit_logs (session_id, action, operator, details) VALUES (?, ?, 'user', ?)",
+                (session_id, action, notes)
+            )
         return self.session_get(session_id)
 
     def export_record_create(

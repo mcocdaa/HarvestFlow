@@ -170,3 +170,61 @@ class TestOpenClawCuratorHook:
         assert "score" in result
         assert result["auto_approved"] is False
         assert db.session_get("oc-fb")["status"] == "curated"
+
+    def test_check_tool_call_success_returns_false_when_tool_result_has_error(self):
+        """回归测试：tool_use 之后的 tool_result 含 error 或 is_error=True 时应返回 False"""
+        from plugins.curators.openclaw.backend import OpenClawCurator
+
+        curator = OpenClawCurator()
+
+        # 1. 同消息 tool_calls 中先有 tool_use 后有带 error 的 tool_result
+        session_same_msg = {
+            "has_tool_calls": True,
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "running tool",
+                    "tool_calls": [
+                        {"type": "tool_use", "name": "bash"},
+                        {"type": "tool_result", "content": "Command failed with Error: exit 1"},
+                    ],
+                }
+            ],
+        }
+        assert curator._check_tool_call_success(session_same_msg) is False
+
+        # 2. 跨消息：assistant 发起 tool_use，后续消息返回 is_error=True 的 tool_result
+        session_cross_msg = {
+            "has_tool_calls": True,
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "calling read_file",
+                    "tool_calls": [{"type": "tool_use", "name": "read_file"}],
+                },
+                {
+                    "role": "user",
+                    "content": "[tool_result]",
+                    "tool_calls": [{"type": "tool_result", "is_error": True, "content": "File not found"}],
+                },
+            ],
+        }
+        assert curator._check_tool_call_success(session_cross_msg) is False
+
+        # 3. 全部成功时返回 True
+        session_ok = {
+            "has_tool_calls": True,
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "calling read_file",
+                    "tool_calls": [{"type": "tool_use", "name": "read_file"}],
+                },
+                {
+                    "role": "user",
+                    "content": "[tool_result]",
+                    "tool_calls": [{"type": "tool_result", "content": "file contents ok"}],
+                },
+            ],
+        }
+        assert curator._check_tool_call_success(session_ok) is True

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   Button,
   Card,
@@ -199,7 +199,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
   }, [queue, queueSearch]);
 
   // 提交审核动作
-  const handleReview = async (approve: boolean) => {
+  const handleReview = useCallback(async (approve: boolean) => {
     if (!current || submitting) return;
 
     for (const field of extraFields) {
@@ -247,21 +247,33 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [
+    current,
+    submitting,
+    extraFields,
+    extras,
+    assistantModified,
+    originalAssistantText,
+    editedAssistantText,
+    notes,
+    score,
+    queue,
+    reload,
+  ]);
 
   // 保存 Assistant 消息编辑
-  const handleSaveAssistantEdit = () => {
+  const handleSaveAssistantEdit = useCallback(() => {
     if (editedAssistantText !== originalAssistantText) {
       setAssistantModified(true);
       message.success('已应用修改（已建立 DPO 对抗偏好数据对）');
     }
     setIsEditingAssistant(false);
-  };
+  }, [editedAssistantText, originalAssistantText]);
 
-  const handleCancelAssistantEdit = () => {
+  const handleCancelAssistantEdit = useCallback(() => {
     setEditedAssistantText(originalAssistantText);
     setIsEditingAssistant(false);
-  };
+  }, [originalAssistantText]);
 
   // 全局键盘快捷键 Ergonomics
   // 1. A 或 Cmd+Enter: 通过并下一条
@@ -344,7 +356,17 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [current, score, submitting, queue.length, isEditingAssistant, originalAssistantText, editedAssistantText]);
+  }, [
+    current,
+    score,
+    submitting,
+    queue.length,
+    isEditingAssistant,
+    originalAssistantText,
+    editedAssistantText,
+    handleReview,
+    handleCancelAssistantEdit,
+  ]);
 
   const progressPercent = queue.length > 0 ? Math.round(((index + 1) / queue.length) * 100) : 0;
 
@@ -362,7 +384,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
 
           return (
             <div key={i} className={`message-item-wrapper ${isLastAssistant && assistantModified ? 'edited' : ''}`}>
-              <MessageBubble message={msg} index={i} />
+              <MessageBubble message={msg} index={i} toolsCollapsed={toolsCollapsed} />
 
               {/* 若为最后一条 Assistant 回复且进入编辑模式 */}
               {isLastAssistant && isEditingAssistant && (
@@ -429,6 +451,9 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
     editedAssistantText,
     originalAssistantText,
     assistantModified,
+    toolsCollapsed,
+    handleCancelAssistantEdit,
+    handleSaveAssistantEdit,
   ]);
 
   if (!loading && queue.length === 0) {
