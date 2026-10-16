@@ -9,6 +9,10 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](docker-compose.yml)
 
+<p align="center">
+  <img src="docs/assets/demo_harvestflow.gif" alt="HarvestFlow Trajectory Curation & DPO Export Demo" width="820">
+</p>
+
 ## 为什么是 HarvestFlow
 
 - **本地优先，数据不出机**：FastAPI + SQLite + 本地文件，`docker compose` 单机一键起，不依赖任何云平台；可选 Bearer 鉴权
