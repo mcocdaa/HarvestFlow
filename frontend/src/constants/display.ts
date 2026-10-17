@@ -50,12 +50,16 @@ export const ROLE_LABELS: Record<string, string> = {
   user: '用户',
   assistant: 'AI 助手',
   system: '系统',
+  toolResult: '工具结果',
+  tool: '工具',
 };
 
 export const ROLE_LABELS_EN: Record<string, string> = {
   user: 'User',
   assistant: 'Assistant',
   system: 'System',
+  toolResult: 'Tool Output',
+  tool: 'Tool',
 };
 
 export const getRoleLabel = (role: string, locale: Locale = getStoredLocale()): string => {

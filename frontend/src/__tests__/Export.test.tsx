@@ -133,8 +133,8 @@ describe('Export Page', () => {
     render(<Export />);
 
     await waitFor(() => {
-      expect(screen.getByText('min_score: 4')).toBeInTheDocument();
-      expect(screen.getByText('tags: math')).toBeInTheDocument();
+      expect(screen.getByText('最低评分: 4')).toBeInTheDocument();
+      expect(screen.getByText('标签: math')).toBeInTheDocument();
     });
   });
 

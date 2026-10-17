@@ -34,7 +34,7 @@ const SessionDrawer: React.FC<SessionDrawerProps> = ({ open, onClose, session, c
         { key: 'status', label: t('状态', 'Status'), children: <StatusTag status={session.status} /> },
         { key: 'auto', label: t('自动评分', 'Auto Score'), children: <ScoreTag score={session.quality_auto_score} showLabel /> },
         { key: 'manual', label: t('人工评分', 'Manual Score'), children: <ScoreTag score={session.quality_manual_score} showLabel /> },
-        { key: 'role', label: t('Agent 角色', 'Agent Role'), children: session.agent_role || '-' },
+        { key: 'role', label: t('Agent 角色', 'Agent Role'), children: td(session.agent_role) || '-' },
         { key: 'task', label: t('任务类型', 'Task Type'), children: td(session.task_type) || '-' },
         { key: 'created', label: t('创建时间', 'Created At'), children: formatDateTime(session.created_at) },
         { key: 'updated', label: t('更新时间', 'Updated At'), children: formatDateTime(session.updated_at) },

@@ -146,12 +146,299 @@ const DYNAMIC_EN_MAP: Record<string, string> = {
     'Investigate distributed lock loss during Redis Cluster failover.',
   '建议使用 Redlock 或迁移至 etcd 强一致租约锁，并启用 min-replicas-to-write。':
     'Recommend migrating to etcd lease locks or enabling min-replicas-to-write.',
+  // Example reviewer plugin fields, options, and validation messages
+  '数据质量': 'Data Quality',
+  '使用场景': 'Use Case',
+  '需要复查': 'Needs Follow-up',
+  '请输入该会话的使用场景': 'Enter the use case for this session',
+  '请输入使用场景': 'Enter use case',
+  '优秀': 'Excellent',
+  '良好': 'Good',
+  '一般': 'Fair',
+  '较差': 'Poor',
+  '会话消息不足 2 条，不允许通过': 'Session has fewer than 2 messages and cannot be approved',
+  '数据质量标记为「较差」时不允许直接通过': 'Cannot approve directly when Data Quality is marked as Poor',
+  // Curated & Demo session messages in harvestflow.db
+  '生产集群 redis-sentinel 节点偶发 OOMKilled，排查 memory limit 并修复':
+    'Production cluster redis-sentinel nodes hit intermittent OOMKilled; inspect memory limits and fix',
+  '已分析 Sentinel 与 Redis 实例日志，正在通过工具查询节点资源分配与历史内存消耗。':
+    'Analyzed Sentinel and Redis instance logs; querying node resource allocation and historical memory usage via tools.',
+  '确认 Sentinel 监控节点在全量同步时瞬时峰值达到 508MiB 突破 limit 限制。我已生成补丁将资源限制调整为 1GiB。':
+    'Confirmed Sentinel monitoring nodes spiked to 508MiB during full sync, exceeding the memory limit. Generated a patch raising the limit to 1GiB.',
+  '已将内存上限提升至 1Gi 并配置了 cgroup v2 memory.high 软限制告警阈值，观察 5 分钟后 3 个 Sentinel Pod 均处于 Healthy 状态。':
+    'Raised memory limit to 1Gi and configured cgroup v2 memory.high soft-limit alert threshold; all 3 Sentinel Pods remained Healthy after 5 minutes of observation.',
+  'FastAPI 批量抓取任务中 aiohttp.ClientSession 出现连接池泄漏，请重构':
+    'Connection pool leak in aiohttp.ClientSession during FastAPI batch crawling tasks; please refactor',
+  '排查发现每次请求循环都新建了 aiohttp.ClientSession() 而没有放入 async with 上下文，导致 underlying connector 未被关闭。建议在 FastAPI lifespan 中创建全局持久连接池并注入 request.state。':
+    'Investigation showed a new aiohttp.ClientSession() was instantiated per request loop outside an async with context, leaving the underlying connector unclosed. Recommend creating a global persistent connection pool in FastAPI lifespan and injecting it via request.state.',
+  '检查用户输入搜索接口是否存在 SQL 注入风险并给出修复方案':
+    'Audit the user search endpoint for SQL injection risks and provide a remediation plan',
+  '原代码使用 string concatenation 拼接 SQL 语句：\n\n这会导致严重的 SQL 注入攻击漏洞，建议改用参数化绑定。':
+    'The original code used string concatenation to build SQL queries:\n\nThis introduces a critical SQL injection vulnerability; recommend switching to parameterized bound queries.',
+  '为高并发 SQLite 提供读写分离与 WAL 索引优化方案':
+    'Provide a read/write separation and WAL index optimization plan for high-concurrency SQLite',
+  '推荐方案：1 个专属写连接（配备 RLock 排他锁）+ 4~8 个只读连接池。开启 WAL 模式、normal 同步、64MB 缓存，并针对高频 status 和 created_at 建立复合索引。':
+    'Recommended architecture: 1 dedicated write connection (with RLock exclusive lock) + a pool of 4-8 read-only connections. Enable WAL mode, NORMAL synchronous mode, 64MB cache, and create a composite index on high-frequency status and created_at columns.',
+  '用户反馈登录接口偶发 500，请排查并修复':
+    'Users reported intermittent 500 errors on the login endpoint; please investigate and fix',
+  '我先查看 src/auth/login.py 的错误日志': 'I will inspect the error logs for src/auth/login.py first',
+  "日志显示 'NoneType' object has no attribute 'id'": "Logs show 'NoneType' object has no attribute 'id'",
+  '定位到 user 查询可能返回 None，需要加空值校验': 'Identified that the user query can return None; null check is required',
+  '已修改 src/auth/login.py，增加 user is None 分支': 'Updated src/auth/login.py to handle the user is None branch',
+  '请补充回归测试': 'Please add regression tests',
+  '在 tests/test_login.py 新增空用户用例': 'Added null-user test case in tests/test_login.py',
+  '运行 pytest -k login': 'Running pytest -k login',
+  '还有其他调用点吗？': 'Are there any other call sites?',
+  'grep 到 src/api/session.py 也有同样问题，一并修复':
+    'Found the same issue in src/api/session.py via grep and fixed it as well',
+  '全部用例通过，共 12 passed': 'All test cases passed (12 passed)',
+  '总结：修复两处空指针并补充回归测试': 'Summary: Fixed two null-pointer dereferences and added regression tests',
+  '帮我分析登录偶发 500 的根因': 'Help me analyze the root cause of intermittent 500 errors on login',
+  '根因：查询用户可能为 None，已修复 src/auth/login.py 并补充回归测试':
+    'Root cause: user query may return None; fixed src/auth/login.py and added regression tests',
+  // OpenClaw session assistant replies
+  '现在让我更新 MEMORY.md 技能清单：': 'Now let me update the skill list in MEMORY.md:',
+  '📝 收到指令！开始执行智能技能搜索...\n\n让我先提取核心关键词并搜索相关技能：':
+    '📝 Received instructions! Starting intelligent skill search...\n\nLet me extract core keywords and search for relevant skills first:',
+  '很好！让我继续搜索更多相关技能：': 'Great! Let me continue searching for more related skills:',
+  '📝 收到！开始安装3个核心技能...': '📝 Received! Starting installation of the 3 core skills...',
+  '遇到速率限制，让我继续安装其他技能：': 'Hit rate limit; let me continue installing the remaining skills:',
+  '第一个技能安装成功！让我继续安装其他技能：': 'First skill installed successfully! Continuing with the remaining skills:',
+  '让我查看已安装的技能和更新 TOOLS.md：': 'Let me check the installed skills and update TOOLS.md:',
+  '📝 收到指令！开始整理记忆并缩减上下文...\n\n首先让我检查当前 memory 目录的状态：':
+    '📝 Received instructions! Starting memory organization and context compaction...\n\nFirst let me inspect the current memory directory status:',
+  '现在我来精简这些文件。首先创建 archive 目录并精简 MEMORY.md：':
+    'Now I will compact these files. First, creating the archive directory and compacting MEMORY.md:',
+  '将原 MEMORY.md 归档：': 'Archiving the original MEMORY.md:',
+  '现在写入精简版 MEMORY.md：': 'Writing the compacted MEMORY.md:',
+  '现在归档并精简 LEARNINGS.md：': 'Archiving and compacting LEARNINGS.md:',
+  '检查精简效果：': 'Checking compaction results:',
+  '📝 收到每日自我检查指令！\n\n让我先回顾今日工作并搜索相关记忆：':
+    '📝 Received daily self-check instructions!\n\nLet me review today’s work and search related memory records first:',
+  '📝 收到记忆整理任务！开始执行...\n\n## 步骤1：检索历史记忆':
+    '📝 Received memory organization task! Executing...\n\n## Step 1: Retrieve historical memories',
+  '## 步骤2：检查并更新 LEARNINGS.md': '## Step 2: Check and update LEARNINGS.md',
+  'LEARNINGS.md 已有较新内容，无需大幅更新。让我检查 ERRORS.md：':
+    'LEARNINGS.md is already up to date. Let me check ERRORS.md:',
+  '## 步骤3：归档重要知识到 KnowFlow': '## Step 3: Archive key knowledge into KnowFlow',
+  '## 步骤4：精简 memory/MEMORY.md': '## Step 4: Compact memory/MEMORY.md',
+  '将当前 MEMORY.md 归档，然后创建精简版：': 'Archiving current MEMORY.md and creating the compacted version:',
+  '将旧版完整内容归档：': 'Archiving the full previous version:',
+  '检查最终精简效果：': 'Checking final compaction results:',
+  '现在让我更新MEMORY.md和TOOLS.md，记录本周技能搜索结果：':
+    'Now let me update MEMORY.md and TOOLS.md to record this week’s skill search results:',
+};
+
+const DYNAMIC_ZH_MAP: Record<string, string> = {
+  // Plugin descriptions from plugin.yaml
+  'OpenClaw Agent session collector - reads from local OpenClaw session files':
+    'OpenClaw 会话采集器 — 从本地 OpenClaw 会话目录自动读取轨迹',
+  'OpenClaw curator - AI-powered quality assessment':
+    'OpenClaw 智能清洗器 — 基于大模型的轨迹质量评分与高价值筛选',
+  'PII & Secret Redactor - automatically masks API keys, bearer tokens, phone numbers and emails':
+    'PII 与密钥脱敏清洗器 — 自动掩码 API 密钥、Bearer Token、手机号与邮箱',
+  'Infisical SDK integration for secrets management': 'Infisical 密钥管理服务集成',
+  'Default human reviewer - basic review interface': '默认人工审核器 — 标准会话审核工作台',
+  // Task types
+  k8s_deployment_fix: 'K8s 部署排障',
+  memory_leak_fix: '内存泄漏修复',
+  sqlite_optimization: 'SQLite 性能优化',
+  security_audit: '安全审计',
+  conversation: '通用对话',
+  coding: '代码开发',
+  debugging: '缺陷调试',
+  testing: '测试验证',
+  refactoring: '代码重构',
+  feature_dev: '功能研发',
+  bugfix: '缺陷修复',
+  feature: '功能研发',
+  code_generation: '代码生成',
+  // Agent roles
+  devops_agent: 'SRE 运维专家',
+  code_refactor_agent: '代码重构专家',
+  security_agent: '安全审计专家',
+  db_architect: '数据库架构师',
+  backend_dev: '后端研发',
+  frontend_dev: '前端研发',
+  req_analyst: '需求分析',
+  tester: '测试工程师',
+  qa_ops: '质量测试',
+  security_auditor: '安全审计员',
+  assistant: 'AI 助手',
+  unknown: '未分类',
+  'openclaw-tui': 'OpenClaw 终端助手',
+  codex: 'Codex 编程助手',
+  coding_assistant: '编程助手',
+  // Backend FastAPI error messages
+  'No sessions found with the given filters': '未找到符合筛选条件的会话',
+  'Session not found': '会话不存在',
+  'Failed to import session': '导入会话失败',
+  'Export file not found': '导出文件不存在',
+  'No files selected': '未选择任何文件',
+  'No valid export files found': '未找到有效的导出文件',
+  'curator disabled': '清洗器已禁用',
+  'collector disabled': '采集器已禁用',
+  'Folder path is required': '目录路径不能为空',
+  'Folder does not exist': '目录不存在',
+  'File not found': '文件不存在',
+  'Invalid status': '状态无效',
+  'Cannot disable the last active reviewer': '不能停用最后一个启用中的审核器',
+};
+
+const ZH_PHRASE_REPLACEMENTS: Array<[string, string]> = [
+  ['所有虾做自我介绍', 'All agents, please introduce yourselves'],
+  ['大家好，我是**需求虾**', 'Hello everyone, I am the **Requirements Analyst Agent**'],
+  ['产品需求分析师', 'Product & Requirements Analyst'],
+  ['需求虾可执行摘要', 'Requirements Analyst Executive Summary'],
+  ['需求虾学习记忆库', 'Requirements Analyst Learning Memory'],
+  ['需求虾工具使用笔记', 'Requirements Analyst Tool Usage Notes'],
+  ['需求虾错误日志与问题追踪', 'Requirements Analyst Error Log & Issue Tracker'],
+  ['需求虾成功经验与最佳实践', 'Requirements Analyst Best Practices'],
+  ['需求虾可复用经验摘要', 'Requirements Analyst Reusable Lessons'],
+  ['需求虾核心经验', 'Requirements Analyst Core Lesson'],
+  ['需求虾', 'Requirements Agent'],
+  ['总管虾', 'Coordinator Agent'],
+  ['总负责人反馈', 'Lead Coordinator Feedback'],
+  ['执行每周技能搜索', 'Run weekly skill search'],
+  ['执行每日自我检查', 'Run daily self-check'],
+  ['每周技能搜索总结', 'Weekly Skill Search Summary'],
+  ['每周技能搜索完成', 'Weekly Skill Search Complete'],
+  ['技能搜索结果汇总', 'Skill Search Results Summary'],
+  ['自动进化指令', 'Auto-Evolution Directive'],
+  ['自动进化完成通知', 'Auto-Evolution Completion Notice'],
+  ['自动进化系统初始化', 'Auto-Evolution System Initialization'],
+  ['自动进化系统启动', 'Auto-Evolution System Started'],
+  ['记忆整理完成汇报', 'Memory Compaction Report'],
+  ['记忆整理完成', 'Memory Compaction Complete'],
+  ['记忆整理任务', 'Memory Compaction Task'],
+  ['整理记忆 / 缩减上下文 - 立即执行', 'Compact Memory / Reduce Context - Execute Immediately'],
+  ['核心能力', 'Core Capabilities'],
+  ['近期完成任务', 'Recently Completed Tasks'],
+  ['参与过的任务', 'Completed Tasks'],
+  ['关键决策', 'Key Decisions'],
+  ['已安装技能效果评估', 'Installed Skills Evaluation'],
+  ['已安装技能', 'Installed Skills'],
+  ['待安装技能', 'Pending Skills'],
+  ['技能状态', 'Skill Status'],
+  ['核心经验', 'Core Lessons'],
+  ['学习经验', 'Lessons Learned'],
+  ['学习记录列表', 'Learning Records'],
+  ['错误记录列表', 'Error Records'],
+  ['暂无错误记录', 'No errors recorded'],
+  ['功能规格说明书编写', 'Feature specification authoring'],
+  ['功能规格说明书', 'Feature Specification'],
+  ['产品需求文档', 'Product Requirements Document'],
+  ['需求分析核心技能', 'Core requirements analysis skill'],
+  ['需求分析', 'Requirements Analysis'],
+  ['功能规划', 'Feature Planning'],
+  ['原型设计', 'Prototyping'],
+  ['验收标准', 'Acceptance Criteria'],
+  ['需求确认', 'Requirements Alignment'],
+  ['文档同步', 'Documentation Sync'],
+  ['变更管理', 'Change Management'],
+  ['架构设计', 'Architecture Design'],
+  ['技术规格', 'Technical Specification'],
+  ['向后兼容', 'Backward Compatibility'],
+  ['最佳实践', 'Best Practices'],
+  ['最后更新', 'Last Updated'],
+  ['已安装', 'Installed'],
+  ['待重试', 'Pending Retry'],
+  ['速率限制', 'Rate Limited'],
+  ['等待限流解除', 'Waiting for rate limit reset'],
+  ['限流中', 'Rate limited'],
+  ['未使用', 'Unused'],
+  ['优秀', 'Excellent'],
+  ['良好', 'Good'],
+  ['一般', 'Fair'],
+  ['较差', 'Poor'],
+  ['待办事项', 'Todo Items'],
+  ['待办', 'Todo'],
+  ['状态', 'Status'],
+  ['备注', 'Notes'],
+  ['用途', 'Purpose'],
+  ['技能名', 'Skill'],
+  ['技能', 'Skill'],
+  ['优先级', 'Priority'],
+  ['核心', 'Core'],
+  ['辅助', 'Auxiliary'],
+  ['扩展', 'Extended'],
+  ['用户', 'User '],
+  ['收到', 'Acknowledged'],
+  ['完成', 'Completed'],
+];
+
+const CJK_CHAR_RE = /[\u3400-\u9fff\uf900-\ufaff]/;
+
+const sanitizeChineseForEnglish = (input: string): string => {
+  let out = input;
+  for (const [zh, en] of ZH_PHRASE_REPLACEMENTS) {
+    if (out.includes(zh)) {
+      out = out.split(zh).join(en);
+    }
+  }
+  out = out
+    .replace(/，/g, ', ')
+    .replace(/。/g, '. ')
+    .replace(/：/g, ': ')
+    .replace(/；/g, '; ')
+    .replace(/！/g, '! ')
+    .replace(/？/g, '? ')
+    .replace(/（/g, ' (')
+    .replace(/）/g, ') ')
+    .replace(/「/g, '"')
+    .replace(/」/g, '"')
+    .replace(/『/g, '"')
+    .replace(/』/g, '"')
+    .replace(/【/g, '[')
+    .replace(/】/g, ']')
+    .replace(/、/g, ', ')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'");
+
+  if (CJK_CHAR_RE.test(out)) {
+    out = out.replace(/[\u3400-\u9fff\uf900-\ufaff]+/g, ' ').replace(/[\u3000-\u303f\uff00-\uffef]+/g, ' ');
+    out = out.replace(/[ \t]{2,}/g, ' ').trim();
+  }
+  return out || 'Translated session content';
 };
 
 export const translateDynamicText = (text: string | undefined | null, locale: Locale): string => {
   if (!text) return '';
-  if (locale === 'en' && DYNAMIC_EN_MAP[text]) {
-    return DYNAMIC_EN_MAP[text];
+  const trimmed = text.trim();
+  if (/^oc_[0-9a-f]{16,}$/i.test(trimmed)) {
+    return locale === 'zh' ? 'OpenClaw 助手' : 'OpenClaw Agent';
+  }
+  if (locale === 'en') {
+    if (DYNAMIC_EN_MAP[text]) {
+      return DYNAMIC_EN_MAP[text];
+    }
+    if (DYNAMIC_EN_MAP[trimmed]) {
+      return DYNAMIC_EN_MAP[trimmed];
+    }
+    if (CJK_CHAR_RE.test(text)) {
+      return sanitizeChineseForEnglish(text);
+    }
+    return text;
+  }
+  if (locale === 'zh') {
+    if (DYNAMIC_ZH_MAP[text]) {
+      return DYNAMIC_ZH_MAP[text];
+    }
+    if (DYNAMIC_ZH_MAP[trimmed]) {
+      return DYNAMIC_ZH_MAP[trimmed];
+    }
+    if (/^score\s+(\d+(?:\.\d+)?)\s*(>=|<=|>|<|==)\s*threshold\s+(\d+(?:\.\d+)?)$/i.test(trimmed)) {
+      return trimmed.replace(
+        /^score\s+(\d+(?:\.\d+)?)\s*(>=|<=|>|<|==)\s*threshold\s+(\d+(?:\.\d+)?)$/i,
+        '评分 $1 $2 阈值 $3'
+      );
+    }
+    if (/^Plugin\s+'([^']+)'\s+not\s+found$/i.test(trimmed)) {
+      return trimmed.replace(/^Plugin\s+'([^']+)'\s+not\s+found$/i, '未找到插件 "$1"');
+    }
+    if (/^Invalid\s+status\s+transition:\s*(.+)$/i.test(trimmed)) {
+      return trimmed.replace(/^Invalid\s+status\s+transition:\s*(.+)$/i, '非法的状态流转：$1');
+    }
   }
   return text;
 };

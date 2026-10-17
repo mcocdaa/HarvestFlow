@@ -68,7 +68,7 @@ const Dashboard: React.FC = () => {
       const result = res.data as { total?: number; high_value?: number; low_value?: number; error?: string };
       if (result.error) {
         message.warning(
-          locale === 'zh' ? `自动清洗未执行：${result.error}` : `Auto-curation skipped: ${result.error}`
+          locale === 'zh' ? `自动清洗未执行：${td(result.error)}` : `Auto-curation skipped: ${td(result.error)}`
         );
       } else {
         message.success(

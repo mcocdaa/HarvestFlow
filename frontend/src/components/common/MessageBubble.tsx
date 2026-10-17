@@ -26,8 +26,11 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, index, toolsColl
     if (Array.isArray(content)) {
       const texts = content
         .map((item) => {
-          if (item && typeof item === 'object' && typeof (item as { text?: unknown }).text === 'string') {
-            return td((item as { text: string }).text);
+          if (item && typeof item === 'object') {
+            const rec = item as { text?: unknown; thinking?: unknown; content?: unknown };
+            if (typeof rec.text === 'string') return td(rec.text);
+            if (typeof rec.thinking === 'string') return td(rec.thinking);
+            if (typeof rec.content === 'string') return td(rec.content);
           }
           return null;
         })

@@ -28,7 +28,7 @@ describe('SessionDrawer', () => {
 
     expect(screen.getByText('Hello')).toBeInTheDocument();
     expect(screen.getAllByText('已通过').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('backend_dev').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('后端研发').length).toBeGreaterThan(0);
     expect(screen.getByText('对话内容（1 条）')).toBeInTheDocument();
   });
 

@@ -94,7 +94,7 @@ describe('Dashboard Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText('最近会话')).toBeInTheDocument()
-      expect(screen.getByText('coding')).toBeInTheDocument()
+      expect(screen.getByText('代码开发')).toBeInTheDocument()
     })
   })
 

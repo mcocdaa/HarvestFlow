@@ -15,7 +15,7 @@ interface AuditLogDrawerProps {
 }
 
 const AuditLogDrawer: React.FC<AuditLogDrawerProps> = ({ open, onClose, sessionId }) => {
-  const { locale, t } = useI18n();
+  const { locale, t, td } = useI18n();
   const [sessionOnly, setSessionOnly] = useState(Boolean(sessionId));
 
   useEffect(() => {
@@ -75,7 +75,7 @@ const AuditLogDrawer: React.FC<AuditLogDrawerProps> = ({ open, onClose, sessionI
       dataIndex: 'details',
       key: 'details',
       ellipsis: true,
-      render: (details?: string | null) => details || '-',
+      render: (details?: string | null) => (details ? td(details) : '-'),
     },
   ];
 
