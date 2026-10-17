@@ -41,12 +41,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           className="menu-item-link"
           onClick={() => item.path && navigate(item.path)}
         >
-          {item.path === '/review' && pendingCount > 0 ? (
-            <Badge count={pendingCount} size="small" offset={[10, -2]}>
-              {dom}
-            </Badge>
-          ) : (
-            dom
+          <span className="menu-item-dom">{dom}</span>
+          {item.path === '/review' && pendingCount > 0 && (
+            <Badge
+              count={pendingCount}
+              size="small"
+              style={{ boxShadow: 'none', marginLeft: 8 }}
+            />
           )}
         </div>
       )}

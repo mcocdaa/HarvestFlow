@@ -11,7 +11,7 @@
 /* 左侧栏：待审会话队列 (20%) */
 .review-col-queue {
   flex: 0 0 20%;
-  min-width: 220px;
+  min-width: 224px;
   max-width: 280px;
   position: sticky;
   top: 72px;
@@ -27,7 +27,7 @@
 }
 
 .queue-card .ant-card-body {
-  padding: 12px;
+  padding: 12px 10px;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -36,14 +36,14 @@
 .queue-list-scroll {
   overflow-y: auto;
   max-height: calc(100vh - 240px);
-  padding-right: 4px;
+  padding-right: 2px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .queue-item {
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
   background: #ffffff;
@@ -75,11 +75,19 @@
 
 /* 中间栏：对话流与工具日志 (55%) */
 .review-col-content {
-  flex: 1 1 55%;
+  flex: 1 1 54%;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.review-col-content > .ant-card > .ant-card-body {
+  padding: 16px;
+}
+
+.review-col-content > .ant-card > .ant-card-head {
+  padding: 0 16px;
 }
 
 .review-session-meta-bar {
@@ -100,8 +108,8 @@
 
 /* 右侧栏：悬浮固定决策面板 (25%) */
 .review-col-decision {
-  flex: 0 0 25%;
-  min-width: 270px;
+  flex: 0 0 26%;
+  min-width: 284px;
   max-width: 340px;
   position: sticky;
   top: 72px;
@@ -110,6 +118,14 @@
 .decision-card {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   border: 1px solid #e2e8f0;
+}
+
+.decision-card > .ant-card-body {
+  padding: 16px;
+}
+
+.decision-card > .ant-card-head {
+  padding: 0 16px;
 }
 
 .decision-action-btn-approve {
@@ -142,13 +158,24 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 6px;
+  padding: 1px 6px;
   background: #ffffff;
   border: 1px solid #cbd5e1;
+  border-bottom-width: 2px;
   border-radius: 4px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 11px;
-  color: #475569;
+  line-height: 1.4;
+  color: #334155;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.shortcut-desc {
+  font-size: 11px;
+  white-space: nowrap;
+  text-align: right;
+  flex-shrink: 0;
 }
 
 /* Diff 对比视图样式 */

@@ -389,11 +389,11 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
               {/* 若为最后一条 Assistant 回复且进入编辑模式 */}
               {isLastAssistant && isEditingAssistant && (
                 <div className="assistant-edit-box">
-                  <Flex justify="space-between" align="center" style={{ marginBottom: 8 }}>
-                    <Typography.Text strong style={{ color: '#2563eb' }}>
+                  <Flex justify="space-between" align="center" wrap="wrap" gap={6} style={{ marginBottom: 8 }}>
+                    <Typography.Text strong style={{ color: '#2563eb', fontSize: 13, whiteSpace: 'nowrap' }}>
                       <EditOutlined /> 编辑 AI 回复（就地修正，生产 DPO 对齐数据）
                     </Typography.Text>
-                    <Space>
+                    <Space size={6} style={{ flexShrink: 0 }}>
                       <Button size="small" icon={<UndoOutlined />} onClick={handleCancelAssistantEdit}>
                         放弃修改 (Esc)
                       </Button>
@@ -503,13 +503,19 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                   onClick={() => setIndex(itemIdx)}
                 >
                   {isActive && <span className="queue-item-cursor">▶</span>}
-                  <Flex justify="space-between" align="center" style={{ marginLeft: isActive ? 8 : 0 }}>
+                  <Flex justify="space-between" align="center" gap={6} style={{ marginLeft: isActive ? 8 : 0 }}>
                     <Typography.Text
                       strong={isActive}
+                      title={item.session_id}
                       style={{
                         fontFamily: 'ui-monospace, monospace',
-                        fontSize: 12,
+                        fontSize: 11,
                         color: isActive ? '#2563eb' : '#1e293b',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        minWidth: 0,
+                        flex: 1,
                       }}
                     >
                       {truncateSessionId(item.session_id)}
@@ -518,11 +524,21 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                       <ScoreTag score={item.quality_auto_score} />
                     )}
                   </Flex>
-                  <Flex justify="space-between" align="center" style={{ marginTop: 4, marginLeft: isActive ? 8 : 0 }}>
-                    <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                  <Flex justify="space-between" align="center" gap={6} style={{ marginTop: 4, marginLeft: isActive ? 8 : 0 }}>
+                    <Typography.Text
+                      type="secondary"
+                      style={{
+                        fontSize: 11,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        minWidth: 0,
+                        flex: 1,
+                      }}
+                    >
                       {item.agent_role || 'assistant'}
                     </Typography.Text>
-                    <Typography.Text type="secondary" style={{ fontSize: 10 }}>
+                    <Typography.Text type="secondary" style={{ fontSize: 10, whiteSpace: 'nowrap', flexShrink: 0 }}>
                       #{itemIdx + 1}
                     </Typography.Text>
                   </Flex>
@@ -537,10 +553,10 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
       <div className="review-col-content review-main">
         {/* 会话顶部进度与快速导航 */}
         <Card variant="borderless" className="review-progress-card" loading={loading && queue.length === 0}>
-          <Flex justify="space-between" align="center" gap={16} wrap>
-            <div className="review-progress">
+          <Flex justify="space-between" align="center" gap={12} wrap>
+            <div className="review-progress" style={{ flex: 1, minWidth: 200 }}>
               <Flex align="center" gap={8} wrap>
-                <Typography.Text strong>
+                <Typography.Text strong style={{ whiteSpace: 'nowrap' }}>
                   第 {Math.min(index + 1, queue.length)} / {queue.length} 条
                 </Typography.Text>
                 {current && <StatusTag status={current.status} />}
@@ -559,8 +575,9 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
               </Flex>
               <Progress percent={progressPercent} showInfo={false} size="small" style={{ marginTop: 8 }} />
             </div>
-            <Space>
+            <Space size={8} style={{ flexShrink: 0 }}>
               <Button
+                size="small"
                 icon={<LeftOutlined />}
                 disabled={index === 0}
                 onClick={() => setIndex((prev) => Math.max(prev - 1, 0))}
@@ -568,6 +585,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                 上一个 (K)
               </Button>
               <Button
+                size="small"
                 icon={<RightOutlined />}
                 disabled={index >= queue.length - 1}
                 onClick={() => setIndex((prev) => Math.min(prev + 1, queue.length - 1))}
@@ -631,8 +649,8 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
             {/* 评分区块 */}
             <div>
               <Flex justify="space-between" align="center" style={{ marginBottom: 6 }}>
-                <Typography.Text strong>质量评分 (直按 1~5 键)</Typography.Text>
-                <Tag color={getScoreColor(score)}>{getScoreTagLabel(score)}</Tag>
+                <Typography.Text strong style={{ whiteSpace: 'nowrap' }}>质量评分 (直按 1~5 键)</Typography.Text>
+                <Tag color={getScoreColor(score)} style={{ marginInlineEnd: 0 }}>{getScoreTagLabel(score)}</Tag>
               </Flex>
               <Rate allowClear value={score} onChange={setScore} tooltips={scoreLabels} />
               {current?.quality_auto_score !== null && current?.quality_auto_score !== undefined && (
@@ -721,33 +739,33 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
 
             {/* 人体工学快捷键速查面板 */}
             <div className="shortcuts-panel">
-              <Typography.Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+              <Typography.Text strong style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
                 极速全键盘操作指南
               </Typography.Text>
-              <Flex vertical gap={4} style={{ fontSize: 11 }}>
-                <Flex justify="space-between">
-                  <span className="shortcut-badge">A / {MOD_KEY}+Enter</span>
-                  <Typography.Text type="secondary">通过并切下一条</Typography.Text>
+              <Flex vertical gap={6} style={{ fontSize: 11 }}>
+                <Flex justify="space-between" align="center" gap={8}>
+                  <kbd className="shortcut-badge">A / {MOD_KEY}+Enter</kbd>
+                  <Typography.Text type="secondary" className="shortcut-desc">通过并切下一条</Typography.Text>
                 </Flex>
-                <Flex justify="space-between">
-                  <span className="shortcut-badge">R / {MOD_KEY}+Backspace</span>
-                  <Typography.Text type="secondary">拒绝并切下一条</Typography.Text>
+                <Flex justify="space-between" align="center" gap={8}>
+                  <kbd className="shortcut-badge">R / {MOD_KEY}+Backspace</kbd>
+                  <Typography.Text type="secondary" className="shortcut-desc">拒绝并切下一条</Typography.Text>
                 </Flex>
-                <Flex justify="space-between">
-                  <span className="shortcut-badge">1 ~ 5</span>
-                  <Typography.Text type="secondary">设定质量星级</Typography.Text>
+                <Flex justify="space-between" align="center" gap={8}>
+                  <kbd className="shortcut-badge">1 ~ 5</kbd>
+                  <Typography.Text type="secondary" className="shortcut-desc">设定质量星级</Typography.Text>
                 </Flex>
-                <Flex justify="space-between">
-                  <span className="shortcut-badge">J / K 或 ↓ / ↑</span>
-                  <Typography.Text type="secondary">在队列中上下切换</Typography.Text>
+                <Flex justify="space-between" align="center" gap={8}>
+                  <kbd className="shortcut-badge">J / K 或 ↓ / ↑</kbd>
+                  <Typography.Text type="secondary" className="shortcut-desc">在队列中上下切换</Typography.Text>
                 </Flex>
-                <Flex justify="space-between">
-                  <span className="shortcut-badge">T</span>
-                  <Typography.Text type="secondary">折叠/展开工具日志</Typography.Text>
+                <Flex justify="space-between" align="center" gap={8}>
+                  <kbd className="shortcut-badge">T</kbd>
+                  <Typography.Text type="secondary" className="shortcut-desc">折叠/展开工具日志</Typography.Text>
                 </Flex>
-                <Flex justify="space-between">
-                  <span className="shortcut-badge">E</span>
-                  <Typography.Text type="secondary">编辑 AI 回复与 Diff</Typography.Text>
+                <Flex justify="space-between" align="center" gap={8}>
+                  <kbd className="shortcut-badge">E</kbd>
+                  <Typography.Text type="secondary" className="shortcut-desc">编辑 AI 回复与 Diff</Typography.Text>
                 </Flex>
               </Flex>
             </div>

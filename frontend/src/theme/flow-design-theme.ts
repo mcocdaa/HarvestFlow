@@ -79,13 +79,13 @@ export const flowDesignToken = {
   colorText: '#334155',
   colorTextSecondary: flowPalette.slate500,
   colorTextTertiary: flowPalette.slate400,
-  colorTextQuaternary: '#CBD5E1',
+  colorTextQuaternary: '#94A3B8',
   colorTextHeading: flowPalette.slate900,
   colorBorder: flowPalette.slate200,
   colorBorderSecondary: flowPalette.slate100,
   colorFill: flowPalette.slate100,
   colorFillSecondary: flowPalette.slate200,
-  colorFillTertiary: '#CBD5E1',
+  colorFillTertiary: '#F1F5F9',
   colorFillQuaternary: flowPalette.slate50,
 };
 
