@@ -5,9 +5,11 @@ import { reviewerApi } from '../../services';
 import { useAsyncData } from '../../hooks';
 import { CopyText, EmptyState, ScoreTag, StatusTag } from '../common';
 import { formatDateTime, truncateSessionId } from '../../utils';
+import { useI18n } from '../../i18n';
 import type { BatchReviewResult, Session } from '../../types';
 
 const BatchReviewPanel: React.FC = () => {
+  const { locale, t, td } = useI18n();
   const { data, loading, reload } = useAsyncData<{ sessions?: Session[]; total?: number }>(
     () => reviewerApi.getPending(1, 100)
   );
@@ -23,9 +25,17 @@ const BatchReviewPanel: React.FC = () => {
       const res = approve ? await reviewerApi.batchApprove(ids) : await reviewerApi.batchReject(ids);
       const result = res.data as BatchReviewResult;
       if (result.failed > 0) {
-        message.warning(`批量${approve ? '通过' : '拒绝'}完成：成功 ${result.success}，失败 ${result.failed}`);
+        message.warning(
+          locale === 'zh'
+            ? `批量${approve ? '通过' : '拒绝'}完成：成功 ${result.success}，失败 ${result.failed}`
+            : `Batch ${approve ? 'approve' : 'reject'} finished: ${result.success} succeeded, ${result.failed} failed`
+        );
       } else {
-        message.success(`批量${approve ? '通过' : '拒绝'}完成：共 ${result.success} 条`);
+        message.success(
+          locale === 'zh'
+            ? `批量${approve ? '通过' : '拒绝'}完成：共 ${result.success} 条`
+            : `Batch ${approve ? 'approved' : 'rejected'} ${result.success} sessions`
+        );
       }
       setSelectedKeys([]);
       reload();
@@ -38,12 +48,12 @@ const BatchReviewPanel: React.FC = () => {
 
   const columns = [
     {
-      title: '会话',
+      title: t('会话', 'Session'),
       dataIndex: 'session_id',
       key: 'session',
       render: (sessionId: string, record: Session) => (
         <Space direction="vertical" size={2}>
-          <Typography.Text strong>{record.task_type || '未分类'}</Typography.Text>
+          <Typography.Text strong>{td(record.task_type) || t('未分类', 'Uncategorized')}</Typography.Text>
           <CopyText
             text={sessionId}
             mono
@@ -53,28 +63,28 @@ const BatchReviewPanel: React.FC = () => {
       ),
     },
     {
-      title: '状态',
+      title: t('状态', 'Status'),
       dataIndex: 'status',
       key: 'status',
       width: 100,
       render: (status: string) => <StatusTag status={status} />,
     },
     {
-      title: '自动评分',
+      title: t('自动评分', 'Auto Score'),
       dataIndex: 'quality_auto_score',
       key: 'quality_auto_score',
       width: 100,
       render: (score?: number | null) => <ScoreTag score={score} />,
     },
     {
-      title: 'Agent 角色',
+      title: t('Agent 角色', 'Agent Role'),
       dataIndex: 'agent_role',
       key: 'agent_role',
       width: 140,
       render: (role?: string | null) => (role ? <Tag bordered={false}>{role}</Tag> : <span className="score-empty">-</span>),
     },
     {
-      title: '创建时间',
+      title: t('创建时间', 'Created'),
       dataIndex: 'created_at',
       key: 'created_at',
       width: 150,
@@ -90,9 +100,9 @@ const BatchReviewPanel: React.FC = () => {
     <div>
       <Space style={{ marginBottom: 16 }} wrap>
         <Popconfirm
-          title={`批量通过 ${selectedKeys.length} 条会话？`}
-          okText="确认通过"
-          cancelText="取消"
+          title={locale === 'zh' ? `批量通过 ${selectedKeys.length} 条会话？` : `Approve ${selectedKeys.length} sessions?`}
+          okText={t('确认通过', 'Approve')}
+          cancelText={t('取消', 'Cancel')}
           onConfirm={() => handleBatch(true)}
           disabled={selectedKeys.length === 0}
         >
@@ -102,24 +112,24 @@ const BatchReviewPanel: React.FC = () => {
             disabled={selectedKeys.length === 0}
             loading={submitting}
           >
-            批量通过（{selectedKeys.length}）
+            {locale === 'zh' ? `批量通过（${selectedKeys.length}）` : `Batch Approve (${selectedKeys.length})`}
           </Button>
         </Popconfirm>
         <Popconfirm
-          title={`批量拒绝 ${selectedKeys.length} 条会话？`}
-          description="拒绝后标记为 rejected，可由人工再次调整。"
-          okText="确认拒绝"
-          cancelText="取消"
+          title={locale === 'zh' ? `批量拒绝 ${selectedKeys.length} 条会话？` : `Reject ${selectedKeys.length} sessions?`}
+          description={t('拒绝后标记为 rejected，可由人工再次调整。', 'Marked as rejected; can be updated later.')}
+          okText={t('确认拒绝', 'Reject')}
+          cancelText={t('取消', 'Cancel')}
           okButtonProps={{ danger: true }}
           onConfirm={() => handleBatch(false)}
           disabled={selectedKeys.length === 0}
         >
           <Button danger icon={<CloseOutlined />} disabled={selectedKeys.length === 0} loading={submitting}>
-            批量拒绝（{selectedKeys.length}）
+            {locale === 'zh' ? `批量拒绝（${selectedKeys.length}）` : `Batch Reject (${selectedKeys.length})`}
           </Button>
         </Popconfirm>
         <Button icon={<ReloadOutlined />} onClick={reload}>
-          刷新
+          {t('刷新', 'Refresh')}
         </Button>
       </Space>
 
@@ -132,8 +142,8 @@ const BatchReviewPanel: React.FC = () => {
           selectedRowKeys: selectedKeys,
           onChange: setSelectedKeys,
         }}
-        pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条` }}
-        locale={{ emptyText: <EmptyState description="审核队列已清空" /> }}
+        pagination={{ pageSize: 20, showTotal: (total) => (locale === 'zh' ? `共 ${total} 条` : `Total ${total}`) }}
+        locale={{ emptyText: <EmptyState description={t('审核队列已清空', 'Review queue is empty')} /> }}
       />
     </div>
   );

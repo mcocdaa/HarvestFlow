@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
 import { copyToClipboard } from '../../utils';
+import { useI18n } from '../../i18n';
 
 interface JsonViewProps {
   value: unknown;
@@ -10,6 +11,7 @@ interface JsonViewProps {
 }
 
 const JsonView: React.FC<JsonViewProps> = ({ value, maxHeight = 320, className }) => {
+  const { t } = useI18n();
   let text: string;
   try {
     text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
@@ -29,7 +31,7 @@ const JsonView: React.FC<JsonViewProps> = ({ value, maxHeight = 320, className }
         icon={<CopyOutlined />}
         onClick={(e) => {
           e.stopPropagation();
-          copyToClipboard(text, '已复制 JSON');
+          copyToClipboard(text, t('已复制 JSON', 'Copied JSON'));
         }}
       />
     </div>

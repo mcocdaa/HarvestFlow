@@ -7,14 +7,15 @@ import { CopyText, EmptyState, PageHeader } from '../components';
 import {
   DEFAULT_AGENT_ROLES,
   DEFAULT_TASK_TYPES,
-  EXPORT_FORMAT_LABELS,
+  getExportFormatLabel,
 } from '../constants/display';
 import { basename, filenameFromDisposition, formatDateTime, parseJsonSafe, saveBlob } from '../utils';
+import { useI18n } from '../i18n';
 import type { ExportFormats, ExportHistory, ExportParams, ExportResult, Session } from '../types';
 
 const { Option } = Select;
 
-const parseFilterChips = (filters?: string | null): string[] => {
+const parseFilterChips = (filters?: string | null, sep = '、'): string[] => {
   const parsed = parseJsonSafe<Record<string, unknown>>(filters);
   if (!parsed) return [];
   return Object.entries(parsed)
@@ -23,10 +24,11 @@ const parseFilterChips = (filters?: string | null): string[] => {
       if (Array.isArray(value) && value.length === 0) return false;
       return true;
     })
-    .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join('、') : String(value)}`);
+    .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(sep) : String(value)}`);
 };
 
 const Export: React.FC = () => {
+  const { locale, t } = useI18n();
   const [form] = Form.useForm();
   const [exporting, setExporting] = useState(false);
   const [lastResult, setLastResult] = useState<ExportResult | null>(null);
@@ -76,7 +78,7 @@ const Export: React.FC = () => {
       const res = await exporterApi.exportSessions(values);
       const result = res.data as ExportResult;
       setLastResult(result);
-      message.success(`导出成功：${result.record_count} 条会话`);
+      message.success(t(`导出成功：${result.record_count} 条会话`, `Exported ${result.record_count} sessions`));
       reloadHistory();
     } catch {
       // 拦截器已统一提示
@@ -111,7 +113,7 @@ const Export: React.FC = () => {
         res.data as Blob,
         filenameFromDisposition(res.headers?.['content-disposition'] as string, 'harvestflow-exports.zip')
       );
-      message.success(`已开始下载 ${filenames.length} 个文件`);
+      message.success(t(`已开始下载 ${filenames.length} 个文件`, `Downloading ${filenames.length} files`));
     } catch {
       // 拦截器已统一提示
     } finally {
@@ -121,7 +123,7 @@ const Export: React.FC = () => {
 
   const columns = [
     {
-      title: '导出时间',
+      title: t('导出时间', 'Exported At'),
       dataIndex: 'created_at',
       key: 'created_at',
       width: 155,
@@ -132,37 +134,43 @@ const Export: React.FC = () => {
       ),
     },
     {
-      title: '格式',
+      title: t('格式', 'Format'),
       dataIndex: 'export_format',
       key: 'export_format',
       width: 135,
       render: (format: string) => (
         <Tag color="blue" bordered={false}>
-          {EXPORT_FORMAT_LABELS[format] ?? format}
+          {getExportFormatLabel(format, locale)}
         </Tag>
       ),
     },
     {
-      title: '版本',
+      title: t('版本', 'Version'),
       dataIndex: 'version',
       key: 'version',
-      width: 72,
+      width: 82,
     },
     {
-      title: '记录数',
+      title: t('记录数', 'Records'),
       dataIndex: 'record_count',
       key: 'record_count',
-      width: 80,
+      width: 86,
       render: (count: number) => <Typography.Text strong>{count}</Typography.Text>,
     },
     {
-      title: '筛选条件',
+      title: t('筛选条件', 'Filters'),
       dataIndex: 'filters',
       key: 'filters',
       width: 140,
       render: (filters?: string | null) => {
-        const chips = parseFilterChips(filters);
-        if (chips.length === 0) return <span className="score-empty" style={{ whiteSpace: 'nowrap' }}>全部已通过会话</span>;
+        const chips = parseFilterChips(filters, t('、', ', '));
+        if (chips.length === 0) {
+          return (
+            <span className="score-empty" style={{ whiteSpace: 'nowrap' }}>
+              {t('全部已通过会话', 'All approved')}
+            </span>
+          );
+        }
         return (
           <Space size={4} wrap>
             {chips.map((chip) => (
@@ -175,7 +183,7 @@ const Export: React.FC = () => {
       },
     },
     {
-      title: '文件',
+      title: t('文件', 'File'),
       dataIndex: 'file_path',
       key: 'file_path',
       ellipsis: true,
@@ -183,7 +191,7 @@ const Export: React.FC = () => {
         <CopyText
           text={filePath}
           mono
-          tooltip="点击复制服务器文件路径"
+          tooltip={t('点击复制服务器文件路径', 'Copy server file path')}
           display={
             <span
               style={{
@@ -203,9 +211,9 @@ const Export: React.FC = () => {
       ),
     },
     {
-      title: '操作',
+      title: t('操作', 'Actions'),
       key: 'action',
-      width: 100,
+      width: 110,
       render: (_: unknown, record: ExportHistory) => {
         const filename = basename(record.file_path);
         return (
@@ -216,7 +224,7 @@ const Export: React.FC = () => {
             loading={downloading === filename}
             onClick={() => handleDownload(filename)}
           >
-            下载
+            {t('下载', 'Download')}
           </Button>
         );
       },
@@ -226,16 +234,19 @@ const Export: React.FC = () => {
   return (
     <div>
       <PageHeader
-        title="导出"
-        description="将已通过的会话导出为 ShareGPT / Alpaca 训练格式"
+        title={t('导出', 'Exporter')}
+        description={t(
+          '将已通过的会话导出为 ShareGPT / Alpaca 训练格式',
+          'Export approved sessions into ShareGPT or Alpaca training datasets'
+        )}
         extra={
           <Button icon={<ReloadOutlined />} onClick={reloadHistory} loading={historyLoading}>
-            刷新历史
+            {t('刷新历史', 'Refresh History')}
           </Button>
         }
       />
 
-      <Card title="导出配置" variant="borderless" style={{ marginBottom: 16 }}>
+      <Card title={t('导出配置', 'Export Settings')} variant="borderless" style={{ marginBottom: 16 }}>
         <Form
           form={form}
           layout="vertical"
@@ -244,52 +255,56 @@ const Export: React.FC = () => {
         >
           <Row gutter={16}>
             <Col xs={24} md={12} lg={8}>
-              <Form.Item name="format" label="导出格式" rules={[{ required: true, message: '请选择导出格式' }]}>
-                <Select placeholder="选择格式">
+              <Form.Item
+                name="format"
+                label={t('导出格式', 'Export Format')}
+                rules={[{ required: true, message: t('请选择导出格式', 'Please select export format') }]}
+              >
+                <Select placeholder={t('选择格式', 'Select format')}>
                   {(formats.length > 0 ? formats : ['sharegpt', 'alpaca']).map((format) => (
                     <Option key={format} value={format}>
-                      {EXPORT_FORMAT_LABELS[format] ?? format}
+                      {getExportFormatLabel(format, locale)}
                     </Option>
                   ))}
                 </Select>
               </Form.Item>
             </Col>
             <Col xs={24} md={12} lg={8}>
-              <Form.Item name="version" label="版本标识">
-                <Input placeholder="如 v1" />
+              <Form.Item name="version" label={t('版本标识', 'Version Tag')}>
+                <Input placeholder={t('如 v1', 'e.g. v1')} />
               </Form.Item>
             </Col>
             <Col xs={24} md={12} lg={8}>
-              <Form.Item name="min_score" label="最低人工评分">
-                <InputNumber min={1} max={5} style={{ width: '100%' }} placeholder="不限" />
+              <Form.Item name="min_score" label={t('最低人工评分', 'Min Human Score')}>
+                <InputNumber min={1} max={5} style={{ width: '100%' }} placeholder={t('不限', 'Any')} />
               </Form.Item>
             </Col>
             <Col xs={24} md={12} lg={8}>
-              <Form.Item name="agent_role" label="Agent 角色">
+              <Form.Item name="agent_role" label={t('Agent 角色', 'Agent Role')}>
                 <Select
                   allowClear
                   showSearch
-                  placeholder="不限（可输入自定义值）"
+                  placeholder={t('不限（可输入自定义值）', 'Any (or type custom role)')}
                   options={agentRoleOptions}
                 />
               </Form.Item>
             </Col>
             <Col xs={24} md={12} lg={8}>
-              <Form.Item name="task_type" label="任务类型">
+              <Form.Item name="task_type" label={t('任务类型', 'Task Type')}>
                 <Select
                   allowClear
                   showSearch
-                  placeholder="不限（可输入自定义值）"
+                  placeholder={t('不限（可输入自定义值）', 'Any (or type custom task)')}
                   options={taskTypeOptions}
                 />
               </Form.Item>
             </Col>
             <Col xs={24} md={12} lg={8}>
-              <Form.Item name="tags" label="标签">
+              <Form.Item name="tags" label={t('标签', 'Tags')}>
                 <Select
                   mode="tags"
                   allowClear
-                  placeholder="输入后回车，需全部匹配"
+                  placeholder={t('输入后回车，需全部匹配', 'Press Enter to add (all must match)')}
                   options={tagOptions}
                 />
               </Form.Item>
@@ -303,12 +318,15 @@ const Export: React.FC = () => {
               closable
               onClose={() => setLastResult(null)}
               style={{ marginBottom: 16 }}
-              message={`导出成功：${lastResult.record_count} 条会话 → ${lastResult.filename}`}
+              message={t(
+                `导出成功：${lastResult.record_count} 条会话 → ${lastResult.filename}`,
+                `Exported ${lastResult.record_count} sessions → ${lastResult.filename}`
+              )}
               description={
                 <CopyText
                   text={lastResult.file_path}
                   mono
-                  tooltip="点击复制服务器文件路径"
+                  tooltip={t('点击复制服务器文件路径', 'Copy server file path')}
                   display={<span style={{ fontSize: 12 }}>{lastResult.file_path}</span>}
                 />
               }
@@ -318,10 +336,13 @@ const Export: React.FC = () => {
           <Form.Item style={{ marginBottom: 0 }}>
             <Space>
               <Button type="primary" htmlType="submit" icon={<ExportOutlined />} loading={exporting}>
-                导出会话
+                {t('导出会话', 'Export Sessions')}
               </Button>
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                仅导出状态为「已通过」的会话，文件保存在服务器导出目录。
+                {t(
+                  '仅导出状态为「已通过」的会话，文件保存在服务器导出目录。',
+                  'Only "Approved" sessions are exported and saved to the server export directory.'
+                )}
               </Typography.Text>
             </Space>
           </Form.Item>
@@ -329,12 +350,12 @@ const Export: React.FC = () => {
       </Card>
 
       <Card
-        title="导出历史"
+        title={t('导出历史', 'Export History')}
         variant="borderless"
         extra={
           <Space>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              已选 {selectedRowKeys.length} 项
+              {t(`已选 ${selectedRowKeys.length} 项`, `${selectedRowKeys.length} selected`)}
             </Typography.Text>
             <Button
               icon={<DownloadOutlined />}
@@ -342,7 +363,7 @@ const Export: React.FC = () => {
               loading={zipping}
               onClick={handleDownloadZip}
             >
-              打包下载
+              {t('打包下载', 'Download ZIP')}
             </Button>
           </Space>
         }
@@ -357,8 +378,8 @@ const Export: React.FC = () => {
             onChange: setSelectedRowKeys,
             preserveSelectedRowKeys: true,
           }}
-          pagination={{ pageSize: 10, showTotal: (total) => `共 ${total} 条` }}
-          locale={{ emptyText: <EmptyState description="暂无导出记录" /> }}
+          pagination={{ pageSize: 10, showTotal: (total) => t(`共 ${total} 条`, `${total} total`) }}
+          locale={{ emptyText: <EmptyState description={t('暂无导出记录', 'No export records')} /> }}
         />
       </Card>
     </div>

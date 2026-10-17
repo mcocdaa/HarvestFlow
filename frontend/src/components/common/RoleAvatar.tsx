@@ -1,6 +1,7 @@
 import React from 'react';
 import { RobotOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
-import { ROLE_LABELS } from '../../constants/display';
+import { getRoleLabel } from '../../constants/display';
+import { useI18n } from '../../i18n';
 
 interface RoleAvatarProps {
   role: string;
@@ -15,6 +16,7 @@ const ROLE_ICONS: Record<string, { icon: React.ReactNode; color: string; backgro
 };
 
 const RoleAvatar: React.FC<RoleAvatarProps> = ({ role, size = 32, className }) => {
+  const { locale } = useI18n();
   const preset = ROLE_ICONS[role] ?? {
     icon: <UserOutlined />,
     color: '#64748B',
@@ -23,7 +25,7 @@ const RoleAvatar: React.FC<RoleAvatarProps> = ({ role, size = 32, className }) =
   return (
     <span
       className={`role-avatar${className ? ` ${className}` : ''}`}
-      title={ROLE_LABELS[role] ?? role}
+      title={getRoleLabel(role, locale)}
       style={{
         width: size,
         height: size,

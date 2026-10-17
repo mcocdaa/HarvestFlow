@@ -10,7 +10,8 @@ import {
 import { pluginApi } from '../services';
 import { useAsyncData } from '../hooks';
 import { CopyText, EmptyState, PageHeader } from '../components';
-import { PLUGIN_TYPE_COLORS, PLUGIN_TYPE_LABELS, PLUGIN_TYPE_ORDER } from '../constants/display';
+import { getPluginTypeLabel, PLUGIN_TYPE_COLORS, PLUGIN_TYPE_ORDER } from '../constants/display';
+import { useI18n } from '../i18n';
 import type { Plugin } from '../types';
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -21,6 +22,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
 };
 
 const Plugins: React.FC = () => {
+  const { locale, t, td } = useI18n();
   const [modal, modalContextHolder] = Modal.useModal();
   const { data, loading, reload } = useAsyncData<{ plugins?: Plugin[] }>(() => pluginApi.getAll());
   const [activeTab, setActiveTab] = useState('all');
@@ -48,7 +50,12 @@ const Plugins: React.FC = () => {
       } else {
         await pluginApi.disable(plugin.key);
       }
-      message.success(`插件 ${plugin.name} 已${enabled ? '启用' : '停用'}`);
+      message.success(
+        t(
+          `插件 ${plugin.name} 已${enabled ? '启用' : '停用'}`,
+          `Plugin ${plugin.name} ${enabled ? 'enabled' : 'disabled'}`
+        )
+      );
       reload();
     } catch {
       // 拦截器已统一提示
@@ -63,10 +70,13 @@ const Plugins: React.FC = () => {
       return;
     }
     modal.confirm({
-      title: `停用插件 ${plugin.name}？`,
-      content: '停用后将卸载插件模块及其钩子，相关采集/清洗能力会立即失效。',
-      okText: '停用',
-      cancelText: '取消',
+      title: t(`停用插件 ${plugin.name}？`, `Disable plugin ${plugin.name}?`),
+      content: t(
+        '停用后将卸载插件模块及其钩子，相关采集/清洗能力会立即失效。',
+        'Disabling unloads the plugin module and its hooks; related collection/curation features will stop immediately.'
+      ),
+      okText: t('停用', 'Disable'),
+      cancelText: t('取消', 'Cancel'),
       okButtonProps: { danger: true },
       onOk: () => doToggle(plugin, false),
     });
@@ -74,7 +84,7 @@ const Plugins: React.FC = () => {
 
   const renderGrid = (list: Plugin[]) => {
     if (list.length === 0) {
-      return <EmptyState description="该分类下暂无插件" />;
+      return <EmptyState description={t('该分类下暂无插件', 'No plugins in this category')} />;
     }
     return (
       <Row gutter={[16, 16]}>
@@ -104,13 +114,13 @@ const Plugins: React.FC = () => {
                 <Flex vertical gap={8}>
                   <Space size={4} wrap>
                     <Tag color={color} bordered={false}>
-                      {PLUGIN_TYPE_LABELS[plugin.plugin_type] ?? plugin.plugin_type}
+                      {getPluginTypeLabel(plugin.plugin_type, locale)}
                     </Tag>
                     <Tag bordered={false}>v{plugin.version}</Tag>
                     {plugin.author && <Tag bordered={false}>{plugin.author}</Tag>}
                   </Space>
                   <Typography.Paragraph type="secondary" style={{ marginBottom: 0, minHeight: 44 }}>
-                    {plugin.description || '暂无描述'}
+                    {plugin.description ? td(plugin.description) : t('暂无描述', 'No description')}
                   </Typography.Paragraph>
                   <CopyText text={plugin.key} mono display={<span style={{ fontSize: 12 }}>{plugin.key}</span>} />
                 </Flex>
@@ -126,11 +136,14 @@ const Plugins: React.FC = () => {
     <div>
       {modalContextHolder}
       <PageHeader
-        title="插件"
-        description="采集器、清洗器、审核器与服务插件的运行状态管理"
+        title={t('插件', 'Plugins')}
+        description={t(
+          '采集器、清洗器、审核器与服务插件的运行状态管理',
+          'Manage runtime status of collector, curator, reviewer, and service plugins'
+        )}
         extra={
           <Button icon={<ReloadOutlined />} onClick={reload} loading={loading}>
-            刷新
+            {t('刷新', 'Refresh')}
           </Button>
         }
       />
@@ -139,10 +152,16 @@ const Plugins: React.FC = () => {
           activeKey={activeTab}
           onChange={setActiveTab}
           items={[
-            { key: 'all', label: `全部（${plugins.length}）` },
+            {
+              key: 'all',
+              label: t(`全部（${plugins.length}）`, `All (${plugins.length})`),
+            },
             ...PLUGIN_TYPE_ORDER.map((type) => ({
               key: type,
-              label: `${PLUGIN_TYPE_LABELS[type]}（${counts[type] ?? 0}）`,
+              label: t(
+                `${getPluginTypeLabel(type, 'zh')}（${counts[type] ?? 0}）`,
+                `${getPluginTypeLabel(type, 'en')} (${counts[type] ?? 0})`
+              ),
             })),
           ]}
         />

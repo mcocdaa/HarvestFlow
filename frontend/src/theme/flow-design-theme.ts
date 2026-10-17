@@ -80,6 +80,7 @@ export const flowDesignToken = {
   colorTextSecondary: flowPalette.slate500,
   colorTextTertiary: flowPalette.slate400,
   colorTextQuaternary: '#94A3B8',
+  colorTextDisabled: '#64748B',
   colorTextHeading: flowPalette.slate900,
   colorBorder: flowPalette.slate200,
   colorBorderSecondary: flowPalette.slate100,
@@ -87,6 +88,7 @@ export const flowDesignToken = {
   colorFillSecondary: flowPalette.slate200,
   colorFillTertiary: '#F1F5F9',
   colorFillQuaternary: flowPalette.slate50,
+  colorBgContainerDisabled: '#F1F5F9',
 };
 
 export const harvestFlowTheme: ThemeConfig = {

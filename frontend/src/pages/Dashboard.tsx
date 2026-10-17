@@ -18,6 +18,7 @@ import { statusPalette } from '../theme/flow-design-theme';
 import { CopyText, PageHeader, ScoreTag, StatCard, StatusTag } from '../components';
 import { truncateSessionId } from '../utils';
 import { formatDateTime } from '../utils/format';
+import { useI18n } from '../i18n';
 import type { CuratorStatus, Session, Stats } from '../types';
 
 const EMPTY_STATS: Stats = {
@@ -32,6 +33,7 @@ const EMPTY_STATS: Stats = {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { locale, t, td } = useI18n();
   const [evaluating, setEvaluating] = useState(false);
   const { data: statsData, loading, reload } = useAsyncData<Stats>(() => statsApi.get());
   const { data: recentData, loading: recentLoading, reload: reloadRecent } = useAsyncData<{
@@ -47,10 +49,10 @@ const Dashboard: React.FC = () => {
       : 0;
 
   const distribution = [
-    { name: '待清洗', value: stats.raw_sessions, color: statusPalette.raw },
-    { name: '待审核', value: stats.curated_sessions, color: statusPalette.curated },
-    { name: '已通过', value: stats.approved_sessions, color: statusPalette.approved },
-    { name: '已拒绝', value: stats.rejected_sessions, color: statusPalette.rejected },
+    { name: t('待清洗', 'Raw'), value: stats.raw_sessions, color: statusPalette.raw },
+    { name: t('待审核', 'Pending'), value: stats.curated_sessions, color: statusPalette.curated },
+    { name: t('已通过', 'Approved'), value: stats.approved_sessions, color: statusPalette.approved },
+    { name: t('已拒绝', 'Rejected'), value: stats.rejected_sessions, color: statusPalette.rejected },
   ].filter((item) => item.value > 0);
 
   const handleReload = () => {
@@ -65,9 +67,15 @@ const Dashboard: React.FC = () => {
       const res = await curatorApi.evaluateAll();
       const result = res.data as { total?: number; high_value?: number; low_value?: number; error?: string };
       if (result.error) {
-        message.warning(`自动清洗未执行：${result.error}`);
+        message.warning(
+          locale === 'zh' ? `自动清洗未执行：${result.error}` : `Auto-curation skipped: ${result.error}`
+        );
       } else {
-        message.success(`自动清洗完成：共 ${result.total ?? 0} 条，高价值 ${result.high_value ?? 0} 条`);
+        message.success(
+          locale === 'zh'
+            ? `自动清洗完成：共 ${result.total ?? 0} 条，高价值 ${result.high_value ?? 0} 条`
+            : `Auto-curation complete: ${result.total ?? 0} total, ${result.high_value ?? 0} high-value`
+        );
       }
       handleReload();
     } catch {
@@ -79,13 +87,13 @@ const Dashboard: React.FC = () => {
 
   const recentColumns = [
     {
-      title: '会话',
+      title: t('会话', 'Session'),
       dataIndex: 'session_id',
       key: 'session_id',
       render: (sessionId: string, record: Session) => (
         <Flex vertical gap={2}>
-          <Typography.Text ellipsis style={{ maxWidth: 220 }}>
-            {record.task_type || '未分类'}
+          <Typography.Text ellipsis style={{ maxWidth: 240 }}>
+            {td(record.task_type) || t('未分类', 'Uncategorized')}
           </Typography.Text>
           <CopyText
             text={sessionId}
@@ -96,24 +104,24 @@ const Dashboard: React.FC = () => {
       ),
     },
     {
-      title: '状态',
+      title: t('状态', 'Status'),
       dataIndex: 'status',
       key: 'status',
       width: 100,
       render: (status: string) => <StatusTag status={status} />,
     },
     {
-      title: '自动评分',
+      title: t('自动评分', 'Auto Score'),
       dataIndex: 'quality_auto_score',
       key: 'quality_auto_score',
-      width: 90,
+      width: 100,
       render: (score?: number | null) => <ScoreTag score={score} />,
     },
     {
-      title: '创建时间',
+      title: t('创建时间', 'Created'),
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 140,
+      width: 145,
       render: (value: string) => (
         <Typography.Text type="secondary" style={{ fontSize: 13 }}>
           {formatDateTime(value)}
@@ -125,21 +133,24 @@ const Dashboard: React.FC = () => {
   return (
     <div>
       <PageHeader
-        title="概览"
-        description="采集、清洗、审核、导出全流程数据一览"
+        title={t('概览', 'Dashboard')}
+        description={t(
+          '采集、清洗、审核、导出全流程数据一览',
+          'End-to-end overview of trajectory collection, curation, review, and export'
+        )}
         extra={
           <Space>
             <Button icon={<ReloadOutlined />} onClick={handleReload}>
-              刷新
+              {t('刷新', 'Refresh')}
             </Button>
-            <Tooltip title="对所有待清洗会话运行清洗器自动评分">
+            <Tooltip title={t('对所有待清洗会话运行清洗器自动评分', 'Run curator auto-scoring on all raw sessions')}>
               <Button
                 type="primary"
                 icon={evaluating ? <SyncOutlined spin /> : <ThunderboltOutlined />}
                 loading={evaluating}
                 onClick={handleEvaluateAll}
               >
-                运行自动清洗
+                {t('运行自动清洗', 'Run Auto-Curate')}
               </Button>
             </Tooltip>
           </Space>
@@ -148,11 +159,17 @@ const Dashboard: React.FC = () => {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} xl={5}>
-          <StatCard title="会话总数" value={stats.total_sessions} icon={<FolderOutlined />} color="#2563EB" loading={loading} />
+          <StatCard
+            title={t('会话总数', 'Total Sessions')}
+            value={stats.total_sessions}
+            icon={<FolderOutlined />}
+            color="#2563EB"
+            loading={loading}
+          />
         </Col>
         <Col xs={24} sm={12} xl={5}>
           <StatCard
-            title="待清洗"
+            title={t('待清洗', 'Raw')}
             value={stats.raw_sessions}
             icon={<ClockCircleOutlined />}
             color="#F59E0B"
@@ -162,7 +179,7 @@ const Dashboard: React.FC = () => {
         </Col>
         <Col xs={24} sm={12} xl={5}>
           <StatCard
-            title="待审核"
+            title={t('待审核', 'Pending')}
             value={stats.curated_sessions}
             icon={<RightOutlined />}
             color="#8B5CF6"
@@ -172,7 +189,7 @@ const Dashboard: React.FC = () => {
         </Col>
         <Col xs={24} sm={12} xl={5}>
           <StatCard
-            title="已通过"
+            title={t('已通过', 'Approved')}
             value={stats.approved_sessions}
             icon={<CheckCircleOutlined />}
             color="#10B981"
@@ -181,7 +198,7 @@ const Dashboard: React.FC = () => {
         </Col>
         <Col xs={24} sm={12} xl={4}>
           <StatCard
-            title="已拒绝"
+            title={t('已拒绝', 'Rejected')}
             value={stats.rejected_sessions}
             icon={<CloseCircleOutlined />}
             color="#EF4444"
@@ -192,9 +209,13 @@ const Dashboard: React.FC = () => {
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={14}>
-          <Card title="状态分布" variant="borderless" style={{ height: '100%' }}>
+          <Card title={t('状态分布', 'Status Distribution')} variant="borderless" style={{ height: '100%' }}>
             {distribution.length === 0 ? (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无会话数据" style={{ padding: '32px 0' }} />
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={t('暂无会话数据', 'No session data')}
+                style={{ padding: '32px 0' }}
+              />
             ) : (
               <div style={{ height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -225,7 +246,7 @@ const Dashboard: React.FC = () => {
         </Col>
         <Col xs={24} lg={10}>
           <Flex vertical gap={16} style={{ height: '100%' }}>
-            <Card title="质量与审核" variant="borderless">
+            <Card title={t('质量与审核', 'Quality & Review')} variant="borderless">
               <Row align="middle" gutter={16}>
                 <Col span={10}>
                   <Flex vertical align="center" gap={4}>
@@ -237,7 +258,7 @@ const Dashboard: React.FC = () => {
                       format={() => <span style={{ fontSize: 18, fontWeight: 600 }}>{stats.avg_auto_score}</span>}
                     />
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                      平均自动评分 / 5
+                      {t('平均自动评分 / 5', 'Avg Auto Score / 5')}
                     </Typography.Text>
                   </Flex>
                 </Col>
@@ -245,19 +266,19 @@ const Dashboard: React.FC = () => {
                   <Flex vertical gap={12}>
                     <div>
                       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                        审核通过率
+                        {t('审核通过率', 'Approval Rate')}
                       </Typography.Text>
                       <Progress percent={passRate} strokeColor="#10B981" size="small" />
                     </div>
                     <Flex justify="space-between">
                       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                        已审核
+                        {t('已审核', 'Reviewed')}
                       </Typography.Text>
                       <Typography.Text strong>{stats.reviewed_sessions}</Typography.Text>
                     </Flex>
                     <Flex justify="space-between">
                       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                        审核队列剩余
+                        {t('审核队列剩余', 'Queue Remaining')}
                       </Typography.Text>
                       <Typography.Text strong>{stats.curated_sessions}</Typography.Text>
                     </Flex>
@@ -265,27 +286,37 @@ const Dashboard: React.FC = () => {
                 </Col>
               </Row>
             </Card>
-            <Card title="清洗器" variant="borderless" style={{ flex: 1 }}>
+            <Card title={t('清洗器', 'Curator')} variant="borderless" style={{ flex: 1 }}>
               {curator ? (
                 <Flex vertical gap={8}>
                   <Flex justify="space-between" align="center">
-                    <Typography.Text type="secondary">运行状态</Typography.Text>
+                    <Typography.Text type="secondary">{t('运行状态', 'Status')}</Typography.Text>
                     <Tag color={curator.enabled ? 'success' : 'error'}>
-                      {curator.enabled ? '已启用' : '已禁用'}
+                      {curator.enabled ? t('已启用', 'Enabled') : t('已禁用', 'Disabled')}
                     </Tag>
                   </Flex>
                   <Flex justify="space-between" align="center">
-                    <Typography.Text type="secondary">自动通过阈值</Typography.Text>
-                    <Typography.Text strong>{curator.auto_approve_threshold} 分</Typography.Text>
+                    <Typography.Text type="secondary">{t('自动通过阈值', 'Auto-Approve Threshold')}</Typography.Text>
+                    <Typography.Text strong>
+                      {locale === 'zh'
+                        ? `${curator.auto_approve_threshold} 分`
+                        : `${curator.auto_approve_threshold} pts`}
+                    </Typography.Text>
                   </Flex>
                   {!curator.enabled && (
                     <Typography.Text type="warning" style={{ fontSize: 12 }}>
-                      清洗器当前禁用，自动清洗不会执行，请检查后端配置。
+                      {t(
+                        '清洗器当前禁用，自动清洗不会执行，请检查后端配置。',
+                        'Curator is currently disabled. Auto-curation will not run.'
+                      )}
                     </Typography.Text>
                   )}
                 </Flex>
               ) : (
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="无法获取清洗器状态" />
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={t('无法获取清洗器状态', 'Unable to fetch curator status')}
+                />
               )}
             </Card>
           </Flex>
@@ -293,12 +324,12 @@ const Dashboard: React.FC = () => {
       </Row>
 
       <Card
-        title="最近会话"
+        title={t('最近会话', 'Recent Sessions')}
         variant="borderless"
         style={{ marginTop: 16 }}
         extra={
           <Button type="link" onClick={() => navigate('/sessions')}>
-            查看全部 <RightOutlined />
+            {t('查看全部', 'View All')} <RightOutlined />
           </Button>
         }
       >
@@ -309,7 +340,9 @@ const Dashboard: React.FC = () => {
           loading={recentLoading}
           pagination={false}
           size="middle"
-          locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无会话" /> }}
+          locale={{
+            emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('暂无会话', 'No sessions')} />,
+          }}
         />
       </Card>
     </div>

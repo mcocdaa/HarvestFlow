@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Drawer, Flex, Switch, Table, Tag, Typography } from 'antd';
 import { reviewerApi } from '../../services';
 import { useAsyncData } from '../../hooks';
-import { AUDIT_ACTION_COLORS, AUDIT_ACTION_LABELS, OPERATOR_LABELS } from '../../constants/display';
+import { AUDIT_ACTION_COLORS, getAuditActionLabel, getOperatorLabel } from '../../constants/display';
 import { CopyText } from '../common';
 import { formatDateTime, truncateSessionId } from '../../utils';
+import { useI18n } from '../../i18n';
 import type { AuditLog } from '../../types';
 
 interface AuditLogDrawerProps {
@@ -14,6 +15,7 @@ interface AuditLogDrawerProps {
 }
 
 const AuditLogDrawer: React.FC<AuditLogDrawerProps> = ({ open, onClose, sessionId }) => {
+  const { locale, t } = useI18n();
   const [sessionOnly, setSessionOnly] = useState(Boolean(sessionId));
 
   useEffect(() => {
@@ -32,7 +34,7 @@ const AuditLogDrawer: React.FC<AuditLogDrawerProps> = ({ open, onClose, sessionI
 
   const columns = [
     {
-      title: '时间',
+      title: t('时间', 'Time'),
       dataIndex: 'created_at',
       key: 'created_at',
       width: 150,
@@ -43,7 +45,7 @@ const AuditLogDrawer: React.FC<AuditLogDrawerProps> = ({ open, onClose, sessionI
       ),
     },
     {
-      title: '会话',
+      title: t('会话', 'Session'),
       dataIndex: 'session_id',
       key: 'session_id',
       render: (value: string) => (
@@ -51,25 +53,25 @@ const AuditLogDrawer: React.FC<AuditLogDrawerProps> = ({ open, onClose, sessionI
       ),
     },
     {
-      title: '动作',
+      title: t('动作', 'Action'),
       dataIndex: 'action',
       key: 'action',
       width: 100,
       render: (action: string) => (
         <Tag color={AUDIT_ACTION_COLORS[action] ?? 'default'} bordered={false}>
-          {AUDIT_ACTION_LABELS[action] ?? action}
+          {getAuditActionLabel(action, locale)}
         </Tag>
       ),
     },
     {
-      title: '操作者',
+      title: t('操作者', 'Operator'),
       dataIndex: 'operator',
       key: 'operator',
       width: 90,
-      render: (operator: string) => OPERATOR_LABELS[operator] ?? operator,
+      render: (operator: string) => getOperatorLabel(operator, locale),
     },
     {
-      title: '详情',
+      title: t('详情', 'Details'),
       dataIndex: 'details',
       key: 'details',
       ellipsis: true,
@@ -79,7 +81,7 @@ const AuditLogDrawer: React.FC<AuditLogDrawerProps> = ({ open, onClose, sessionI
 
   return (
     <Drawer
-      title="审计日志"
+      title={t('审计日志', 'Audit Logs')}
       placement="right"
       width={720}
       open={open}
@@ -87,7 +89,7 @@ const AuditLogDrawer: React.FC<AuditLogDrawerProps> = ({ open, onClose, sessionI
       extra={
         <Flex align="center" gap={8}>
           <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-            仅当前会话
+            {t('仅当前会话', 'Current Session Only')}
           </Typography.Text>
           <Switch
             size="small"
@@ -104,7 +106,11 @@ const AuditLogDrawer: React.FC<AuditLogDrawerProps> = ({ open, onClose, sessionI
         dataSource={logs}
         loading={loading}
         size="small"
-        pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条（最多展示 100 条）` }}
+        pagination={{
+          pageSize: 20,
+          showTotal: (total) =>
+            locale === 'zh' ? `共 ${total} 条（最多展示 100 条）` : `Total ${total} (up to 100)`,
+        }}
         onRow={() => ({ onDoubleClick: () => reload() })}
       />
     </Drawer>

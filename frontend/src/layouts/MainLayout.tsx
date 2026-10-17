@@ -7,6 +7,59 @@ import { APP_NAME, GITHUB_URL, MENU_ITEMS } from '../constants/menu';
 import { statsApi } from '../services';
 import { useAsyncData } from '../hooks';
 import { Logo } from '../components';
+import { useI18n } from '../i18n';
+
+const MENU_EN_LABELS: Record<string, string> = {
+  '/': 'Dashboard',
+  '/sessions': 'Sessions',
+  '/review': 'Review',
+  '/collect': 'Collector',
+  '/export': 'Exporter',
+  '/plugins': 'Plugins',
+};
+
+const SidebarHeader: React.FC = () => {
+  const { locale, toggleLocale } = useI18n();
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+        gap: 8,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        <Logo size={24} />
+        <span
+          style={{
+            color: '#FFFFFF',
+            fontSize: 16,
+            fontWeight: 700,
+            letterSpacing: '-0.3px',
+            lineHeight: 1.2,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {APP_NAME}
+        </span>
+      </div>
+      <button
+        type="button"
+        data-testid="lang-toggle-btn"
+        className="lang-toggle-btn"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleLocale();
+        }}
+      >
+        {locale === 'zh' ? '🌐 EN' : '🌐 中文'}
+      </button>
+    </div>
+  );
+};
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -15,12 +68,13 @@ interface MainLayoutProps {
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { locale, t } = useI18n();
   const { data: stats } = useAsyncData(() => statsApi.get());
   const pendingCount = stats?.curated_sessions ?? 0;
 
   const menuRoutes = MENU_ITEMS.map((item) => ({
     path: item.path,
-    name: item.label,
+    name: locale === 'zh' ? item.label : (MENU_EN_LABELS[item.path] ?? item.label),
     icon: item.icon,
   }));
 
@@ -33,9 +87,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       fixSiderbar
       fixedHeader
       siderWidth={232}
+      collapsedButtonRender={false}
       menu={{ loading: false, autoClose: false }}
       location={{ pathname: location.pathname }}
       route={{ path: '/', routes: menuRoutes }}
+      menuHeaderRender={() => <SidebarHeader />}
       menuItemRender={(item, dom) => (
         <div
           className="menu-item-link"
@@ -52,7 +108,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </div>
       )}
       actionsRender={() => [
-        <Tooltip key="github" title="GitHub 仓库">
+        <Tooltip key="github" title={t('GitHub 仓库', 'GitHub Repository')}>
           <a
             className="header-action"
             href={GITHUB_URL}
@@ -66,12 +122,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       token={{
         sider: {
           colorMenuBackground: '#0F172A',
-          colorTextMenu: 'rgba(255,255,255,0.72)',
-          colorTextMenuSecondary: 'rgba(255,255,255,0.45)',
+          colorTextMenu: 'rgba(255,255,255,0.86)',
+          colorTextMenuSecondary: 'rgba(255,255,255,0.65)',
           colorTextMenuItemHover: '#FFFFFF',
           colorTextMenuSelected: '#FFFFFF',
-          colorBgMenuItemHover: 'rgba(255,255,255,0.08)',
-          colorBgMenuItemSelected: 'rgba(37,99,235,0.85)',
+          colorBgMenuItemHover: 'rgba(255,255,255,0.1)',
+          colorBgMenuItemSelected: 'rgba(37,99,235,0.9)',
           colorTextMenuTitle: '#FFFFFF',
         },
         header: {
