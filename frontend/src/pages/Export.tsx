@@ -97,8 +97,8 @@ const Export: React.FC = () => {
     sessions.forEach((session) => {
       (session.tags ?? []).forEach((tag) => values.add(tag));
     });
-    return Array.from(values).map((value) => ({ value }));
-  }, [sessions]);
+    return Array.from(values).map((value) => ({ value, label: td(value) || value }));
+  }, [sessions, td]);
 
   const handleExport = async (values: ExportParams) => {
     setExporting(true);

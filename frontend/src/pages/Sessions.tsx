@@ -151,11 +151,11 @@ const Sessions: React.FC = () => {
           <Space size={4} style={{ whiteSpace: 'nowrap' }}>
             {tags.slice(0, 1).map((tag) => (
               <Tag key={tag} color="blue" bordered={false} style={{ marginInlineEnd: 0 }}>
-                {tag}
+                {td(tag)}
               </Tag>
             ))}
             {tags.length > 1 && (
-              <Tooltip title={tags.slice(1).join(', ')}>
+              <Tooltip title={tags.slice(1).map((tag) => td(tag)).join(', ')}>
                 <Tag bordered={false} style={{ marginInlineEnd: 0 }}>
                   +{tags.length - 1}
                 </Tag>

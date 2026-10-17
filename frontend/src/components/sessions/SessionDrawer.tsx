@@ -64,7 +64,7 @@ const SessionDrawer: React.FC<SessionDrawerProps> = ({ open, onClose, session, c
               <Space size={4} wrap>
                 {session.tags.map((tag) => (
                   <Tag key={tag} color="blue" bordered={false}>
-                    {tag}
+                    {td(tag)}
                   </Tag>
                 ))}
               </Space>
