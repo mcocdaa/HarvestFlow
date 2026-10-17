@@ -14,7 +14,7 @@ interface SessionEditModalProps {
 }
 
 const SessionEditModal: React.FC<SessionEditModalProps> = ({ open, session, onClose, onSaved }) => {
-  const { locale, t } = useI18n();
+  const { locale, t, td } = useI18n();
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
 
@@ -78,9 +78,9 @@ const SessionEditModal: React.FC<SessionEditModalProps> = ({ open, session, onCl
           initialValues={{
             status: session.status,
             quality_manual_score: session.quality_manual_score ?? undefined,
-            agent_role: session.agent_role ?? undefined,
-            task_type: session.task_type ?? undefined,
-            tags: session.tags ?? [],
+            agent_role: session.agent_role ? td(session.agent_role) : undefined,
+            task_type: session.task_type ? td(session.task_type) : undefined,
+            tags: (session.tags ?? []).map((tag) => td(tag)),
             tools_used: session.tools_used ?? [],
           }}
         >
@@ -99,10 +99,10 @@ const SessionEditModal: React.FC<SessionEditModalProps> = ({ open, session, onCl
             <Rate count={5} />
           </Form.Item>
           <Form.Item name="agent_role" label={t('Agent 角色', 'Agent Role')}>
-            <Input placeholder={t('如 backend_dev', 'e.g. backend_dev')} allowClear />
+            <Input placeholder={t('如 后端开发', 'e.g. Backend Engineer')} allowClear />
           </Form.Item>
           <Form.Item name="task_type" label={t('任务类型', 'Task Type')}>
-            <Input placeholder={t('如 coding', 'e.g. coding')} allowClear />
+            <Input placeholder={t('如 编码与重构', 'e.g. Coding & Refactoring')} allowClear />
           </Form.Item>
           <Form.Item name="tags" label={t('标签', 'Tags')}>
             <Select mode="tags" placeholder={t('输入后回车添加标签', 'Press Enter to add tags')} open={false} suffixIcon={null} />

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
@@ -119,7 +120,90 @@ export const MESSAGES: Record<Locale, Record<string, string>> = {
   },
 };
 
-const DYNAMIC_EN_MAP: Record<string, string> = {
+export const DYNAMIC_EN_EXACT: Record<string, string> = {
+  // Plugin names & authors
+  'collectors/openclaw:name': 'OpenClaw Collector',
+  'curators/openclaw:name': 'OpenClaw Curator',
+  openclaw: 'OpenClaw Collector',
+  pii_cleaner: 'PII Cleaner',
+  'Reviewer Example': 'Score Reviewer',
+  'Infisical Service': 'Infisical Secret Service',
+  'HarvestFlow Team': 'HarvestFlow Team',
+  HarvestFlow: 'HarvestFlow Team',
+  default: 'Default Human Reviewer',
+  // Agent roles (human-readable English labels)
+  code_refactor_agent: 'Code Refactoring Specialist',
+  devops_agent: 'SRE & DevOps Specialist',
+  db_architect: 'Database Architect',
+  security_agent: 'Security Auditor',
+  sre_agent: 'SRE Specialist',
+  backend_dev: 'Backend Developer',
+  frontend_dev: 'Frontend Developer',
+  req_analyst: 'Requirements Analyst',
+  tester: 'QA Engineer',
+  qa_ops: 'QA & Test Specialist',
+  security_auditor: 'Security Auditor',
+  arch_agent: 'System Architect',
+  dba_agent: 'Database Administrator',
+  qa_agent: 'QA Engineer',
+  data_eng: 'Data Engineer',
+  codex: 'Codex Agent',
+  'openclaw-tui': 'OpenClaw TUI Agent',
+  coding_assistant: 'Coding Assistant',
+  assistant: 'AI Assistant',
+  unknown: 'Uncategorized',
+  'OpenClaw · sre_agent': 'OpenClaw · SRE Specialist',
+  'Claude Code · backend_dev': 'Claude Code · Backend Developer',
+  'OpenClaw · arch_agent': 'OpenClaw · System Architect',
+  'OpenClaw · dba_agent': 'OpenClaw · Database Administrator',
+  'Claude Code · qa_agent': 'Claude Code · QA Engineer',
+  'OpenClaw · data_eng': 'OpenClaw · Data Engineer',
+  // Task types (human-readable English labels)
+  coding: 'Code Engineering',
+  memory_leak_fix: 'Memory Leak Remediation',
+  k8s_deployment_fix: 'K8s Deployment Fix',
+  sqlite_optimization: 'SQLite Concurrency Tuning',
+  security_audit: 'Security Vulnerability Audit',
+  bug_fix: 'Bug Fix',
+  bugfix: 'Bug Fix',
+  performance_tuning: 'Performance Tuning',
+  arch_design: 'Architecture Design',
+  debugging: 'Bug Triage & Debugging',
+  testing: 'Test Verification',
+  refactoring: 'Code Refactoring',
+  feature_dev: 'Feature Development',
+  feature: 'Feature Development',
+  code_generation: 'Code Generation',
+  conversation: 'General Conversation',
+  // Tags & audit details in English
+  security: 'Security',
+  sqli: 'SQL Injection',
+  sql: 'SQL',
+  python: 'Python',
+  asyncio: 'AsyncIO',
+  fastapi: 'FastAPI',
+  'memory-leak': 'Memory Leak',
+  k8s: 'K8s',
+  production: 'Production',
+  oom: 'OOM',
+  troubleshooting: 'Troubleshooting',
+  sqlite: 'SQLite',
+  wal: 'WAL',
+  concurrency: 'Concurrency',
+  database: 'Database',
+  'bug-fix': 'Bug Fix',
+  review: 'Code Review',
+  deployment: 'Deployment',
+  config: 'Configuration',
+  optimization: 'Optimization',
+  refactor: 'Refactoring',
+  documentation: 'Documentation',
+  'smoke-test': 'Smoke Test',
+  'codex-smoke-reject': 'Codex Smoke Test Rejected',
+  'codex-smoke-approve': 'Codex Smoke Test Approved',
+  'plugin-smoke': 'Plugin Smoke Test',
+  'plugin-ok': 'Plugin Validation Passed',
+  'demo-reject': 'Demo Review Rejected',
   'OpenClaw · K8s 零停机滚动升级加固': 'OpenClaw · K8s Zero-Downtime Rolling Upgrade',
   'Claude Code · SQL 注入参数化重构': 'Claude Code · SQLi Parameterized Query Refactor',
   'OpenClaw · Redis 集群脑裂排查': 'OpenClaw · Redis Cluster Split-Brain Diagnosis',
@@ -229,7 +313,19 @@ const DYNAMIC_EN_MAP: Record<string, string> = {
     'Now let me update MEMORY.md and TOOLS.md to record this week’s skill search results:',
 };
 
-const DYNAMIC_ZH_MAP: Record<string, string> = {
+const DYNAMIC_EN_MAP = DYNAMIC_EN_EXACT;
+
+export const DYNAMIC_ZH_EXACT: Record<string, string> = {
+  // Plugin names & authors
+  'collectors/openclaw:name': 'OpenClaw 采集器',
+  'curators/openclaw:name': 'OpenClaw 清洗器',
+  openclaw: 'OpenClaw 采集器',
+  pii_cleaner: 'PII 隐私清洗器',
+  'Reviewer Example': '自动评分审核器',
+  'Infisical Service': 'Infisical 密钥服务',
+  'HarvestFlow Team': 'HarvestFlow 团队',
+  HarvestFlow: 'HarvestFlow 团队',
+  default: '默认人工审核器',
   // Plugin descriptions from plugin.yaml
   'OpenClaw Agent session collector - reads from local OpenClaw session files':
     'OpenClaw 会话采集器 — 从本地 OpenClaw 会话目录自动读取轨迹',
@@ -250,14 +346,22 @@ const DYNAMIC_ZH_MAP: Record<string, string> = {
   testing: '测试验证',
   refactoring: '代码重构',
   feature_dev: '功能研发',
+  bug_fix: '缺陷修复',
   bugfix: '缺陷修复',
-  feature: '功能研发',
+  feature: '新特性',
+  performance_tuning: '性能优化',
+  arch_design: '架构设计',
   code_generation: '代码生成',
   // Agent roles
   devops_agent: 'SRE 运维专家',
+  sre_agent: 'SRE 运维专家',
   code_refactor_agent: '代码重构专家',
   security_agent: '安全审计专家',
   db_architect: '数据库架构师',
+  dba_agent: '数据库管理员',
+  arch_agent: '系统架构师',
+  qa_agent: '质量测试工程师',
+  data_eng: '数据工程师',
   backend_dev: '后端研发',
   frontend_dev: '前端研发',
   req_analyst: '需求分析',
@@ -269,6 +373,42 @@ const DYNAMIC_ZH_MAP: Record<string, string> = {
   'openclaw-tui': 'OpenClaw 终端助手',
   codex: 'Codex 编程助手',
   coding_assistant: '编程助手',
+  'OpenClaw · sre_agent': 'OpenClaw · SRE 运维专家',
+  'Claude Code · backend_dev': 'Claude Code · 后端研发',
+  'OpenClaw · arch_agent': 'OpenClaw · 系统架构师',
+  'OpenClaw · dba_agent': 'OpenClaw · 数据库专家',
+  'Claude Code · qa_agent': 'Claude Code · 质量测试',
+  'OpenClaw · data_eng': 'OpenClaw · 数据工程师',
+  // Session & Export Tags & Audit Log Details
+  security: '安全审计',
+  sqli: 'SQL 注入',
+  sql: 'SQL 查询',
+  python: 'Python',
+  asyncio: '异步并发',
+  fastapi: 'FastAPI',
+  'memory-leak': '内存泄漏',
+  k8s: 'K8s 容器',
+  production: '生产环境',
+  oom: '内存溢出',
+  troubleshooting: '故障排查',
+  sqlite: 'SQLite',
+  wal: 'WAL 日志',
+  concurrency: '并发控制',
+  database: '数据库',
+  'bug-fix': '缺陷修复',
+  review: '代码审查',
+  deployment: '部署运维',
+  config: '配置管理',
+  optimization: '性能优化',
+  refactor: '代码重构',
+  documentation: '文档规范',
+  'smoke-test': '冒烟测试',
+  'codex-smoke-reject': 'Codex 冒烟测试驳回',
+  'codex-smoke-approve': 'Codex 冒烟测试通过',
+  'plugin-smoke': '插件冒烟测试',
+  'plugin-ok': '插件校验通过',
+  'demo-reject': '演示测试驳回',
+  Test: '测试审核通过',
   // Backend FastAPI error messages
   'No sessions found with the given filters': '未找到符合筛选条件的会话',
   'Session not found': '会话不存在',
@@ -284,6 +424,8 @@ const DYNAMIC_ZH_MAP: Record<string, string> = {
   'Invalid status': '状态无效',
   'Cannot disable the last active reviewer': '不能停用最后一个启用中的审核器',
 };
+
+const DYNAMIC_ZH_MAP = DYNAMIC_ZH_EXACT;
 
 const ZH_PHRASE_REPLACEMENTS: Array<[string, string]> = [
   ['所有虾做自我介绍', 'All agents, please introduce yourselves'],
@@ -402,6 +544,26 @@ const sanitizeChineseForEnglish = (input: string): string => {
   return out || 'Translated session content';
 };
 
+const ACRONYM_MAP: Record<string, string> = {
+  sre: 'SRE',
+  k8s: 'K8s',
+  db: 'DB',
+  sql: 'SQL',
+  api: 'API',
+  pii: 'PII',
+  qa: 'QA',
+  llm: 'LLM',
+  sft: 'SFT',
+  dpo: 'DPO',
+  io: 'I/O',
+};
+
+const formatSnakeCaseToTitle = (slug: string): string =>
+  slug
+    .split('_')
+    .map((word) => ACRONYM_MAP[word.toLowerCase()] || word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
 export const translateDynamicText = (text: string | undefined | null, locale: Locale): string => {
   if (!text) return '';
   const trimmed = text.trim();
@@ -414,6 +576,9 @@ export const translateDynamicText = (text: string | undefined | null, locale: Lo
     }
     if (DYNAMIC_EN_MAP[trimmed]) {
       return DYNAMIC_EN_MAP[trimmed];
+    }
+    if (/^[a-z0-9]+(_[a-z0-9]+)+$/.test(trimmed)) {
+      return formatSnakeCaseToTitle(trimmed);
     }
     if (CJK_CHAR_RE.test(text)) {
       return sanitizeChineseForEnglish(text);

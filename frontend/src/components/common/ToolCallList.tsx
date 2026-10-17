@@ -19,16 +19,21 @@ const ToolCallList: React.FC<ToolCallListProps> = ({ toolCalls, collapsed = fals
       {toolCalls.map((call, index) => {
         const record = call as Record<string, unknown>;
         const type = record.type as string | undefined;
+        const fnObj = record.function as Record<string, unknown> | undefined;
 
-        if (type === 'tool_use') {
-          const name = (record.name as string) || t('工具调用', 'Tool Call');
+        if (type === 'tool_use' || type === 'function' || fnObj?.name) {
+          const name =
+            (record.name as string) ||
+            (fnObj?.name as string) ||
+            t('工具调用', 'Tool Call');
+          const payload = record.input ?? fnObj?.arguments ?? record;
           return (
             <Popover
               key={index}
               placement="top"
               trigger="click"
               title={`${t('工具调用', 'Tool Call')} · ${name}`}
-              content={<JsonView value={record.input ?? record} maxHeight={260} />}
+              content={<JsonView value={payload} maxHeight={260} />}
             >
               <Tag icon={<ToolOutlined />} color="processing" className="tool-call-tag">
                 {name}

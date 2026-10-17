@@ -1,28 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Card, Col, Flex, Modal, Row, Space, Switch, Tabs, Tag, Typography, message } from 'antd';
-import {
-  ApiOutlined,
-  AuditOutlined,
-  ExperimentOutlined,
-  InboxOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons';
+import { Button, Card, Col, Modal, Row, Tabs, message } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
 import { pluginApi } from '../services';
 import { useAsyncData } from '../hooks';
 import { EmptyState, PageHeader } from '../components';
-import { getPluginTypeLabel, PLUGIN_TYPE_COLORS, PLUGIN_TYPE_ORDER } from '../constants/display';
+import { PluginCard, getPluginDisplayName } from '../components/plugins/PluginCard';
+import { getPluginTypeLabel, PLUGIN_TYPE_ORDER } from '../constants/display';
 import { useI18n } from '../i18n';
 import type { Plugin } from '../types';
 
-const TYPE_ICONS: Record<string, React.ReactNode> = {
-  collectors: <InboxOutlined />,
-  curators: <ExperimentOutlined />,
-  reviewers: <AuditOutlined />,
-  services: <ApiOutlined />,
-};
-
 const Plugins: React.FC = () => {
-  const { locale, t, td } = useI18n();
+  const { t, td } = useI18n();
   const [modal, modalContextHolder] = Modal.useModal();
   const { data, loading, reload } = useAsyncData<{ plugins?: Plugin[] }>(() => pluginApi.getAll());
   const [activeTab, setActiveTab] = useState('all');
@@ -43,6 +31,7 @@ const Plugins: React.FC = () => {
   }, [plugins, activeTab]);
 
   const doToggle = async (plugin: Plugin, enabled: boolean) => {
+    const displayName = getPluginDisplayName(plugin, td);
     setTogglingKey(plugin.key);
     try {
       if (enabled) {
@@ -52,8 +41,8 @@ const Plugins: React.FC = () => {
       }
       message.success(
         t(
-          `插件 ${plugin.name} 已${enabled ? '启用' : '停用'}`,
-          `Plugin ${plugin.name} ${enabled ? 'enabled' : 'disabled'}`
+          `插件 ${displayName} 已${enabled ? '启用' : '停用'}`,
+          `Plugin ${displayName} ${enabled ? 'enabled' : 'disabled'}`
         )
       );
       reload();
@@ -65,12 +54,13 @@ const Plugins: React.FC = () => {
   };
 
   const handleToggle = (plugin: Plugin, checked: boolean) => {
+    const displayName = getPluginDisplayName(plugin, td);
     if (checked) {
       doToggle(plugin, true);
       return;
     }
     modal.confirm({
-      title: t(`停用插件 ${plugin.name}？`, `Disable plugin ${plugin.name}?`),
+      title: t(`停用插件 ${displayName}？`, `Disable plugin ${displayName}?`),
       content: t(
         '停用后将卸载插件模块及其钩子，相关采集/清洗能力会立即失效。',
         'Disabling unloads the plugin module and its hooks; related collection/curation features will stop immediately.'
@@ -88,45 +78,15 @@ const Plugins: React.FC = () => {
     }
     return (
       <Row gutter={[16, 16]}>
-        {list.map((plugin) => {
-          const color = PLUGIN_TYPE_COLORS[plugin.plugin_type] ?? '#2563EB';
-          return (
-            <Col key={plugin.key} xs={24} md={12} xl={8}>
-              <Card
-                variant="borderless"
-                style={{ height: '100%' }}
-                title={
-                  <Space>
-                    <span className="stat-card-icon" style={{ width: 32, height: 32, fontSize: 16, color, backgroundColor: `${color}1A` }}>
-                      {TYPE_ICONS[plugin.plugin_type] ?? <ApiOutlined />}
-                    </span>
-                    <Typography.Text strong>{plugin.name}</Typography.Text>
-                  </Space>
-                }
-                extra={
-                  <Switch
-                    checked={plugin.enabled}
-                    loading={togglingKey === plugin.key}
-                    onChange={(checked) => handleToggle(plugin, checked)}
-                  />
-                }
-              >
-                <Flex vertical gap={8}>
-                  <Space size={4} wrap>
-                    <Tag color={color} bordered={false}>
-                      {getPluginTypeLabel(plugin.plugin_type, locale)}
-                    </Tag>
-                    <Tag bordered={false}>v{plugin.version}</Tag>
-                    {plugin.author && <Tag bordered={false}>{plugin.author}</Tag>}
-                  </Space>
-                  <Typography.Paragraph type="secondary" style={{ marginBottom: 0, minHeight: 44 }}>
-                    {plugin.description ? td(plugin.description) : t('暂无描述', 'No description')}
-                  </Typography.Paragraph>
-                </Flex>
-              </Card>
-            </Col>
-          );
-        })}
+        {list.map((plugin) => (
+          <Col key={plugin.key} xs={24} md={12} xl={8}>
+            <PluginCard
+              plugin={plugin}
+              toggling={togglingKey === plugin.key}
+              onToggle={handleToggle}
+            />
+          </Col>
+        ))}
       </Row>
     );
   };

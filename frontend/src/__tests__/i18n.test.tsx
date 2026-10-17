@@ -137,6 +137,20 @@ describe('i18n bilingual switching (zh <-> en)', () => {
     expect(translateDynamicText('数据质量标记为「较差」时不允许直接通过', 'en')).toBe(
       'Cannot approve directly when Data Quality is marked as Poor'
     );
+    expect(translateDynamicText('collectors/openclaw:name', 'zh')).toBe('OpenClaw 采集器');
+    expect(translateDynamicText('collectors/openclaw:name', 'en')).toBe('OpenClaw Collector');
+    expect(translateDynamicText('curators/openclaw:name', 'zh')).toBe('OpenClaw 清洗器');
+    expect(translateDynamicText('curators/openclaw:name', 'en')).toBe('OpenClaw Curator');
+    expect(translateDynamicText('pii_cleaner', 'zh')).toBe('PII 隐私清洗器');
+    expect(translateDynamicText('pii_cleaner', 'en')).toBe('PII Cleaner');
+    expect(translateDynamicText('Reviewer Example', 'zh')).toBe('自动评分审核器');
+    expect(translateDynamicText('Reviewer Example', 'en')).toBe('Score Reviewer');
+    expect(translateDynamicText('Infisical Service', 'zh')).toBe('Infisical 密钥服务');
+    expect(translateDynamicText('Infisical Service', 'en')).toBe('Infisical Secret Service');
+    expect(translateDynamicText('HarvestFlow Team', 'zh')).toBe('HarvestFlow 团队');
+    expect(translateDynamicText('HarvestFlow Team', 'en')).toBe('HarvestFlow Team');
+    expect(translateDynamicText('sre_agent', 'en')).toBe('SRE Specialist');
+    expect(translateDynamicText('incident_response', 'en')).toBe('Incident Response');
     const fallback = translateDynamicText('这是一段未预置的动态中文内容测试', 'en');
     expect(/[\u4e00-\u9fff]/.test(fallback)).toBe(false);
   });
