@@ -2,6 +2,7 @@ import React from 'react';
 import { CopyOutlined } from '@ant-design/icons';
 import { Tooltip, Typography } from 'antd';
 import { copyToClipboard } from '../../utils';
+import { useI18n } from '../../i18n';
 
 interface CopyTextProps {
   text: string;
@@ -16,15 +17,16 @@ const CopyText: React.FC<CopyTextProps> = ({
   display,
   className,
   mono = false,
-  tooltip = '点击复制',
+  tooltip,
 }) => {
+  const { t } = useI18n();
   return (
-    <Tooltip title={tooltip}>
+    <Tooltip title={tooltip ?? t('点击复制', 'Click to copy')}>
       <Typography.Text
         className={`copy-text${mono ? ' flow-mono' : ''}${className ? ` ${className}` : ''}`}
         onClick={(e) => {
           e.stopPropagation();
-          copyToClipboard(text);
+          copyToClipboard(text, t('已复制到剪贴板', 'Copied to clipboard'));
         }}
       >
         {display ?? text}

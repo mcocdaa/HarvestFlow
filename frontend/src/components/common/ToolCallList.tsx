@@ -2,6 +2,7 @@ import React from 'react';
 import { Popover, Space, Tag } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, ToolOutlined } from '@ant-design/icons';
 import type { ToolCall } from '../../types';
+import { useI18n } from '../../i18n';
 import JsonView from './JsonView';
 
 interface ToolCallListProps {
@@ -10,6 +11,7 @@ interface ToolCallListProps {
 }
 
 const ToolCallList: React.FC<ToolCallListProps> = ({ toolCalls, collapsed = false }) => {
+  const { t } = useI18n();
   if (!toolCalls || toolCalls.length === 0 || collapsed) return null;
 
   return (
@@ -19,13 +21,13 @@ const ToolCallList: React.FC<ToolCallListProps> = ({ toolCalls, collapsed = fals
         const type = record.type as string | undefined;
 
         if (type === 'tool_use') {
-          const name = (record.name as string) || '工具调用';
+          const name = (record.name as string) || t('工具调用', 'Tool Call');
           return (
             <Popover
               key={index}
               placement="top"
               trigger="click"
-              title={`工具调用 · ${name}`}
+              title={`${t('工具调用', 'Tool Call')} · ${name}`}
               content={<JsonView value={record.input ?? record} maxHeight={260} />}
             >
               <Tag icon={<ToolOutlined />} color="processing" className="tool-call-tag">
@@ -41,7 +43,7 @@ const ToolCallList: React.FC<ToolCallListProps> = ({ toolCalls, collapsed = fals
             key={index}
             placement="top"
             trigger="click"
-            title={isError ? '工具结果（失败）' : '工具结果'}
+            title={isError ? t('工具结果（失败）', 'Tool Output (Failed)') : t('工具结果', 'Tool Output')}
             content={<JsonView value={record.content ?? record} maxHeight={260} />}
           >
             <Tag
@@ -49,7 +51,7 @@ const ToolCallList: React.FC<ToolCallListProps> = ({ toolCalls, collapsed = fals
               color={isError ? 'error' : 'success'}
               className="tool-call-tag"
             >
-              {isError ? '工具错误' : '工具结果'}
+              {isError ? t('工具错误', 'Tool Error') : t('工具结果', 'Tool Output')}
             </Tag>
           </Popover>
         );

@@ -1,24 +1,18 @@
 import React, { useRef, useState } from 'react';
 import { Button, Popconfirm, Segmented, Select, Space, Tag, Tooltip, Typography, message } from 'antd';
-import {
-  DeleteOutlined,
-  EditOutlined,
-  EyeOutlined,
-  ReloadOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons';
+import { ReloadOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { curatorApi, sessionApi } from '../services';
 import { CopyText, PageHeader, ScoreTag, StatusTag } from '../components';
 import { SessionDrawer, SessionEditModal } from '../components/sessions';
-import { SORT_OPTIONS, STATUS_OPTIONS } from '../constants/display';
+import { getSortOptions, getStatusOptions } from '../constants/display';
 import { formatDateTime, truncateSessionId } from '../utils';
+import { useI18n } from '../i18n';
 import type { Session, SessionContent } from '../types';
 
-const STATUS_FILTER_OPTIONS = [{ value: 'all', label: '全部' }, ...STATUS_OPTIONS];
-
 const Sessions: React.FC = () => {
+  const { locale, t, td } = useI18n();
   const actionRef = useRef<ActionType | undefined>(undefined);
   const [status, setStatus] = useState('all');
   const [sort, setSort] = useState('recent');
@@ -28,6 +22,12 @@ const Sessions: React.FC = () => {
   const [contentLoading, setContentLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [evaluatingId, setEvaluatingId] = useState<string | null>(null);
+
+  const statusFilterOptions = [
+    { value: 'all', label: t('全部', 'All') },
+    ...getStatusOptions(locale),
+  ];
+  const sortOptions = getSortOptions(locale);
 
   const handleView = async (record: Session) => {
     setSelected(record);
@@ -47,7 +47,7 @@ const Sessions: React.FC = () => {
   const handleDelete = async (record: Session) => {
     try {
       await sessionApi.deleteSession(record.session_id);
-      message.success('会话已删除');
+      message.success(t('会话已删除', 'Session deleted'));
       actionRef.current?.reload();
     } catch {
       // 拦截器已统一提示
@@ -59,8 +59,15 @@ const Sessions: React.FC = () => {
     try {
       const res = await curatorApi.evaluate(record.session_id);
       const result = res.data as { score?: number; is_high_value?: boolean; auto_approved?: boolean };
-      const suffix = result.auto_approved ? '，已自动通过' : '';
-      message.success(`自动评分 ${result.score ?? '-'} 分（${result.is_high_value ? '高价值' : '普通'}）${suffix}`);
+      if (locale === 'zh') {
+        const suffix = result.auto_approved ? '，已自动通过' : '';
+        message.success(`自动评分 ${result.score ?? '-'} 分（${result.is_high_value ? '高价值' : '普通'}）${suffix}`);
+      } else {
+        const suffix = result.auto_approved ? ', auto-approved' : '';
+        message.success(
+          `Auto score ${result.score ?? '-'} (${result.is_high_value ? 'high-value' : 'normal'})${suffix}`
+        );
+      }
       actionRef.current?.reload();
     } catch {
       // 拦截器已统一提示
@@ -71,15 +78,14 @@ const Sessions: React.FC = () => {
 
   const columns: ProColumns<Session>[] = [
     {
-      title: '会话',
+      title: t('会话', 'Session'),
       dataIndex: 'session_id',
       key: 'session',
-      width: 175,
       ellipsis: true,
       render: (_, record) => (
         <Space direction="vertical" size={2} style={{ maxWidth: '100%', overflow: 'hidden' }}>
-          <Typography.Text strong ellipsis style={{ display: 'block', maxWidth: 155 }}>
-            {record.task_type || '未分类'}
+          <Typography.Text strong ellipsis style={{ display: 'block', maxWidth: 185 }}>
+            {td(record.task_type) || t('未分类', 'Uncategorized')}
           </Typography.Text>
           <CopyText
             text={record.session_id}
@@ -90,39 +96,54 @@ const Sessions: React.FC = () => {
       ),
     },
     {
-      title: '状态',
+      title: t('状态', 'Status'),
       dataIndex: 'status',
       key: 'status',
-      width: 78,
+      width: 86,
       render: (_, record) => <StatusTag status={record.status} />,
     },
     {
-      title: '自动评分',
+      title: t('自动评分', 'Auto'),
       dataIndex: 'quality_auto_score',
       key: 'quality_auto_score',
-      width: 68,
+      width: 64,
       render: (_, record) => <ScoreTag score={record.quality_auto_score} />,
     },
     {
-      title: '人工评分',
+      title: t('人工评分', 'Manual'),
       dataIndex: 'quality_manual_score',
       key: 'quality_manual_score',
-      width: 68,
+      width: 64,
       render: (_, record) => <ScoreTag score={record.quality_manual_score} />,
     },
     {
-      title: 'Agent 角色',
+      title: t('Agent 角色', 'Agent Role'),
       dataIndex: 'agent_role',
       key: 'agent_role',
-      width: 155,
+      width: 148,
       render: (_, record) =>
-        record.agent_role ? <Tag bordered={false} style={{ marginInlineEnd: 0 }}>{record.agent_role}</Tag> : <span className="score-empty">-</span>,
+        record.agent_role ? (
+          <Tag
+            bordered={false}
+            style={{
+              marginInlineEnd: 0,
+              maxWidth: 132,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              verticalAlign: 'bottom',
+            }}
+          >
+            {record.agent_role}
+          </Tag>
+        ) : (
+          <span className="score-empty">-</span>
+        ),
     },
     {
-      title: '标签',
+      title: t('标签', 'Tags'),
       dataIndex: 'tags',
       key: 'tags',
-      width: 105,
+      width: 118,
       render: (_, record) => {
         const tags = record.tags ?? [];
         if (tags.length === 0) return <span className="score-empty">-</span>;
@@ -134,8 +155,10 @@ const Sessions: React.FC = () => {
               </Tag>
             ))}
             {tags.length > 1 && (
-              <Tooltip title={tags.slice(1).join('、')}>
-                <Tag bordered={false} style={{ marginInlineEnd: 0 }}>+{tags.length - 1}</Tag>
+              <Tooltip title={tags.slice(1).join(', ')}>
+                <Tag bordered={false} style={{ marginInlineEnd: 0 }}>
+                  +{tags.length - 1}
+                </Tag>
               </Tooltip>
             )}
           </Space>
@@ -143,10 +166,10 @@ const Sessions: React.FC = () => {
       },
     },
     {
-      title: '创建时间',
+      title: t('创建时间', 'Created'),
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 120,
+      width: 118,
       render: (_, record) => (
         <Typography.Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
           {formatDateTime(record.created_at)}
@@ -154,51 +177,58 @@ const Sessions: React.FC = () => {
       ),
     },
     {
-      title: '操作',
+      title: t('操作', 'Actions'),
       key: 'option',
-      width: 185,
+      width: 152,
       render: (_, record) => (
-        <Space size={0} style={{ whiteSpace: 'nowrap' }}>
-          <Button key="view" type="link" size="small" style={{ paddingInline: 3 }} icon={<EyeOutlined />} onClick={() => handleView(record)}>
-            查看
+        <Space size={2} style={{ whiteSpace: 'nowrap' }}>
+          <Button
+            key="view"
+            type="link"
+            size="small"
+            style={{ paddingInline: 4, fontSize: 13 }}
+            onClick={() => handleView(record)}
+          >
+            {t('查看', 'View')}
           </Button>
           <Button
             key="edit"
             type="link"
             size="small"
-            style={{ paddingInline: 3 }}
-            icon={<EditOutlined />}
+            style={{ paddingInline: 4, fontSize: 13 }}
             onClick={() => {
               setSelected(record);
               setEditOpen(true);
             }}
           >
-            编辑
+            {t('编辑', 'Edit')}
           </Button>
           {record.status === 'raw' && (
             <Button
               key="evaluate"
               type="link"
               size="small"
-              style={{ paddingInline: 3 }}
-              icon={<ThunderboltOutlined />}
+              style={{ paddingInline: 4, fontSize: 13 }}
               loading={evaluatingId === record.session_id}
               onClick={() => handleEvaluate(record)}
             >
-              评分
+              {t('评分', 'Score')}
             </Button>
           )}
           <Popconfirm
             key="delete"
-            title="删除该会话？"
-            description="数据库记录与源文件将一并删除，不可恢复。"
-            okText="删除"
-            cancelText="取消"
+            title={t('删除该会话？', 'Delete this session?')}
+            description={t(
+              '数据库记录与源文件将一并删除，不可恢复。',
+              'Database record and source file will be permanently deleted.'
+            )}
+            okText={t('删除', 'Delete')}
+            cancelText={t('取消', 'Cancel')}
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDelete(record)}
           >
-            <Button type="link" size="small" style={{ paddingInline: 3 }} danger icon={<DeleteOutlined />}>
-              删除
+            <Button type="link" size="small" style={{ paddingInline: 4, fontSize: 13 }} danger>
+              {t('删除', 'Delete')}
             </Button>
           </Popconfirm>
         </Space>
@@ -208,7 +238,13 @@ const Sessions: React.FC = () => {
 
   return (
     <div>
-      <PageHeader title="会话" description="全部采集会话的浏览、检索与维护" />
+      <PageHeader
+        title={t('会话', 'Sessions')}
+        description={t(
+          '全部采集会话的浏览、检索与维护',
+          'Browse, filter, curate, and manage all collected trajectory sessions'
+        )}
+      />
       <ProTable<Session, { status?: string; sort?: string }>
         actionRef={actionRef}
         rowKey="session_id"
@@ -230,22 +266,26 @@ const Sessions: React.FC = () => {
         toolBarRender={() => [
           <Segmented
             key="status"
-            options={STATUS_FILTER_OPTIONS}
+            options={statusFilterOptions}
             value={status}
             onChange={(value) => setStatus(String(value))}
           />,
           <Select
             key="sort"
-            options={SORT_OPTIONS}
+            options={sortOptions}
             value={sort}
             onChange={setSort}
             style={{ width: 120 }}
           />,
-          <Tooltip key="reload" title="刷新">
+          <Tooltip key="reload" title={t('刷新', 'Refresh')}>
             <Button icon={<ReloadOutlined />} onClick={() => actionRef.current?.reload()} />
           </Tooltip>,
         ]}
-        pagination={{ defaultPageSize: 20, showSizeChanger: true, showTotal: (total) => `共 ${total} 条` }}
+        pagination={{
+          defaultPageSize: 20,
+          showSizeChanger: true,
+          showTotal: (total) => (locale === 'zh' ? `共 ${total} 条` : `Total ${total}`),
+        }}
         cardBordered={false}
       />
       <SessionDrawer

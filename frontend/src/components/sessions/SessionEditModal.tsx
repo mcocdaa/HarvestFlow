@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Form, Input, Modal, Rate, Select, message } from 'antd';
 import { sessionApi } from '../../services';
-import { STATUS_LABELS } from '../../constants/display';
+import { STATUS_LABELS, STATUS_LABELS_EN } from '../../constants/display';
 import { getAllowedStatusTransitions, getStatusLabel } from '../../utils';
+import { useI18n } from '../../i18n';
 import type { Session, SessionUpdateParams } from '../../types';
 
 interface SessionEditModalProps {
@@ -13,16 +14,21 @@ interface SessionEditModalProps {
 }
 
 const SessionEditModal: React.FC<SessionEditModalProps> = ({ open, session, onClose, onSaved }) => {
+  const { locale, t } = useI18n();
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
+
+  const statusLabels = locale === 'zh' ? STATUS_LABELS : STATUS_LABELS_EN;
 
   const statusOptions = session
     ? [session.status, ...getAllowedStatusTransitions(session.status)].map((status) => ({
         value: status,
         label:
           status === session.status
-            ? `${getStatusLabel(status)}（当前）`
-            : getStatusLabel(status),
+            ? locale === 'zh'
+              ? `${getStatusLabel(status, locale)}（当前）`
+              : `${getStatusLabel(status, locale)} (Current)`
+            : getStatusLabel(status, locale),
       }))
     : [];
 
@@ -43,7 +49,7 @@ const SessionEditModal: React.FC<SessionEditModalProps> = ({ open, session, onCl
     setSubmitting(true);
     try {
       await sessionApi.updateSession(session.session_id, payload);
-      message.success('会话已更新');
+      message.success(t('会话已更新', 'Session updated'));
       onSaved();
       onClose();
     } catch {
@@ -56,12 +62,12 @@ const SessionEditModal: React.FC<SessionEditModalProps> = ({ open, session, onCl
   return (
     <Modal
       open={open}
-      title="编辑会话"
+      title={t('编辑会话', 'Edit Session')}
       onOk={handleOk}
       onCancel={onClose}
       confirmLoading={submitting}
-      okText="保存"
-      cancelText="取消"
+      okText={t('保存', 'Save')}
+      cancelText={t('取消', 'Cancel')}
       destroyOnHidden
       width={560}
     >
@@ -80,25 +86,29 @@ const SessionEditModal: React.FC<SessionEditModalProps> = ({ open, session, onCl
         >
           <Form.Item
             name="status"
-            label="状态"
-            extra={`后端仅允许合法流转：${STATUS_LABELS.raw} → ${STATUS_LABELS.curated} → ${STATUS_LABELS.approved}/${STATUS_LABELS.rejected}`}
+            label={t('状态', 'Status')}
+            extra={
+              locale === 'zh'
+                ? `后端仅允许合法流转：${statusLabels.raw} → ${statusLabels.curated} → ${statusLabels.approved}/${statusLabels.rejected}`
+                : `Allowed transitions: ${statusLabels.raw} → ${statusLabels.curated} → ${statusLabels.approved}/${statusLabels.rejected}`
+            }
           >
             <Select options={statusOptions} />
           </Form.Item>
-          <Form.Item name="quality_manual_score" label="人工评分">
+          <Form.Item name="quality_manual_score" label={t('人工评分', 'Manual Score')}>
             <Rate count={5} />
           </Form.Item>
-          <Form.Item name="agent_role" label="Agent 角色">
-            <Input placeholder="如 backend_dev" allowClear />
+          <Form.Item name="agent_role" label={t('Agent 角色', 'Agent Role')}>
+            <Input placeholder={t('如 backend_dev', 'e.g. backend_dev')} allowClear />
           </Form.Item>
-          <Form.Item name="task_type" label="任务类型">
-            <Input placeholder="如 coding" allowClear />
+          <Form.Item name="task_type" label={t('任务类型', 'Task Type')}>
+            <Input placeholder={t('如 coding', 'e.g. coding')} allowClear />
           </Form.Item>
-          <Form.Item name="tags" label="标签">
-            <Select mode="tags" placeholder="输入后回车添加标签" open={false} suffixIcon={null} />
+          <Form.Item name="tags" label={t('标签', 'Tags')}>
+            <Select mode="tags" placeholder={t('输入后回车添加标签', 'Press Enter to add tags')} open={false} suffixIcon={null} />
           </Form.Item>
-          <Form.Item name="tools_used" label="使用工具">
-            <Select mode="tags" placeholder="输入后回车添加工具名" open={false} suffixIcon={null} />
+          <Form.Item name="tools_used" label={t('使用工具', 'Tools Used')}>
+            <Select mode="tags" placeholder={t('输入后回车添加工具名', 'Press Enter to add tools')} open={false} suffixIcon={null} />
           </Form.Item>
         </Form>
       )}

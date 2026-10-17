@@ -28,9 +28,11 @@ import { collectorApi } from '../services';
 import { useAsyncData } from '../hooks';
 import { CopyText, EmptyState, PageHeader } from '../components';
 import { formatDateTime } from '../utils';
+import { useI18n } from '../i18n';
 import type { ImportAllResult, ScanResult, WatchRunResponse, WatchState } from '../types';
 
 const Collect: React.FC = () => {
+  const { t } = useI18n();
   const { data, loading, reload } = useAsyncData<{ watch_folders?: string[] }>(
     () => collectorApi.getWatchFolders()
   );
@@ -72,7 +74,11 @@ const Collect: React.FC = () => {
     setTogglingWatch(true);
     try {
       await (enabled ? collectorApi.watchStart() : collectorApi.watchStop());
-      message.success(enabled ? '自动监听已开启' : '自动监听已关闭');
+      message.success(
+        enabled
+          ? t('自动监听已开启', 'Auto-watch enabled')
+          : t('自动监听已关闭', 'Auto-watch disabled')
+      );
       reloadWatch();
     } catch {
       // 拦截器已统一提示
@@ -87,7 +93,7 @@ const Collect: React.FC = () => {
       const res = await collectorApi.watchRun();
       const results = (res.data as WatchRunResponse)?.results ?? {};
       const imported = Object.values(results).reduce((sum, item) => sum + (item.imported ?? 0), 0);
-      message.success(`监听扫描完成：新导入 ${imported} 条会话`);
+      message.success(t(`监听扫描完成：新导入 ${imported} 条会话`, `Watch scan done: ${imported} sessions imported`));
       reloadWatch();
     } catch {
       // 拦截器已统一提示
@@ -101,7 +107,7 @@ const Collect: React.FC = () => {
     if (!path) return;
     try {
       await collectorApi.addWatchFolder(path);
-      message.success('监听目录已添加');
+      message.success(t('监听目录已添加', 'Watch folder added'));
       setNewFolder('');
       reload();
     } catch {
@@ -112,7 +118,7 @@ const Collect: React.FC = () => {
   const handleRemoveFolder = async (path: string) => {
     try {
       await collectorApi.removeWatchFolder(path);
-      message.success('监听目录已移除');
+      message.success(t('监听目录已移除', 'Watch folder removed'));
       if (scanFolder === path) {
         setScanFolder('');
       }
@@ -129,7 +135,7 @@ const Collect: React.FC = () => {
       const result = res.data as ScanResult;
       setScanResult(result);
       if (result.files_found === 0) {
-        message.info('该目录下没有可导入的 JSON 文件');
+        message.info(t('该目录下没有可导入的 JSON 文件', 'No importable JSON files found in this folder'));
       }
     } catch {
       // 拦截器已统一提示
@@ -142,7 +148,12 @@ const Collect: React.FC = () => {
     setImportingFile(filePath);
     try {
       const res = await collectorApi.importFile(filePath);
-      message.success(`导入成功，会话 ID：${res.data?.session_id ?? '-'}`);
+      message.success(
+        t(
+          `导入成功，会话 ID：${res.data?.session_id ?? '-'}`,
+          `Imported session ID: ${res.data?.session_id ?? '-'}`
+        )
+      );
       handleScan();
     } catch {
       // 拦截器已统一提示
@@ -157,7 +168,12 @@ const Collect: React.FC = () => {
       const res = await collectorApi.importAll(scanFolder || undefined);
       const result = res.data as ImportAllResult;
       setImportResult(result);
-      message.success(`批量导入完成：成功 ${result.imported}，跳过 ${result.skipped}，失败 ${result.failed}`);
+      message.success(
+        t(
+          `批量导入完成：成功 ${result.imported}，跳过 ${result.skipped}，失败 ${result.failed}`,
+          `Batch import complete: ${result.imported} imported, ${result.skipped} skipped, ${result.failed} failed`
+        )
+      );
       handleScan();
     } catch {
       // 拦截器已统一提示
@@ -168,7 +184,7 @@ const Collect: React.FC = () => {
 
   const fileColumns = [
     {
-      title: '文件路径',
+      title: t('文件路径', 'File Path'),
       dataIndex: 'file',
       key: 'file',
       ellipsis: true,
@@ -179,7 +195,7 @@ const Collect: React.FC = () => {
       ),
     },
     {
-      title: '操作',
+      title: t('操作', 'Actions'),
       key: 'action',
       width: 100,
       render: (_: unknown, record: { file: string }) => (
@@ -190,7 +206,7 @@ const Collect: React.FC = () => {
           loading={importingFile === record.file}
           onClick={() => handleImportFile(record.file)}
         >
-          导入
+          {t('导入', 'Import')}
         </Button>
       ),
     },
@@ -198,10 +214,16 @@ const Collect: React.FC = () => {
 
   return (
     <div>
-      <PageHeader title="采集" description="从本地目录扫描并导入会话文件（JSON），支持自动监听新文件" />
+      <PageHeader
+        title={t('采集', 'Collector')}
+        description={t(
+          '从本地目录扫描并导入会话文件（JSON），支持自动监听新文件',
+          'Scan and import session JSON files from local directories with auto-watch support'
+        )}
+      />
 
       <Card
-        title="自动监听"
+        title={t('自动监听', 'Auto-Watch')}
         variant="borderless"
         style={{ marginBottom: 16 }}
         extra={
@@ -214,18 +236,21 @@ const Collect: React.FC = () => {
               checked={watchState?.enabled}
               loading={togglingWatch}
               onChange={handleToggleWatch}
-              checkedChildren="开"
-              unCheckedChildren="关"
+              checkedChildren={t('开', 'On')}
+              unCheckedChildren={t('关', 'Off')}
             />
             <Tag color={watchState?.running ? 'green' : 'default'} bordered={false}>
-              {watchState?.running ? '运行中' : '未运行'}
+              {watchState?.running ? t('运行中', 'Running') : t('未运行', 'Stopped')}
             </Tag>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              每 {watchState?.interval ?? 30} 秒扫描一次监听目录，新文件自动导入
+              {t(
+                `每 ${watchState?.interval ?? 30} 秒扫描一次监听目录，新文件自动导入`,
+                `Scans watched folders every ${watchState?.interval ?? 30}s and auto-imports new files`
+              )}
             </Typography.Text>
           </Space>
           <Button icon={<ScanOutlined />} loading={runningWatch} onClick={handleWatchRun}>
-            立即运行一次
+            {t('立即运行一次', 'Run Now')}
           </Button>
         </Flex>
 
@@ -240,7 +265,11 @@ const Collect: React.FC = () => {
                   {folder}
                 </Typography.Text>
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  {run.at ? formatDateTime(run.at) : '—'} · 导入 {run.imported} / 跳过 {run.skipped} / 失败 {run.failed}
+                  {run.at ? formatDateTime(run.at) : '—'} ·{' '}
+                  {t(
+                    `导入 ${run.imported} / 跳过 ${run.skipped} / 失败 ${run.failed}`,
+                    `Imported ${run.imported} / Skipped ${run.skipped} / Failed ${run.failed}`
+                  )}
                 </Typography.Text>
               </List.Item>
             )}
@@ -251,7 +280,7 @@ const Collect: React.FC = () => {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={9}>
           <Card
-            title="监听目录"
+            title={t('监听目录', 'Watch Folders')}
             variant="borderless"
             extra={
               <Button type="text" icon={<ReloadOutlined />} onClick={reload} loading={loading} />
@@ -262,17 +291,17 @@ const Collect: React.FC = () => {
                 <Input
                   value={newFolder}
                   onChange={(e) => setNewFolder(e.target.value)}
-                  placeholder="如 /data/openclaw/sessions"
+                  placeholder={t('如 /data/openclaw/sessions', 'e.g. /data/openclaw/sessions')}
                   onPressEnter={handleAddFolder}
                   prefix={<FolderOpenOutlined />}
                 />
                 <Button type="primary" icon={<PlusOutlined />} onClick={handleAddFolder}>
-                  添加
+                  {t('添加', 'Add')}
                 </Button>
               </Space.Compact>
 
               {folders.length === 0 ? (
-                <EmptyState description="暂无监听目录" />
+                <EmptyState description={t('暂无监听目录', 'No watch folders configured')} />
               ) : (
                 <List
                   size="small"
@@ -282,9 +311,9 @@ const Collect: React.FC = () => {
                       actions={[
                         <Popconfirm
                           key="remove"
-                          title="移除该监听目录？"
-                          okText="移除"
-                          cancelText="取消"
+                          title={t('移除该监听目录？', 'Remove this watch folder?')}
+                          okText={t('移除', 'Remove')}
+                          cancelText={t('取消', 'Cancel')}
                           onConfirm={() => handleRemoveFolder(folder)}
                         >
                           <Button type="text" size="small" danger icon={<DeleteOutlined />} />
@@ -303,17 +332,17 @@ const Collect: React.FC = () => {
         </Col>
 
         <Col xs={24} lg={15}>
-          <Card title="扫描与导入" variant="borderless">
+          <Card title={t('扫描与导入', 'Scan & Import')} variant="borderless">
             <Flex vertical gap={16}>
               <Space.Compact style={{ width: '100%' }}>
                 <Input
                   value={scanFolder}
                   onChange={(e) => setScanFolder(e.target.value)}
-                  placeholder="待扫描目录，留空则使用第一个监听目录"
+                  placeholder={t('待扫描目录，留空则使用第一个监听目录', 'Folder to scan (leave blank for first watched folder)')}
                   prefix={<FolderOpenOutlined />}
                 />
                 <Button type="primary" icon={<ScanOutlined />} loading={scanning} onClick={handleScan}>
-                  扫描
+                  {t('扫描', 'Scan')}
                 </Button>
                 <Button
                   icon={<ImportOutlined />}
@@ -321,7 +350,7 @@ const Collect: React.FC = () => {
                   disabled={!scanResult || scanResult.files_found === 0}
                   onClick={handleImportAll}
                 >
-                  全部导入
+                  {t('全部导入', 'Import All')}
                 </Button>
               </Space.Compact>
 
@@ -331,15 +360,19 @@ const Collect: React.FC = () => {
                   showIcon
                   closable
                   onClose={() => setImportResult(null)}
-                  message={`批量导入：共 ${importResult.total} 个文件`}
+                  message={t(`批量导入：共 ${importResult.total} 个文件`, `Batch Import: ${importResult.total} files`)}
                   description={
                     <Flex vertical gap={4}>
                       <span>
-                        成功 {importResult.imported}，跳过 {importResult.skipped}，失败 {importResult.failed}
+                        {t(
+                          `成功 ${importResult.imported}，跳过 ${importResult.skipped}，失败 ${importResult.failed}`,
+                          `Imported ${importResult.imported}, Skipped ${importResult.skipped}, Failed ${importResult.failed}`
+                        )}
                       </span>
                       {importResult.failed_files.length > 0 && (
                         <span className="flow-mono" style={{ fontSize: 12 }}>
-                          失败文件：{importResult.failed_files.join('、')}
+                          {t('失败文件：', 'Failed files: ')}
+                          {importResult.failed_files.join(t('、', ', '))}
                         </span>
                       )}
                     </Flex>
@@ -353,7 +386,7 @@ const Collect: React.FC = () => {
                     <Flex justify="space-between" align="center">
                       <Space>
                         <Tag color="blue" bordered={false}>
-                          {scanResult.files_found} 个文件
+                          {t(`${scanResult.files_found} 个文件`, `${scanResult.files_found} files`)}
                         </Tag>
                         <CopyText
                           text={scanResult.folder_path}
@@ -366,21 +399,24 @@ const Collect: React.FC = () => {
                       rowKey="file"
                       columns={fileColumns}
                       dataSource={scanResult.files.map((file) => ({ file }))}
-                      pagination={{ pageSize: 10, showTotal: (total) => `共 ${total} 个文件` }}
+                      pagination={{ pageSize: 10, showTotal: (total) => t(`共 ${total} 个文件`, `${total} files`) }}
                       size="middle"
                     />
                   </>
                 ) : (
-                  <EmptyState description="该目录下没有可导入的 JSON 文件" />
+                  <EmptyState description={t('该目录下没有可导入的 JSON 文件', 'No importable JSON files found in this folder')} />
                 )
               ) : (
-                <EmptyState description="点击扫描，查看目录中的待导入文件" />
+                <EmptyState description={t('点击扫描，查看目录中的待导入文件', 'Click Scan to view importable files in folder')} />
               )}
 
               <Alert
                 type="info"
                 showIcon
-                message="导入后的会话状态为「待清洗」，可在概览页运行自动清洗或在会话页逐条评分。"
+                message={t(
+                  '导入后的会话状态为「待清洗」，可在概览页运行自动清洗或在会话页逐条评分。',
+                  'Imported sessions start as "Raw". Run Auto-Curate on Dashboard or score them individually on Sessions.'
+                )}
               />
             </Flex>
           </Card>

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Card, Flex, Space, Tag, Typography } from 'antd';
 import { CheckOutlined, CloseOutlined, DiffOutlined } from '@ant-design/icons';
+import { useI18n } from '../../i18n';
 
 interface DiffViewerProps {
   original: string;
@@ -39,6 +40,7 @@ function computeLineDiff(original: string, modified: string): DiffLine[] {
 }
 
 export const DiffViewer: React.FC<DiffViewerProps> = ({ original, modified }) => {
+  const { locale, t } = useI18n();
   const diffLines = useMemo(() => computeLineDiff(original, modified), [original, modified]);
 
   const stats = useMemo(() => {
@@ -61,20 +63,28 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ original, modified }) =>
           <Space size={6} style={{ minWidth: 0 }}>
             <DiffOutlined style={{ color: '#2563eb' }} />
             <Typography.Text strong style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
-              修改前后对比 Diff (DPO 偏好对)
+              {t('修改前后对比 Diff (DPO 偏好对)', 'DPO Preference Diff')}
             </Typography.Text>
           </Space>
           <Space size={4} style={{ flexShrink: 0 }}>
             <Tag color="error" icon={<CloseOutlined />} style={{ marginInlineEnd: 0 }}>
-              -{stats.removed} 删减
+              {locale === 'zh' ? `-${stats.removed} 删减` : `-${stats.removed} Removed`}
             </Tag>
             <Tag color="success" icon={<CheckOutlined />} style={{ marginInlineEnd: 0 }}>
-              +{stats.added} 新增
+              {locale === 'zh' ? `+${stats.added} 新增` : `+${stats.added} Added`}
             </Tag>
           </Space>
         </Flex>
       }
     >
+      <Flex justify="space-between" align="center" gap={8} style={{ marginBottom: 6, fontSize: 11 }}>
+        <Tag color="red" bordered={false} style={{ marginInlineEnd: 0 }}>
+          {t('原始回复 (Rejected)', 'Original (Rejected)')}
+        </Tag>
+        <Tag color="green" bordered={false} style={{ marginInlineEnd: 0 }}>
+          {t('修正后回复 (Chosen)', 'Edited (Chosen)')}
+        </Tag>
+      </Flex>
       <div className="diff-content-container">
         {diffLines.map((line, idx) => {
           let prefix = '  ';

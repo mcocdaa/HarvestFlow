@@ -35,7 +35,9 @@ import { reviewerApi, sessionApi } from '../../services';
 import { useAsyncData, useKeyboardShortcut } from '../../hooks';
 import { CopyText, EmptyState, JsonView, MessageBubble, ScoreTag, StatusTag } from '../common';
 import DiffViewer from './DiffViewer';
-import { getScoreColor, getScoreLabel, scoreLabels, truncateSessionId } from '../../utils';
+import { getScoreColor, getScoreLabel, getScoreLabels, truncateSessionId } from '../../utils';
+import { useI18n } from '../../i18n';
+import type { Locale } from '../../i18n';
 import type { ReviewerExtraField, ReviewerExtraFields, ReviewExtras, Session, SessionContent } from '../../types';
 import '../../styles/Review.css';
 
@@ -51,13 +53,14 @@ interface ExtraFieldInputProps {
 }
 
 const ExtraFieldInput: React.FC<ExtraFieldInputProps> = ({ field, value, onChange }) => {
+  const { locale } = useI18n();
   switch (field.type) {
     case 'select':
       return (
         <Select
           allowClear
           style={{ width: '100%' }}
-          placeholder={field.placeholder ?? `请选择${field.label}`}
+          placeholder={field.placeholder ?? (locale === 'zh' ? `请选择${field.label}` : `Select ${field.label}`)}
           value={value as string | undefined}
           onChange={(selected) => onChange(selected)}
           options={(field.options ?? []).map((option) => ({ value: option, label: option }))}
@@ -99,6 +102,7 @@ interface ReviewWorkspaceProps {
 }
 
 const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) => {
+  const { locale, t } = useI18n();
   const { data, loading, reload } = useAsyncData<{ sessions?: Session[]; total?: number }>(
     () => reviewerApi.getPending(1, 100)
   );
@@ -206,7 +210,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
       if (!field.required) continue;
       const value = extras[field.name];
       if (value === undefined || value === null || value === '') {
-        message.warning(`请填写「${field.label}」`);
+        message.warning(locale === 'zh' ? `请填写「${field.label}」` : `Please fill in "${field.label}"`);
         return;
       }
     }
@@ -225,10 +229,10 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
       const finalPayload = Object.keys(payload).length > 0 ? payload : undefined;
       if (approve) {
         await reviewerApi.approveSession(current.session_id, notes, score, finalPayload);
-        message.success('已通过评审');
+        message.success(t('已通过评审', 'Session approved'));
       } else {
         await reviewerApi.rejectSession(current.session_id, notes, score, finalPayload);
-        message.success('已拒绝');
+        message.success(t('已拒绝', 'Session rejected'));
       }
       const next = queue.filter((item) => item.session_id !== current.session_id);
       setQueue(next);
@@ -239,7 +243,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
       setIsEditingAssistant(false);
       setAssistantModified(false);
       if (next.length === 0) {
-        message.info('审核队列已清空');
+        message.info(t('审核队列已清空', 'Review queue is now empty'));
         reload();
       }
     } catch {
@@ -259,16 +263,20 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
     score,
     queue,
     reload,
+    locale,
+    t,
   ]);
 
   // 保存 Assistant 消息编辑
   const handleSaveAssistantEdit = useCallback(() => {
     if (editedAssistantText !== originalAssistantText) {
       setAssistantModified(true);
-      message.success('已应用修改（已建立 DPO 对抗偏好数据对）');
+      message.success(
+        t('已应用修改（已建立 DPO 对抗偏好数据对）', 'Changes applied (DPO preference pair created)')
+      );
     }
     setIsEditingAssistant(false);
-  }, [editedAssistantText, originalAssistantText]);
+  }, [editedAssistantText, originalAssistantText, t]);
 
   const handleCancelAssistantEdit = useCallback(() => {
     setEditedAssistantText(originalAssistantText);
@@ -321,7 +329,11 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
         e.preventDefault();
         const num = parseInt(e.key, 10);
         setScore(num);
-        message.info(`评分已设为: ${num} 星 (${getScoreLabel(num)})`);
+        message.info(
+          locale === 'zh'
+            ? `评分已设为: ${num} 星 (${getScoreLabel(num, locale)})`
+            : `Score set to: ${num} (${getScoreLabel(num, locale)})`
+        );
       }
       // 4. J 或 ↓: 队列下一条
       else if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowDown') {
@@ -338,7 +350,11 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
         e.preventDefault();
         setToolsCollapsed((prev) => {
           const next = !prev;
-          message.info(next ? '工具调用日志已折叠' : '工具调用日志已展开');
+          message.info(
+            next
+              ? t('工具调用日志已折叠', 'Tool call logs collapsed')
+              : t('工具调用日志已展开', 'Tool call logs expanded')
+          );
           return next;
         });
       }
@@ -366,6 +382,8 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
     editedAssistantText,
     handleReview,
     handleCancelAssistantEdit,
+    locale,
+    t,
   ]);
 
   const progressPercent = queue.length > 0 ? Math.round(((index + 1) / queue.length) * 100) : 0;
@@ -373,7 +391,11 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
   // 对话流渲染
   const messageSection = useMemo(() => {
     if (messages.length === 0) {
-      return <EmptyState description={loading || contentLoading ? '加载中…' : '暂无对话内容'} />;
+      return (
+        <EmptyState
+          description={loading || contentLoading ? t('加载中…', 'Loading…') : t('暂无对话内容', 'No dialogue content')}
+        />
+      );
     }
     return (
       <Flex vertical gap={16}>
@@ -391,11 +413,12 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                 <div className="assistant-edit-box">
                   <Flex justify="space-between" align="center" wrap="wrap" gap={6} style={{ marginBottom: 8 }}>
                     <Typography.Text strong style={{ color: '#2563eb', fontSize: 13, whiteSpace: 'nowrap' }}>
-                      <EditOutlined /> 编辑 AI 回复（就地修正，生产 DPO 对齐数据）
+                      <EditOutlined />{' '}
+                      {t('编辑 AI 回复（就地修正，生产 DPO 对齐数据）', 'Edit AI Reply (In-place DPO Refinement)')}
                     </Typography.Text>
                     <Space size={6} style={{ flexShrink: 0 }}>
                       <Button size="small" icon={<UndoOutlined />} onClick={handleCancelAssistantEdit}>
-                        放弃修改 (Esc)
+                        {t('放弃修改 (Esc)', 'Discard (Esc)')}
                       </Button>
                       <Button
                         type="primary"
@@ -403,7 +426,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                         icon={<SaveOutlined />}
                         onClick={handleSaveAssistantEdit}
                       >
-                        保存修改并生成 Diff
+                        {t('保存修改并生成 Diff', 'Save & Generate Diff')}
                       </Button>
                     </Space>
                   </Flex>
@@ -411,7 +434,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                     rows={4}
                     value={editedAssistantText}
                     onChange={(e) => setEditedAssistantText(e.target.value)}
-                    placeholder="在此编辑修正 AI 的回复..."
+                    placeholder={t('在此编辑修正 AI 的回复...', 'Edit and refine the Assistant reply here...')}
                   />
                   {/* 实时修改 Diff 对比 */}
                   {editedAssistantText !== originalAssistantText && (
@@ -436,7 +459,11 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
             icon={expanded ? <UpOutlined /> : <DownOutlined />}
             onClick={() => setExpanded((prev) => !prev)}
           >
-            {expanded ? '收起对话' : `展开剩余 ${messages.length - PREVIEW_COUNT} 条`}
+            {expanded
+              ? t('收起对话', 'Collapse Dialogue')
+              : locale === 'zh'
+                ? `展开剩余 ${messages.length - PREVIEW_COUNT} 条`
+                : `Show ${messages.length - PREVIEW_COUNT} More`}
           </Button>
         )}
       </Flex>
@@ -454,14 +481,21 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
     toolsCollapsed,
     handleCancelAssistantEdit,
     handleSaveAssistantEdit,
+    locale,
+    t,
   ]);
 
   if (!loading && queue.length === 0) {
     return (
       <Card variant="borderless">
-        <EmptyState description="审核队列已清空，去会话页看看新数据吧">
+        <EmptyState
+          description={t(
+            '审核队列已清空，去会话页看看新数据吧',
+            'Review queue is empty. Check Sessions for new data.'
+          )}
+        >
           <Button type="primary" onClick={reload} icon={<RightOutlined />}>
-            刷新队列
+            {t('刷新队列', 'Refresh Queue')}
           </Button>
         </EmptyState>
       </Card>
@@ -474,15 +508,17 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
       <div className="review-col-queue">
         <Card variant="borderless" className="queue-card">
           <Flex justify="space-between" align="center" style={{ marginBottom: 8 }}>
-            <Typography.Text strong>待审队列 ({queue.length})</Typography.Text>
-            <Tooltip title="刷新待审列表">
+            <Typography.Text strong>
+              {t('待审队列', 'Queue')} ({queue.length})
+            </Typography.Text>
+            <Tooltip title={t('刷新待审列表', 'Refresh Queue')}>
               <Button size="small" type="text" onClick={reload} icon={<RightOutlined />} />
             </Tooltip>
           </Flex>
 
           <Input
             size="small"
-            placeholder="搜索 ID / 角色..."
+            placeholder={t('搜索 ID / 角色...', 'Search ID / role...')}
             prefix={<SearchOutlined />}
             value={queueSearch}
             onChange={(e) => setQueueSearch(e.target.value)}
@@ -557,7 +593,9 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
             <div className="review-progress" style={{ flex: 1, minWidth: 200 }}>
               <Flex align="center" gap={8} wrap>
                 <Typography.Text strong style={{ whiteSpace: 'nowrap' }}>
-                  第 {Math.min(index + 1, queue.length)} / {queue.length} 条
+                  {locale === 'zh'
+                    ? `第 ${Math.min(index + 1, queue.length)} / ${queue.length} 条`
+                    : `Item ${Math.min(index + 1, queue.length)} / ${queue.length}`}
                 </Typography.Text>
                 {current && <StatusTag status={current.status} />}
                 {currentId && (
@@ -569,7 +607,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                 )}
                 {assistantModified && (
                   <Tag color="purple" icon={<DiffOutlined />}>
-                    已就地编辑 (含 DPO 对)
+                    {t('已就地编辑 (含 DPO 对)', 'Edited (DPO Pair)')}
                   </Tag>
                 )}
               </Flex>
@@ -582,7 +620,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                 disabled={index === 0}
                 onClick={() => setIndex((prev) => Math.max(prev - 1, 0))}
               >
-                上一个 (K)
+                {t('上一个 (K)', 'Prev (K)')}
               </Button>
               <Button
                 size="small"
@@ -591,7 +629,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                 onClick={() => setIndex((prev) => Math.min(prev + 1, queue.length - 1))}
                 iconPosition="end"
               >
-                下一个 (J)
+                {t('下一个 (J)', 'Next (J)')}
               </Button>
             </Space>
           </Flex>
@@ -602,14 +640,16 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
           variant="borderless"
           title={
             <Flex justify="space-between" align="center">
-              <span>对话内容</span>
+              <span>{t('对话内容', 'Dialogue')}</span>
               <Space size={8}>
                 <Button
                   size="small"
                   icon={<ToolOutlined />}
                   onClick={() => setToolsCollapsed((prev) => !prev)}
                 >
-                  {toolsCollapsed ? '展开工具日志 (T)' : '折叠工具日志 (T)'}
+                  {toolsCollapsed
+                    ? t('展开工具日志 (T)', 'Expand Tools (T)')
+                    : t('折叠工具日志 (T)', 'Collapse Tools (T)')}
                 </Button>
                 <Button
                   size="small"
@@ -617,7 +657,9 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                   icon={<EditOutlined />}
                   onClick={() => setIsEditingAssistant((prev) => !prev)}
                 >
-                  {isEditingAssistant ? '退出编辑 (Esc)' : '编辑 AI 回复 (E)'}
+                  {isEditingAssistant
+                    ? t('退出编辑 (Esc)', 'Exit Edit (Esc)')
+                    : t('编辑 AI 回复 (E)', 'Edit Reply (E)')}
                 </Button>
               </Space>
             </Flex>
@@ -633,7 +675,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
               items={[
                 {
                   key: 'metadata',
-                  label: <Typography.Text type="secondary">技术元信息</Typography.Text>,
+                  label: <Typography.Text type="secondary">{t('技术元信息', 'Technical Metadata')}</Typography.Text>,
                   children: <JsonView value={content.metadata} maxHeight={280} />,
                 },
               ]}
@@ -644,24 +686,28 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
 
       {/* ================= 三、右侧悬浮固定决策面板 (25%) ================= */}
       <div className="review-col-decision review-side-panel">
-        <Card variant="borderless" title="评审决策" className="decision-card">
+        <Card variant="borderless" title={t('评审决策', 'Decision')} className="decision-card">
           <Flex vertical gap={16}>
             {/* 评分区块 */}
             <div>
               <Flex justify="space-between" align="center" style={{ marginBottom: 6 }}>
-                <Typography.Text strong style={{ whiteSpace: 'nowrap' }}>质量评分 (直按 1~5 键)</Typography.Text>
-                <Tag color={getScoreColor(score)} style={{ marginInlineEnd: 0 }}>{getScoreTagLabel(score)}</Tag>
+                <Typography.Text strong style={{ whiteSpace: 'nowrap' }}>
+                  {t('质量评分 (直按 1~5 键)', 'Score (Keys 1~5)')}
+                </Typography.Text>
+                <Tag color={getScoreColor(score)} style={{ marginInlineEnd: 0 }}>
+                  {getScoreTagLabel(score, locale)}
+                </Tag>
               </Flex>
-              <Rate allowClear value={score} onChange={setScore} tooltips={scoreLabels} />
+              <Rate allowClear value={score} onChange={setScore} tooltips={getScoreLabels(locale)} />
               {current?.quality_auto_score !== null && current?.quality_auto_score !== undefined && (
                 <Flex justify="space-between" align="center" style={{ marginTop: 8 }}>
                   <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    自动评分对比
+                    {t('自动评分对比', 'Auto Score')}
                   </Typography.Text>
                   <Space size={4}>
                     <ScoreTag score={current.quality_auto_score} />
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                      {getScoreLabel(current.quality_auto_score)}
+                      {getScoreLabel(current.quality_auto_score, locale)}
                     </Typography.Text>
                   </Space>
                 </Flex>
@@ -671,13 +717,13 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
             {/* 评审意见输入 */}
             <div>
               <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
-                评审意见
+                {t('评审意见', 'Review Notes')}
               </Typography.Text>
               <Input.TextArea
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="可选评审备注，最多 200 字"
+                placeholder={t('可选评审备注，最多 200 字', 'Optional review notes (max 200 chars)')}
                 showCount
                 maxLength={200}
               />
@@ -687,7 +733,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
             {extraFields.length > 0 && (
               <div>
                 <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
-                  插件扩展字段
+                  {t('插件扩展字段', 'Plugin Fields')}
                 </Typography.Text>
                 <Flex vertical gap={12}>
                   {extraFields.map((field) => (
@@ -719,7 +765,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                 disabled={!current || !score}
                 onClick={() => handleReview(true)}
               >
-                通过评审
+                {t('通过评审', 'Approve')}
               </Button>
               <Button
                 danger
@@ -731,7 +777,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                 disabled={!current}
                 onClick={() => handleReview(false)}
               >
-                拒绝
+                {t('拒绝', 'Reject')}
               </Button>
             </Flex>
 
@@ -740,32 +786,46 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
             {/* 人体工学快捷键速查面板 */}
             <div className="shortcuts-panel">
               <Typography.Text strong style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
-                极速全键盘操作指南
+                {t('极速全键盘操作指南', 'Keyboard Shortcuts')}
               </Typography.Text>
               <Flex vertical gap={6} style={{ fontSize: 11 }}>
                 <Flex justify="space-between" align="center" gap={8}>
                   <kbd className="shortcut-badge">A / {MOD_KEY}+Enter</kbd>
-                  <Typography.Text type="secondary" className="shortcut-desc">通过并切下一条</Typography.Text>
+                  <Typography.Text type="secondary" className="shortcut-desc">
+                    {t('通过并切下一条', 'Approve & Next')}
+                  </Typography.Text>
                 </Flex>
                 <Flex justify="space-between" align="center" gap={8}>
                   <kbd className="shortcut-badge">R / {MOD_KEY}+Backspace</kbd>
-                  <Typography.Text type="secondary" className="shortcut-desc">拒绝并切下一条</Typography.Text>
+                  <Typography.Text type="secondary" className="shortcut-desc">
+                    {t('拒绝并切下一条', 'Reject & Next')}
+                  </Typography.Text>
                 </Flex>
                 <Flex justify="space-between" align="center" gap={8}>
                   <kbd className="shortcut-badge">1 ~ 5</kbd>
-                  <Typography.Text type="secondary" className="shortcut-desc">设定质量星级</Typography.Text>
+                  <Typography.Text type="secondary" className="shortcut-desc">
+                    {t('设定质量星级', 'Set Star Rating')}
+                  </Typography.Text>
                 </Flex>
                 <Flex justify="space-between" align="center" gap={8}>
-                  <kbd className="shortcut-badge">J / K 或 ↓ / ↑</kbd>
-                  <Typography.Text type="secondary" className="shortcut-desc">在队列中上下切换</Typography.Text>
+                  <kbd className="shortcut-badge">
+                    {locale === 'zh' ? 'J / K 或 ↓ / ↑' : 'J / K / ↓ / ↑'}
+                  </kbd>
+                  <Typography.Text type="secondary" className="shortcut-desc">
+                    {t('在队列中上下切换', 'Prev / Next Item')}
+                  </Typography.Text>
                 </Flex>
                 <Flex justify="space-between" align="center" gap={8}>
                   <kbd className="shortcut-badge">T</kbd>
-                  <Typography.Text type="secondary" className="shortcut-desc">折叠/展开工具日志</Typography.Text>
+                  <Typography.Text type="secondary" className="shortcut-desc">
+                    {t('折叠/展开工具日志', 'Toggle Tool Logs')}
+                  </Typography.Text>
                 </Flex>
                 <Flex justify="space-between" align="center" gap={8}>
                   <kbd className="shortcut-badge">E</kbd>
-                  <Typography.Text type="secondary" className="shortcut-desc">编辑 AI 回复与 Diff</Typography.Text>
+                  <Typography.Text type="secondary" className="shortcut-desc">
+                    {t('编辑 AI 回复与 Diff', 'Edit & DPO Diff')}
+                  </Typography.Text>
                 </Flex>
               </Flex>
             </div>
@@ -776,6 +836,6 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
   );
 };
 
-const getScoreTagLabel = (score: number): string => `${score} · ${getScoreLabel(score)}`;
+const getScoreTagLabel = (score: number, locale: Locale): string => `${score} · ${getScoreLabel(score, locale)}`;
 
 export default ReviewWorkspace;
