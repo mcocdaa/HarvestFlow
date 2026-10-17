@@ -207,6 +207,7 @@ const Dashboard: React.FC = () => {
                       outerRadius={100}
                       paddingAngle={2}
                       strokeWidth={0}
+                      isAnimationActive={false}
                     >
                       {distribution.map((item) => (
                         <Cell key={item.name} fill={item.color} />

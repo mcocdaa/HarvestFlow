@@ -124,9 +124,9 @@ const Export: React.FC = () => {
       title: '导出时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 150,
+      width: 155,
       render: (value: string) => (
-        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+        <Typography.Text type="secondary" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
           {formatDateTime(value)}
         </Typography.Text>
       ),
@@ -135,7 +135,7 @@ const Export: React.FC = () => {
       title: '格式',
       dataIndex: 'export_format',
       key: 'export_format',
-      width: 110,
+      width: 135,
       render: (format: string) => (
         <Tag color="blue" bordered={false}>
           {EXPORT_FORMAT_LABELS[format] ?? format}
@@ -146,22 +146,23 @@ const Export: React.FC = () => {
       title: '版本',
       dataIndex: 'version',
       key: 'version',
-      width: 80,
+      width: 72,
     },
     {
       title: '记录数',
       dataIndex: 'record_count',
       key: 'record_count',
-      width: 90,
+      width: 80,
       render: (count: number) => <Typography.Text strong>{count}</Typography.Text>,
     },
     {
       title: '筛选条件',
       dataIndex: 'filters',
       key: 'filters',
+      width: 140,
       render: (filters?: string | null) => {
         const chips = parseFilterChips(filters);
-        if (chips.length === 0) return <span className="score-empty">全部已通过会话</span>;
+        if (chips.length === 0) return <span className="score-empty" style={{ whiteSpace: 'nowrap' }}>全部已通过会话</span>;
         return (
           <Space size={4} wrap>
             {chips.map((chip) => (
@@ -177,13 +178,27 @@ const Export: React.FC = () => {
       title: '文件',
       dataIndex: 'file_path',
       key: 'file_path',
-      width: 240,
+      ellipsis: true,
       render: (filePath: string) => (
         <CopyText
           text={filePath}
           mono
           tooltip="点击复制服务器文件路径"
-          display={<span style={{ fontSize: 12 }}>{filePath}</span>}
+          display={
+            <span
+              style={{
+                fontSize: 12,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: 260,
+                display: 'inline-block',
+                verticalAlign: 'bottom',
+              }}
+            >
+              {basename(filePath) || filePath}
+            </span>
+          }
         />
       ),
     },

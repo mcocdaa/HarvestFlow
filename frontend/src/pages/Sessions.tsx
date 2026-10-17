@@ -74,16 +74,17 @@ const Sessions: React.FC = () => {
       title: '会话',
       dataIndex: 'session_id',
       key: 'session',
-      width: 260,
+      width: 175,
+      ellipsis: true,
       render: (_, record) => (
-        <Space direction="vertical" size={2}>
-          <Typography.Text strong ellipsis style={{ maxWidth: 240 }}>
+        <Space direction="vertical" size={2} style={{ maxWidth: '100%', overflow: 'hidden' }}>
+          <Typography.Text strong ellipsis style={{ display: 'block', maxWidth: 155 }}>
             {record.task_type || '未分类'}
           </Typography.Text>
           <CopyText
             text={record.session_id}
             mono
-            display={<span style={{ fontSize: 12 }}>{truncateSessionId(record.session_id)}</span>}
+            display={<span style={{ fontSize: 11 }}>{truncateSessionId(record.session_id)}</span>}
           />
         </Space>
       ),
@@ -92,49 +93,49 @@ const Sessions: React.FC = () => {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 100,
+      width: 78,
       render: (_, record) => <StatusTag status={record.status} />,
     },
     {
       title: '自动评分',
       dataIndex: 'quality_auto_score',
       key: 'quality_auto_score',
-      width: 100,
+      width: 68,
       render: (_, record) => <ScoreTag score={record.quality_auto_score} />,
     },
     {
       title: '人工评分',
       dataIndex: 'quality_manual_score',
       key: 'quality_manual_score',
-      width: 100,
+      width: 68,
       render: (_, record) => <ScoreTag score={record.quality_manual_score} />,
     },
     {
       title: 'Agent 角色',
       dataIndex: 'agent_role',
       key: 'agent_role',
-      width: 140,
+      width: 155,
       render: (_, record) =>
-        record.agent_role ? <Tag bordered={false}>{record.agent_role}</Tag> : <span className="score-empty">-</span>,
+        record.agent_role ? <Tag bordered={false} style={{ marginInlineEnd: 0 }}>{record.agent_role}</Tag> : <span className="score-empty">-</span>,
     },
     {
       title: '标签',
       dataIndex: 'tags',
       key: 'tags',
-      width: 180,
+      width: 105,
       render: (_, record) => {
         const tags = record.tags ?? [];
         if (tags.length === 0) return <span className="score-empty">-</span>;
         return (
-          <Space size={4} wrap>
-            {tags.slice(0, 2).map((tag) => (
-              <Tag key={tag} color="blue" bordered={false}>
+          <Space size={4} style={{ whiteSpace: 'nowrap' }}>
+            {tags.slice(0, 1).map((tag) => (
+              <Tag key={tag} color="blue" bordered={false} style={{ marginInlineEnd: 0 }}>
                 {tag}
               </Tag>
             ))}
-            {tags.length > 2 && (
-              <Tooltip title={tags.slice(2).join('、')}>
-                <Tag bordered={false}>+{tags.length - 2}</Tag>
+            {tags.length > 1 && (
+              <Tooltip title={tags.slice(1).join('、')}>
+                <Tag bordered={false} style={{ marginInlineEnd: 0 }}>+{tags.length - 1}</Tag>
               </Tooltip>
             )}
           </Space>
@@ -145,9 +146,9 @@ const Sessions: React.FC = () => {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 150,
+      width: 120,
       render: (_, record) => (
-        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+        <Typography.Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
           {formatDateTime(record.created_at)}
         </Typography.Text>
       ),
@@ -155,50 +156,53 @@ const Sessions: React.FC = () => {
     {
       title: '操作',
       key: 'option',
-      width: 240,
-      fixed: 'right',
-      render: (_, record) => [
-        <Button key="view" type="link" size="small" icon={<EyeOutlined />} onClick={() => handleView(record)}>
-          查看
-        </Button>,
-        <Button
-          key="edit"
-          type="link"
-          size="small"
-          icon={<EditOutlined />}
-          onClick={() => {
-            setSelected(record);
-            setEditOpen(true);
-          }}
-        >
-          编辑
-        </Button>,
-        record.status === 'raw' && (
+      width: 185,
+      render: (_, record) => (
+        <Space size={0} style={{ whiteSpace: 'nowrap' }}>
+          <Button key="view" type="link" size="small" style={{ paddingInline: 3 }} icon={<EyeOutlined />} onClick={() => handleView(record)}>
+            查看
+          </Button>
           <Button
-            key="evaluate"
+            key="edit"
             type="link"
             size="small"
-            icon={<ThunderboltOutlined />}
-            loading={evaluatingId === record.session_id}
-            onClick={() => handleEvaluate(record)}
+            style={{ paddingInline: 3 }}
+            icon={<EditOutlined />}
+            onClick={() => {
+              setSelected(record);
+              setEditOpen(true);
+            }}
           >
-            评分
+            编辑
           </Button>
-        ),
-        <Popconfirm
-          key="delete"
-          title="删除该会话？"
-          description="数据库记录与源文件将一并删除，不可恢复。"
-          okText="删除"
-          cancelText="取消"
-          okButtonProps={{ danger: true }}
-          onConfirm={() => handleDelete(record)}
-        >
-          <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-            删除
-          </Button>
-        </Popconfirm>,
-      ],
+          {record.status === 'raw' && (
+            <Button
+              key="evaluate"
+              type="link"
+              size="small"
+              style={{ paddingInline: 3 }}
+              icon={<ThunderboltOutlined />}
+              loading={evaluatingId === record.session_id}
+              onClick={() => handleEvaluate(record)}
+            >
+              评分
+            </Button>
+          )}
+          <Popconfirm
+            key="delete"
+            title="删除该会话？"
+            description="数据库记录与源文件将一并删除，不可恢复。"
+            okText="删除"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => handleDelete(record)}
+          >
+            <Button type="link" size="small" style={{ paddingInline: 3 }} danger icon={<DeleteOutlined />}>
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
     },
   ];
 
@@ -209,6 +213,7 @@ const Sessions: React.FC = () => {
         actionRef={actionRef}
         rowKey="session_id"
         columns={columns}
+        tableLayout="fixed"
         search={false}
         params={{ status: status === 'all' ? undefined : status, sort }}
         request={async (params) => {
@@ -242,7 +247,6 @@ const Sessions: React.FC = () => {
         ]}
         pagination={{ defaultPageSize: 20, showSizeChanger: true, showTotal: (total) => `共 ${total} 条` }}
         cardBordered={false}
-        scroll={{ x: 1240 }}
       />
       <SessionDrawer
         open={drawerOpen}

@@ -66,6 +66,8 @@ describe('Review Ergonomics & Three-Column Workspace', () => {
       expect(container.querySelector('.review-col-decision')).toBeInTheDocument();
       expect(screen.getByText(/待审队列 \(3\)/)).toBeInTheDocument();
       expect(screen.getByText('评审决策')).toBeInTheDocument();
+      expect(container.querySelectorAll('kbd.shortcut-badge').length).toBeGreaterThanOrEqual(6);
+      expect(container.querySelectorAll('.shortcut-desc').length).toBeGreaterThanOrEqual(6);
     });
   });
 

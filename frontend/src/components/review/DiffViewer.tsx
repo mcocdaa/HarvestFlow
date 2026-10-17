@@ -57,18 +57,18 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ original, modified }) =>
       variant="borderless"
       className="diff-viewer-card"
       title={
-        <Flex justify="space-between" align="center">
-          <Space size={6}>
+        <Flex justify="space-between" align="center" gap={8}>
+          <Space size={6} style={{ minWidth: 0 }}>
             <DiffOutlined style={{ color: '#2563eb' }} />
-            <Typography.Text strong style={{ fontSize: 13 }}>
+            <Typography.Text strong style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
               修改前后对比 Diff (DPO 偏好对)
             </Typography.Text>
           </Space>
-          <Space size={4}>
-            <Tag color="error" icon={<CloseOutlined />}>
+          <Space size={4} style={{ flexShrink: 0 }}>
+            <Tag color="error" icon={<CloseOutlined />} style={{ marginInlineEnd: 0 }}>
               -{stats.removed} 删减
             </Tag>
-            <Tag color="success" icon={<CheckOutlined />}>
+            <Tag color="success" icon={<CheckOutlined />} style={{ marginInlineEnd: 0 }}>
               +{stats.added} 新增
             </Tag>
           </Space>
