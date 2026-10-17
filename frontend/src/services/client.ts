@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { message } from 'antd';
+import { getStoredLocale } from '../i18n';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const API_KEY = import.meta.env.VITE_API_KEY || '';
@@ -21,6 +22,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const isZh = getStoredLocale() === 'zh';
     const status = error.response?.status;
     const detail = error.response?.data?.detail;
     let text: string;
@@ -33,11 +35,11 @@ api.interceptors.response.use(
       // 部分端点失败时返回 {success: false, message}
       text = error.response.data.message;
     } else if (status === 401) {
-      text = '认证失败';
+      text = isZh ? '认证失败' : 'Authentication failed';
     } else if (status === 404) {
-      text = '请求的资源不存在';
+      text = isZh ? '请求的资源不存在' : 'Requested resource not found';
     } else {
-      text = '请求失败';
+      text = isZh ? '请求失败' : 'Request failed';
     }
     if (text) {
       message.error(text);
