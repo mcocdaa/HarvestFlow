@@ -1,4 +1,5 @@
 import type { SessionStatus } from '../types';
+import { getStoredLocale } from '../i18n';
 import type { Locale } from '../i18n';
 
 export const STATUS_LABELS: Record<SessionStatus, string> = {
@@ -22,7 +23,7 @@ export const STATUS_OPTIONS: { value: SessionStatus; label: string }[] = [
   { value: 'rejected', label: '已拒绝' },
 ];
 
-export const getStatusOptions = (locale: Locale): { value: SessionStatus; label: string }[] =>
+export const getStatusOptions = (locale: Locale = getStoredLocale()): { value: SessionStatus; label: string }[] =>
   locale === 'zh'
     ? STATUS_OPTIONS
     : [
@@ -37,7 +38,7 @@ export const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'oldest', label: '最早优先' },
 ];
 
-export const getSortOptions = (locale: Locale): { value: string; label: string }[] =>
+export const getSortOptions = (locale: Locale = getStoredLocale()): { value: string; label: string }[] =>
   locale === 'zh'
     ? SORT_OPTIONS
     : [
@@ -57,7 +58,7 @@ export const ROLE_LABELS_EN: Record<string, string> = {
   system: 'System',
 };
 
-export const getRoleLabel = (role: string, locale: Locale = 'zh'): string => {
+export const getRoleLabel = (role: string, locale: Locale = getStoredLocale()): string => {
   const map = locale === 'zh' ? ROLE_LABELS : ROLE_LABELS_EN;
   return map[role] ?? role;
 };
@@ -86,7 +87,7 @@ export const PLUGIN_TYPE_LABELS_EN: Record<string, string> = {
   unknown: 'Unknown',
 };
 
-export const getPluginTypeLabel = (type: string, locale: Locale = 'zh'): string => {
+export const getPluginTypeLabel = (type: string, locale: Locale = getStoredLocale()): string => {
   const map = locale === 'zh' ? PLUGIN_TYPE_LABELS : PLUGIN_TYPE_LABELS_EN;
   return map[type] ?? type;
 };
@@ -114,7 +115,7 @@ export const EXPORT_FORMAT_LABELS_EN: Record<string, string> = {
   dpo: 'DPO Preference Pairs',
 };
 
-export const getExportFormatLabel = (format: string, locale: Locale = 'zh'): string => {
+export const getExportFormatLabel = (format: string, locale: Locale = getStoredLocale()): string => {
   const map = locale === 'zh' ? EXPORT_FORMAT_LABELS : EXPORT_FORMAT_LABELS_EN;
   return map[format] ?? format;
 };
@@ -133,7 +134,7 @@ export const AUDIT_ACTION_LABELS_EN: Record<string, string> = {
   auto_approve: 'Auto Approve',
 };
 
-export const getAuditActionLabel = (action: string, locale: Locale = 'zh'): string => {
+export const getAuditActionLabel = (action: string, locale: Locale = getStoredLocale()): string => {
   const map = locale === 'zh' ? AUDIT_ACTION_LABELS : AUDIT_ACTION_LABELS_EN;
   return map[action] ?? action;
 };
@@ -155,7 +156,7 @@ export const OPERATOR_LABELS_EN: Record<string, string> = {
   system: 'System',
 };
 
-export const getOperatorLabel = (operator: string, locale: Locale = 'zh'): string => {
+export const getOperatorLabel = (operator: string, locale: Locale = getStoredLocale()): string => {
   const map = locale === 'zh' ? OPERATOR_LABELS : OPERATOR_LABELS_EN;
   return map[operator] ?? operator;
 };
