@@ -9,7 +9,7 @@ import {
 } from '@ant-design/icons';
 import { pluginApi } from '../services';
 import { useAsyncData } from '../hooks';
-import { CopyText, EmptyState, PageHeader } from '../components';
+import { EmptyState, PageHeader } from '../components';
 import { getPluginTypeLabel, PLUGIN_TYPE_COLORS, PLUGIN_TYPE_ORDER } from '../constants/display';
 import { useI18n } from '../i18n';
 import type { Plugin } from '../types';
@@ -122,7 +122,6 @@ const Plugins: React.FC = () => {
                   <Typography.Paragraph type="secondary" style={{ marginBottom: 0, minHeight: 44 }}>
                     {plugin.description ? td(plugin.description) : t('暂无描述', 'No description')}
                   </Typography.Paragraph>
-                  <CopyText text={plugin.key} mono display={<span style={{ fontSize: 12 }}>{plugin.key}</span>} />
                 </Flex>
               </Card>
             </Col>

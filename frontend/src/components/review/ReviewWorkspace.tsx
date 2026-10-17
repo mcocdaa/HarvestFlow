@@ -53,17 +53,19 @@ interface ExtraFieldInputProps {
 }
 
 const ExtraFieldInput: React.FC<ExtraFieldInputProps> = ({ field, value, onChange }) => {
-  const { locale } = useI18n();
+  const { locale, td } = useI18n();
+  const fieldLabel = td(field.label);
+  const fieldPlaceholder = field.placeholder ? td(field.placeholder) : undefined;
   switch (field.type) {
     case 'select':
       return (
         <Select
           allowClear
           style={{ width: '100%' }}
-          placeholder={field.placeholder ?? (locale === 'zh' ? `请选择${field.label}` : `Select ${field.label}`)}
+          placeholder={fieldPlaceholder ?? (locale === 'zh' ? `请选择${fieldLabel}` : `Select ${fieldLabel}`)}
           value={value as string | undefined}
           onChange={(selected) => onChange(selected)}
-          options={(field.options ?? []).map((option) => ({ value: option, label: option }))}
+          options={(field.options ?? []).map((option) => ({ value: option, label: td(option) }))}
         />
       );
     case 'textarea':
@@ -71,7 +73,7 @@ const ExtraFieldInput: React.FC<ExtraFieldInputProps> = ({ field, value, onChang
         <Input.TextArea
           rows={2}
           value={value as string | undefined}
-          placeholder={field.placeholder}
+          placeholder={fieldPlaceholder}
           onChange={(event) => onChange(event.target.value)}
         />
       );
@@ -82,7 +84,7 @@ const ExtraFieldInput: React.FC<ExtraFieldInputProps> = ({ field, value, onChang
         <InputNumber
           style={{ width: '100%' }}
           value={value as number | undefined}
-          placeholder={field.placeholder}
+          placeholder={fieldPlaceholder}
           onChange={(number) => onChange(number)}
         />
       );
@@ -90,7 +92,7 @@ const ExtraFieldInput: React.FC<ExtraFieldInputProps> = ({ field, value, onChang
       return (
         <Input
           value={value as string | undefined}
-          placeholder={field.placeholder}
+          placeholder={fieldPlaceholder}
           onChange={(event) => onChange(event.target.value)}
         />
       );
@@ -102,7 +104,7 @@ interface ReviewWorkspaceProps {
 }
 
 const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) => {
-  const { locale, t } = useI18n();
+  const { locale, t, td } = useI18n();
   const { data, loading, reload } = useAsyncData<{ sessions?: Session[]; total?: number }>(
     () => reviewerApi.getPending(1, 100)
   );
@@ -164,14 +166,27 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
     if (rawMessages.length > 0) {
       for (let i = rawMessages.length - 1; i >= 0; i--) {
         if (rawMessages[i].role === 'assistant') {
-          const text = typeof rawMessages[i].content === 'string' ? (rawMessages[i].content as string) : '';
+          const rawContent = rawMessages[i].content;
+          let text = '';
+          if (typeof rawContent === 'string') {
+            text = td(rawContent);
+          } else if (Array.isArray(rawContent)) {
+            text = rawContent
+              .map((item) =>
+                item && typeof item === 'object' && typeof (item as { text?: unknown }).text === 'string'
+                  ? td((item as { text: string }).text)
+                  : ''
+              )
+              .filter(Boolean)
+              .join('\n');
+          }
           setOriginalAssistantText(text);
           setEditedAssistantText(text);
           break;
         }
       }
     }
-  }, [rawMessages]);
+  }, [rawMessages, td]);
 
   // 计算当前渲染的消息（若已被就地修改，替换最后一条 assistant 回复）
   const messages = useMemo(() => {
@@ -210,7 +225,8 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
       if (!field.required) continue;
       const value = extras[field.name];
       if (value === undefined || value === null || value === '') {
-        message.warning(locale === 'zh' ? `请填写「${field.label}」` : `Please fill in "${field.label}"`);
+        const fieldLabel = td(field.label);
+        message.warning(locale === 'zh' ? `请填写「${fieldLabel}」` : `Please fill in "${fieldLabel}"`);
         return;
       }
     }
@@ -265,6 +281,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
     reload,
     locale,
     t,
+    td,
   ]);
 
   // 保存 Assistant 消息编辑
@@ -572,7 +589,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                         flex: 1,
                       }}
                     >
-                      {item.agent_role || 'assistant'}
+                      {td(item.agent_role || 'assistant')}
                     </Typography.Text>
                     <Typography.Text type="secondary" style={{ fontSize: 10, whiteSpace: 'nowrap', flexShrink: 0 }}>
                       #{itemIdx + 1}
@@ -739,7 +756,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                   {extraFields.map((field) => (
                     <div key={field.name}>
                       <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>
-                        {field.label}
+                        {td(field.label)}
                         {field.required ? ' *' : ''}
                       </Typography.Text>
                       <ExtraFieldInput

@@ -15,20 +15,48 @@ import type { ExportFormats, ExportHistory, ExportParams, ExportResult, Session 
 
 const { Option } = Select;
 
-const parseFilterChips = (filters?: string | null, sep = '、'): string[] => {
+const FILTER_KEY_ZH: Record<string, string> = {
+  min_score: '最低评分',
+  agent_role: '角色',
+  task_type: '任务类型',
+  tags: '标签',
+};
+
+const FILTER_KEY_EN: Record<string, string> = {
+  min_score: 'Min Score',
+  agent_role: 'Role',
+  task_type: 'Task',
+  tags: 'Tags',
+};
+
+const parseFilterChips = (
+  filters?: string | null,
+  locale: 'zh' | 'en' = 'zh',
+  td?: (val: string) => string
+): string[] => {
   const parsed = parseJsonSafe<Record<string, unknown>>(filters);
   if (!parsed) return [];
+  const sep = locale === 'zh' ? '、' : ', ';
+  const keyMap = locale === 'zh' ? FILTER_KEY_ZH : FILTER_KEY_EN;
   return Object.entries(parsed)
     .filter(([, value]) => {
       if (value === null || value === undefined || value === '') return false;
       if (Array.isArray(value) && value.length === 0) return false;
       return true;
     })
-    .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(sep) : String(value)}`);
+    .map(([key, value]) => {
+      const label = keyMap[key] ?? key;
+      const rawVal = Array.isArray(value)
+        ? value.map((v) => (td ? td(String(v)) : String(v))).join(sep)
+        : td
+          ? td(String(value))
+          : String(value);
+      return `${label}: ${rawVal}`;
+    });
 };
 
 const Export: React.FC = () => {
-  const { locale, t } = useI18n();
+  const { locale, t, td } = useI18n();
   const [form] = Form.useForm();
   const [exporting, setExporting] = useState(false);
   const [lastResult, setLastResult] = useState<ExportResult | null>(null);
@@ -53,16 +81,16 @@ const Export: React.FC = () => {
     sessions.forEach((session) => {
       if (session.agent_role) values.add(session.agent_role);
     });
-    return Array.from(values).map((value) => ({ value }));
-  }, [sessions]);
+    return Array.from(values).map((value) => ({ value, label: td(value) || value }));
+  }, [sessions, td]);
 
   const taskTypeOptions = useMemo(() => {
     const values = new Set<string>(DEFAULT_TASK_TYPES);
     sessions.forEach((session) => {
       if (session.task_type) values.add(session.task_type);
     });
-    return Array.from(values).map((value) => ({ value }));
-  }, [sessions]);
+    return Array.from(values).map((value) => ({ value, label: td(value) || value }));
+  }, [sessions, td]);
 
   const tagOptions = useMemo(() => {
     const values = new Set<string>();
@@ -163,7 +191,7 @@ const Export: React.FC = () => {
       key: 'filters',
       width: 140,
       render: (filters?: string | null) => {
-        const chips = parseFilterChips(filters, t('、', ', '));
+        const chips = parseFilterChips(filters, locale, td);
         if (chips.length === 0) {
           return (
             <span className="score-empty" style={{ whiteSpace: 'nowrap' }}>

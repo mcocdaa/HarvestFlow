@@ -54,7 +54,7 @@ describe('Sessions Page', () => {
       expect(sessionApi.getSessions).toHaveBeenCalledWith(
         expect.objectContaining({ page: 1, page_size: 20, sort: 'recent' })
       );
-      expect(screen.getByText('coding')).toBeInTheDocument();
+      expect(screen.getByText('代码开发')).toBeInTheDocument();
       expect(screen.getByText('未分类')).toBeInTheDocument();
     });
   });
@@ -67,7 +67,7 @@ describe('Sessions Page', () => {
     render(<Sessions />);
 
     await waitFor(() => {
-      expect(screen.getByText('coding')).toBeInTheDocument();
+      expect(screen.getByText('代码开发')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getAllByRole('button', { name: /查看/ })[0]);
@@ -86,7 +86,7 @@ describe('Sessions Page', () => {
       render(<Sessions />);
 
       await waitFor(() => {
-        expect(screen.getByText('coding')).toBeInTheDocument();
+        expect(screen.getByText('代码开发')).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getAllByRole('button', { name: /删除/ })[0]);
@@ -108,7 +108,7 @@ describe('Sessions Page', () => {
     render(<Sessions />);
 
     await waitFor(() => {
-      expect(screen.getByText('coding')).toBeInTheDocument();
+      expect(screen.getByText('代码开发')).toBeInTheDocument();
     });
 
     // 只有 raw 状态的行才有「评分」按钮

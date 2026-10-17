@@ -81,7 +81,7 @@ const BatchReviewPanel: React.FC = () => {
       dataIndex: 'agent_role',
       key: 'agent_role',
       width: 140,
-      render: (role?: string | null) => (role ? <Tag bordered={false}>{role}</Tag> : <span className="score-empty">-</span>),
+      render: (role?: string | null) => (role ? <Tag bordered={false}>{td(role)}</Tag> : <span className="score-empty">-</span>),
     },
     {
       title: t('创建时间', 'Created'),

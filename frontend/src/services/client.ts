@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { message } from 'antd';
-import { getStoredLocale } from '../i18n';
+import { getStoredLocale, translateDynamicText } from '../i18n';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const API_KEY = import.meta.env.VITE_API_KEY || '';
@@ -22,18 +22,24 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const isZh = getStoredLocale() === 'zh';
+    const locale = getStoredLocale();
+    const isZh = locale === 'zh';
     const status = error.response?.status;
     const detail = error.response?.data?.detail;
     let text: string;
     if (Array.isArray(detail)) {
       // Pydantic validation errors return a list of objects
-      text = detail.map((item) => (typeof item === 'string' ? item : item?.msg ?? JSON.stringify(item))).join('; ');
+      text = detail
+        .map((item) => {
+          const raw = typeof item === 'string' ? item : item?.msg ?? JSON.stringify(item);
+          return translateDynamicText(raw, locale);
+        })
+        .join('; ');
     } else if (typeof detail === 'string') {
-      text = detail;
+      text = translateDynamicText(detail, locale);
     } else if (typeof error.response?.data?.message === 'string' && error.response.data.message) {
       // 部分端点失败时返回 {success: false, message}
-      text = error.response.data.message;
+      text = translateDynamicText(error.response.data.message, locale);
     } else if (status === 401) {
       text = isZh ? '认证失败' : 'Authentication failed';
     } else if (status === 404) {

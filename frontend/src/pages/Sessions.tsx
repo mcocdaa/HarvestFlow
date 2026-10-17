@@ -133,7 +133,7 @@ const Sessions: React.FC = () => {
               verticalAlign: 'bottom',
             }}
           >
-            {record.agent_role}
+            {td(record.agent_role)}
           </Tag>
         ) : (
           <span className="score-empty">-</span>

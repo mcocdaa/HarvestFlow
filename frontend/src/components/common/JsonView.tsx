@@ -11,18 +11,19 @@ interface JsonViewProps {
 }
 
 const JsonView: React.FC<JsonViewProps> = ({ value, maxHeight = 320, className }) => {
-  const { t } = useI18n();
+  const { locale, t, td } = useI18n();
   let text: string;
   try {
     text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
   } catch {
     text = String(value);
   }
+  const displayText = locale === 'en' ? td(text) : text;
 
   return (
     <div className={`json-view${className ? ` ${className}` : ''}`}>
       <pre className="json-view-pre flow-mono" style={{ maxHeight }}>
-        {text}
+        {displayText}
       </pre>
       <Button
         className="json-view-copy"
@@ -31,7 +32,7 @@ const JsonView: React.FC<JsonViewProps> = ({ value, maxHeight = 320, className }
         icon={<CopyOutlined />}
         onClick={(e) => {
           e.stopPropagation();
-          copyToClipboard(text, t('已复制 JSON', 'Copied JSON'));
+          copyToClipboard(displayText, t('已复制 JSON', 'Copied JSON'));
         }}
       />
     </div>
