@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { message } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import 'dayjs/locale/en';
@@ -311,9 +312,14 @@ export const DYNAMIC_EN_EXACT: Record<string, string> = {
   '检查最终精简效果：': 'Checking final compaction results:',
   '现在让我更新MEMORY.md和TOOLS.md，记录本周技能搜索结果：':
     'Now let me update MEMORY.md and TOOLS.md to record this week’s skill search results:',
+  // Export formats & DPO markers
+  openai_messages: 'OpenAI Messages',
+  openai: 'OpenAI Messages',
+  sharegpt: 'ShareGPT',
+  alpaca: 'Alpaca',
+  dpo: 'DPO',
+  '[DPO 人工修正]': '[DPO Human Fix]',
 };
-
-const DYNAMIC_EN_MAP = DYNAMIC_EN_EXACT;
 
 export const DYNAMIC_ZH_EXACT: Record<string, string> = {
   // Plugin names & authors
@@ -409,6 +415,13 @@ export const DYNAMIC_ZH_EXACT: Record<string, string> = {
   'plugin-ok': '插件校验通过',
   'demo-reject': '演示测试驳回',
   Test: '测试审核通过',
+  // Export formats & DPO markers
+  openai_messages: 'OpenAI 消息',
+  openai: 'OpenAI 消息',
+  sharegpt: 'ShareGPT',
+  alpaca: 'Alpaca',
+  dpo: 'DPO',
+  '[DPO Human Fix]': '[DPO 人工修正]',
   // Backend FastAPI error messages
   'No sessions found with the given filters': '未找到符合筛选条件的会话',
   'Session not found': '会话不存在',
@@ -425,9 +438,163 @@ export const DYNAMIC_ZH_EXACT: Record<string, string> = {
   'Cannot disable the last active reviewer': '不能停用最后一个启用中的审核器',
 };
 
-const DYNAMIC_ZH_MAP = DYNAMIC_ZH_EXACT;
+const CJK_CHAR_RE = /[\u3400-\u9fff\uf900-\ufaff]/;
+
+const DYNAMIC_EN_MAP: Record<string, string> = { ...DYNAMIC_EN_EXACT };
+const DYNAMIC_ZH_MAP: Record<string, string> = { ...DYNAMIC_ZH_EXACT };
+
+for (const [k, v] of Object.entries(DYNAMIC_EN_EXACT)) {
+  if (CJK_CHAR_RE.test(k) && !DYNAMIC_ZH_MAP[v]) {
+    DYNAMIC_ZH_MAP[v] = k;
+  }
+  if (k.includes('\n') && v.includes('\n')) {
+    const kLines = k.split('\n');
+    const vLines = v.split('\n');
+    if (kLines.length === vLines.length) {
+      for (let idx = 0; idx < kLines.length; idx++) {
+        const kl = kLines[idx];
+        const vl = vLines[idx];
+        if (kl && vl) {
+          if (!DYNAMIC_EN_MAP[kl]) DYNAMIC_EN_MAP[kl] = vl;
+          if (CJK_CHAR_RE.test(kl) && !DYNAMIC_ZH_MAP[vl]) DYNAMIC_ZH_MAP[vl] = kl;
+        }
+      }
+    }
+  }
+}
+
+export const ROLE_CANONICAL_SLUGS = [
+  'devops_agent',
+  'sre_agent',
+  'code_refactor_agent',
+  'security_agent',
+  'db_architect',
+  'dba_agent',
+  'arch_agent',
+  'qa_agent',
+  'data_eng',
+  'backend_dev',
+  'frontend_dev',
+  'req_analyst',
+  'tester',
+  'qa_ops',
+  'security_auditor',
+  'assistant',
+  'unknown',
+  'openclaw-tui',
+  'codex',
+  'coding_assistant',
+];
+
+export const TASK_CANONICAL_SLUGS = [
+  'k8s_deployment_fix',
+  'memory_leak_fix',
+  'sqlite_optimization',
+  'security_audit',
+  'conversation',
+  'coding',
+  'debugging',
+  'testing',
+  'refactoring',
+  'feature_dev',
+  'bug_fix',
+  'bugfix',
+  'feature',
+  'performance_tuning',
+  'arch_design',
+  'code_generation',
+];
+
+export const TAG_CANONICAL_SLUGS = [
+  'security',
+  'sqli',
+  'sql',
+  'python',
+  'asyncio',
+  'fastapi',
+  'memory-leak',
+  'k8s',
+  'production',
+  'oom',
+  'troubleshooting',
+  'sqlite',
+  'wal',
+  'concurrency',
+  'database',
+  'bug-fix',
+  'review',
+  'deployment',
+  'config',
+  'optimization',
+  'refactor',
+  'documentation',
+  'smoke-test',
+];
+
+export const toCanonicalSlug = (
+  val: string | undefined | null,
+  domain?: 'role' | 'task' | 'tag',
+  fallbackCanonical?: string | null
+): string => {
+  if (!val) return '';
+  const trimmed = val.trim();
+  if (!trimmed) return '';
+
+  if (fallbackCanonical) {
+    const fb = fallbackCanonical.trim();
+    if (
+      trimmed === fb ||
+      trimmed === DYNAMIC_ZH_EXACT[fb] ||
+      trimmed === DYNAMIC_EN_EXACT[fb] ||
+      trimmed === translateDynamicText(fb, 'zh') ||
+      trimmed === translateDynamicText(fb, 'en')
+    ) {
+      return fb;
+    }
+  }
+
+  const candidates =
+    domain === 'role'
+      ? ROLE_CANONICAL_SLUGS
+      : domain === 'task'
+        ? TASK_CANONICAL_SLUGS
+        : domain === 'tag'
+          ? TAG_CANONICAL_SLUGS
+          : [...ROLE_CANONICAL_SLUGS, ...TASK_CANONICAL_SLUGS, ...TAG_CANONICAL_SLUGS];
+
+  for (const slug of candidates) {
+    if (
+      trimmed === slug ||
+      trimmed === DYNAMIC_ZH_EXACT[slug] ||
+      trimmed === DYNAMIC_EN_EXACT[slug]
+    ) {
+      return slug;
+    }
+  }
+
+  for (const [slug, zhLabel] of Object.entries(DYNAMIC_ZH_EXACT)) {
+    if (trimmed === zhLabel && !CJK_CHAR_RE.test(slug)) {
+      return slug;
+    }
+  }
+  for (const [slug, enLabel] of Object.entries(DYNAMIC_EN_EXACT)) {
+    if (trimmed === enLabel && !CJK_CHAR_RE.test(slug)) {
+      return slug;
+    }
+  }
+
+  return trimmed;
+};
 
 const ZH_PHRASE_REPLACEMENTS: Array<[string, string]> = [
+  ['[DPO 人工修正]', '[DPO Human Fix]'],
+  ['DPO 人工修正', 'DPO Human Fix'],
+  ['人工修正', 'Human Fix'],
+  ['增加 PodDisruptionBudget', 'Add PodDisruptionBudget'],
+  ['最小可用副本约束', 'minAvailable replica constraint'],
+  ['配置', 'configuration'],
+  ['补充', 'Add '],
+  ['告警规则', 'alert rule'],
   ['所有虾做自我介绍', 'All agents, please introduce yourselves'],
   ['大家好，我是**需求虾**', 'Hello everyone, I am the **Requirements Analyst Agent**'],
   ['产品需求分析师', 'Product & Requirements Analyst'],
@@ -509,8 +676,6 @@ const ZH_PHRASE_REPLACEMENTS: Array<[string, string]> = [
   ['完成', 'Completed'],
 ];
 
-const CJK_CHAR_RE = /[\u3400-\u9fff\uf900-\ufaff]/;
-
 const sanitizeChineseForEnglish = (input: string): string => {
   let out = input;
   for (const [zh, en] of ZH_PHRASE_REPLACEMENTS) {
@@ -577,6 +742,17 @@ export const translateDynamicText = (text: string | undefined | null, locale: Lo
     if (DYNAMIC_EN_MAP[trimmed]) {
       return DYNAMIC_EN_MAP[trimmed];
     }
+    if (text.includes('\n')) {
+      return text
+        .split('\n')
+        .map((line) => (line ? translateDynamicText(line, locale) : ''))
+        .join('\n');
+    }
+    if (/^\[DPO\s*人工修正\]/i.test(trimmed)) {
+      const rest = trimmed.replace(/^\[DPO\s*人工修正\]\s*[：:]?\s*/i, '');
+      const translatedRest = rest ? translateDynamicText(rest, 'en') : '';
+      return translatedRest ? `[DPO Human Fix]: ${translatedRest}` : '[DPO Human Fix]';
+    }
     if (/^[a-z0-9]+(_[a-z0-9]+)+$/.test(trimmed)) {
       return formatSnakeCaseToTitle(trimmed);
     }
@@ -591,6 +767,17 @@ export const translateDynamicText = (text: string | undefined | null, locale: Lo
     }
     if (DYNAMIC_ZH_MAP[trimmed]) {
       return DYNAMIC_ZH_MAP[trimmed];
+    }
+    if (text.includes('\n')) {
+      return text
+        .split('\n')
+        .map((line) => (line ? translateDynamicText(line, locale) : ''))
+        .join('\n');
+    }
+    if (/^\[DPO\s*Human\s*Fix\]/i.test(trimmed)) {
+      const rest = trimmed.replace(/^\[DPO\s*Human\s*Fix\]\s*[：:]?\s*/i, '');
+      const translatedRest = rest ? translateDynamicText(rest, 'zh') : '';
+      return translatedRest ? `[DPO 人工修正]: ${translatedRest}` : '[DPO 人工修正]';
     }
     if (/^score\s+(\d+(?:\.\d+)?)\s*(>=|<=|>|<|==)\s*threshold\s+(\d+(?:\.\d+)?)$/i.test(trimmed)) {
       return trimmed.replace(
@@ -644,6 +831,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode; initialLoca
   const [locale, setLocaleState] = useState<Locale>(() => initialLocale ?? getStoredLocale());
 
   const applyLocale = useCallback((next: Locale) => {
+    try {
+      message.destroy();
+    } catch {
+      // ignore message destroy errors
+    }
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(STORAGE_KEY, next);
@@ -725,6 +917,11 @@ export const useI18n = (): I18nContextValue => {
   }, [ctx]);
 
   const setLocale = useCallback((next: Locale) => {
+    try {
+      message.destroy();
+    } catch {
+      // ignore message destroy errors
+    }
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(STORAGE_KEY, next);

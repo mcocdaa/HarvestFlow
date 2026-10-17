@@ -186,4 +186,61 @@ describe('Review Ergonomics & Three-Column Workspace', () => {
       expect(screen.getByText('修改前后对比 Diff (DPO 偏好对)')).toBeInTheDocument();
     });
   });
+
+  it('should auto-expand collapsed messages (> 4) when entering edit mode and preserve DPO diff across locale switches', async () => {
+    const sixMessagesContent = {
+      messages: [
+        { role: 'user', content: 'Msg 1' },
+        { role: 'assistant', content: 'Msg 2' },
+        { role: 'user', content: 'Msg 3' },
+        { role: 'assistant', content: 'Msg 4' },
+        { role: 'user', content: 'Msg 5' },
+        {
+          role: 'assistant',
+          content: '已将内存上限提升至 1Gi 并配置了 cgroup v2 memory.high 软限制告警阈值，观察 5 分钟后 3 个 Sentinel Pod 均处于 Healthy 状态。',
+        },
+      ],
+    };
+    vi.mocked(sessionApi.getSessionContent).mockResolvedValue(mockResponse({ content: sixMessagesContent }));
+
+    render(<Review />);
+
+    await waitFor(() => {
+      expect(screen.getByText('展开剩余 2 条')).toBeInTheDocument();
+    });
+
+    // Clicking Edit Reply button should automatically expand all 6 messages and show editor
+    fireEvent.click(screen.getByRole('button', { name: /编辑 AI 回复 \(E\)/ }));
+
+    await waitFor(() => {
+      expect(screen.getByText('收起对话')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('在此编辑修正 AI 的回复...')).toBeInTheDocument();
+    });
+
+    const textarea = screen.getByPlaceholderText('在此编辑修正 AI 的回复...');
+    fireEvent.change(textarea, {
+      target: {
+        value:
+          '已将内存上限提升至 1Gi 并配置了 cgroup v2 memory.high 软限制告警阈值，观察 5 分钟后 3 个 Sentinel Pod 均处于 Healthy 状态。\n[DPO 人工修正]: 增加 PodDisruptionBudget minAvailable: 1 配置',
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /保存修改并生成 Diff/ }));
+
+    await waitFor(() => {
+      expect(screen.getByText('修改前后对比 Diff (DPO 偏好对)')).toBeInTheDocument();
+      expect(screen.getByText('+1 新增')).toBeInTheDocument();
+    });
+
+    // Dispatch locale switch to 'en' and verify DPO diff is preserved and translated
+    window.dispatchEvent(new CustomEvent('harvestflow:locale-change', { detail: 'en' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('DPO Preference Diff')).toBeInTheDocument();
+      expect(screen.getByText('+1 Added')).toBeInTheDocument();
+      expect(screen.getByText(/\[DPO Human Fix\]:/)).toBeInTheDocument();
+    });
+
+    // Restore 'zh'
+    window.dispatchEvent(new CustomEvent('harvestflow:locale-change', { detail: 'zh' }));
+  });
 });

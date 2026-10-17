@@ -165,12 +165,15 @@ const Export: React.FC = () => {
       title: t('格式', 'Format'),
       dataIndex: 'export_format',
       key: 'export_format',
-      width: 135,
-      render: (format: string) => (
-        <Tag color="blue" bordered={false}>
-          {getExportFormatLabel(format, locale)}
-        </Tag>
-      ),
+      width: 150,
+      render: (format: string) => {
+        const label = getExportFormatLabel(format, locale);
+        return (
+          <Tag color="blue" bordered={false}>
+            {label !== format ? label : td(format) || format}
+          </Tag>
+        );
+      },
     },
     {
       title: t('版本', 'Version'),
@@ -189,7 +192,7 @@ const Export: React.FC = () => {
       title: t('筛选条件', 'Filters'),
       dataIndex: 'filters',
       key: 'filters',
-      width: 140,
+      width: 240,
       render: (filters?: string | null) => {
         const chips = parseFilterChips(filters, locale, td);
         if (chips.length === 0) {
@@ -200,13 +203,22 @@ const Export: React.FC = () => {
           );
         }
         return (
-          <Space size={4} wrap>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {chips.map((chip) => (
-              <Tag key={chip} bordered={false}>
+              <Tag
+                key={chip}
+                bordered={false}
+                style={{
+                  marginInlineEnd: 0,
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  lineHeight: 1.5,
+                }}
+              >
                 {chip}
               </Tag>
             ))}
-          </Space>
+          </div>
         );
       },
     },
@@ -345,7 +357,7 @@ const Export: React.FC = () => {
               showIcon
               closable
               onClose={() => setLastResult(null)}
-              style={{ marginBottom: 16 }}
+              style={{ marginBottom: 16, wordBreak: 'break-all', overflowWrap: 'anywhere' }}
               message={t(
                 `导出成功：${lastResult.record_count} 条会话 → ${lastResult.filename}`,
                 `Exported ${lastResult.record_count} sessions → ${lastResult.filename}`
@@ -354,8 +366,13 @@ const Export: React.FC = () => {
                 <CopyText
                   text={lastResult.file_path}
                   mono
+                  className="copy-text-wrap"
                   tooltip={t('点击复制服务器文件路径', 'Copy server file path')}
-                  display={<span style={{ fontSize: 12 }}>{lastResult.file_path}</span>}
+                  display={
+                    <span style={{ fontSize: 12, wordBreak: 'break-all', overflowWrap: 'anywhere' }}>
+                      {lastResult.file_path}
+                    </span>
+                  }
                 />
               }
             />

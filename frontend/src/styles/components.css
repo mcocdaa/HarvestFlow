@@ -120,6 +120,13 @@
   max-width: 100%;
 }
 
+.copy-text-wrap {
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  flex-wrap: wrap;
+}
+
 .copy-text:hover {
   color: var(--flow-color-primary);
 }
@@ -145,7 +152,7 @@
 
 .json-view-pre {
   margin: 0;
-  padding: 12px;
+  padding: 12px 28px 12px 12px;
   background: var(--flow-bg-layer);
   border-radius: var(--flow-border-radius-md);
   font-size: 12px;

@@ -22,7 +22,7 @@ const JsonView: React.FC<JsonViewProps> = ({ value, maxHeight = 320, className }
 
   return (
     <div className={`json-view${className ? ` ${className}` : ''}`}>
-      <pre className="json-view-pre flow-mono" style={{ maxHeight }}>
+      <pre className="json-view-pre flow-mono" style={{ maxHeight, paddingRight: 28 }}>
         {displayText}
       </pre>
       <Button

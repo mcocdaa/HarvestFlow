@@ -125,6 +125,8 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
   const [editedAssistantText, setEditedAssistantText] = useState('');
   const [originalAssistantText, setOriginalAssistantText] = useState('');
   const [assistantModified, setAssistantModified] = useState(false);
+  const hasUserEditedRef = useRef(false);
+  const rawEditedSourceRef = useRef<string | null>(null);
 
   const activeItemRef = useRef<HTMLDivElement | null>(null);
 
@@ -137,6 +139,8 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
     setExpanded(false);
     setIsEditingAssistant(false);
     setAssistantModified(false);
+    hasUserEditedRef.current = false;
+    rawEditedSourceRef.current = null;
   }, [data]);
 
   const current = queue[index] ?? null;
@@ -148,7 +152,15 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
     setAssistantModified(false);
     setEditedAssistantText('');
     setOriginalAssistantText('');
+    hasUserEditedRef.current = false;
+    rawEditedSourceRef.current = null;
   }, [currentId]);
+
+  useEffect(() => {
+    if (isEditingAssistant) {
+      setExpanded(true);
+    }
+  }, [isEditingAssistant]);
 
   useEffect(() => {
     onCurrentChange?.(currentId);
@@ -161,17 +173,23 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
   const content = contentData?.content ?? null;
   const rawMessages = useMemo(() => content?.messages ?? [], [content]);
 
-  // 当加载新会话内容时，初始化提取最后一条 assistant 回复以备编辑与 Diff
+  const preEditedResponse = useMemo(() => {
+    const c = content as { edited_response?: string; review_meta?: { chosen?: string } } | null;
+    const s = current as { edited_response?: string; review_meta?: { chosen?: string } } | null;
+    return c?.edited_response || c?.review_meta?.chosen || s?.edited_response || s?.review_meta?.chosen || null;
+  }, [content, current]);
+
+  // 当加载新会话内容或切换语言时，同步翻译原始回复并保留用户修改 / edited_response
   useEffect(() => {
     if (rawMessages.length > 0) {
       for (let i = rawMessages.length - 1; i >= 0; i--) {
         if (rawMessages[i].role === 'assistant') {
           const rawContent = rawMessages[i].content;
-          let text = '';
+          let origTranslated = '';
           if (typeof rawContent === 'string') {
-            text = td(rawContent);
+            origTranslated = td(rawContent);
           } else if (Array.isArray(rawContent)) {
-            text = rawContent
+            origTranslated = rawContent
               .map((item) =>
                 item && typeof item === 'object' && typeof (item as { text?: unknown }).text === 'string'
                   ? td((item as { text: string }).text)
@@ -180,13 +198,23 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
               .filter(Boolean)
               .join('\n');
           }
-          setOriginalAssistantText(text);
-          setEditedAssistantText(text);
+          setOriginalAssistantText(origTranslated);
+
+          if (hasUserEditedRef.current && rawEditedSourceRef.current !== null) {
+            setEditedAssistantText(td(rawEditedSourceRef.current));
+          } else if (preEditedResponse) {
+            rawEditedSourceRef.current = preEditedResponse;
+            hasUserEditedRef.current = true;
+            setAssistantModified(true);
+            setEditedAssistantText(td(preEditedResponse));
+          } else {
+            setEditedAssistantText(origTranslated);
+          }
           break;
         }
       }
     }
-  }, [rawMessages, td]);
+  }, [rawMessages, preEditedResponse, td]);
 
   // 计算当前渲染的消息（若已被就地修改，替换最后一条 assistant 回复）
   const messages = useMemo(() => {
@@ -287,6 +315,8 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
   // 保存 Assistant 消息编辑
   const handleSaveAssistantEdit = useCallback(() => {
     if (editedAssistantText !== originalAssistantText) {
+      hasUserEditedRef.current = true;
+      rawEditedSourceRef.current = editedAssistantText;
       setAssistantModified(true);
       message.success(
         t('已应用修改（已建立 DPO 对抗偏好数据对）', 'Changes applied (DPO preference pair created)')
@@ -296,9 +326,19 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
   }, [editedAssistantText, originalAssistantText, t]);
 
   const handleCancelAssistantEdit = useCallback(() => {
-    setEditedAssistantText(originalAssistantText);
+    if (preEditedResponse) {
+      hasUserEditedRef.current = true;
+      rawEditedSourceRef.current = preEditedResponse;
+      setEditedAssistantText(td(preEditedResponse));
+    } else if (!assistantModified) {
+      hasUserEditedRef.current = false;
+      rawEditedSourceRef.current = null;
+      setEditedAssistantText(originalAssistantText);
+    } else if (rawEditedSourceRef.current) {
+      setEditedAssistantText(td(rawEditedSourceRef.current));
+    }
     setIsEditingAssistant(false);
-  }, [originalAssistantText]);
+  }, [assistantModified, originalAssistantText, preEditedResponse, td]);
 
   // 全局键盘快捷键 Ergonomics
   // 1. A 或 Cmd+Enter: 通过并下一条
@@ -378,7 +418,11 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
       // 7. E: 一键进入 Assistant 回复编辑模式
       else if (e.key === 'e' || e.key === 'E') {
         e.preventDefault();
-        setIsEditingAssistant((prev) => !prev);
+        setIsEditingAssistant((prev) => {
+          const next = !prev;
+          if (next) setExpanded(true);
+          return next;
+        });
       }
       // 8. Esc: 退出编辑模式
       else if (e.key === 'Escape' && isEditingAssistant) {
@@ -450,7 +494,12 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                   <Input.TextArea
                     rows={4}
                     value={editedAssistantText}
-                    onChange={(e) => setEditedAssistantText(e.target.value)}
+                    onChange={(e) => {
+                      const nextVal = e.target.value;
+                      hasUserEditedRef.current = nextVal !== originalAssistantText;
+                      rawEditedSourceRef.current = nextVal;
+                      setEditedAssistantText(nextVal);
+                    }}
                     placeholder={t('在此编辑修正 AI 的回复...', 'Edit and refine the Assistant reply here...')}
                   />
                   {/* 实时修改 Diff 对比 */}
@@ -672,7 +721,13 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                   size="small"
                   type={isEditingAssistant ? 'primary' : 'default'}
                   icon={<EditOutlined />}
-                  onClick={() => setIsEditingAssistant((prev) => !prev)}
+                  onClick={() =>
+                    setIsEditingAssistant((prev) => {
+                      const next = !prev;
+                      if (next) setExpanded(true);
+                      return next;
+                    })
+                  }
                 >
                   {isEditingAssistant
                     ? t('退出编辑 (Esc)', 'Exit Edit (Esc)')

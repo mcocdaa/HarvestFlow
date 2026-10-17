@@ -11,10 +11,10 @@ import type { Plugin } from '../types';
 
 const Plugins: React.FC = () => {
   const { t, td } = useI18n();
-  const [modal, modalContextHolder] = Modal.useModal();
   const { data, loading, reload } = useAsyncData<{ plugins?: Plugin[] }>(() => pluginApi.getAll());
   const [activeTab, setActiveTab] = useState('all');
   const [togglingKey, setTogglingKey] = useState<string | null>(null);
+  const [confirmingPlugin, setConfirmingPlugin] = useState<Plugin | null>(null);
 
   const plugins = useMemo(() => data?.plugins ?? [], [data]);
 
@@ -54,22 +54,11 @@ const Plugins: React.FC = () => {
   };
 
   const handleToggle = (plugin: Plugin, checked: boolean) => {
-    const displayName = getPluginDisplayName(plugin, td);
     if (checked) {
       doToggle(plugin, true);
       return;
     }
-    modal.confirm({
-      title: t(`停用插件 ${displayName}？`, `Disable plugin ${displayName}?`),
-      content: t(
-        '停用后将卸载插件模块及其钩子，相关采集/清洗能力会立即失效。',
-        'Disabling unloads the plugin module and its hooks; related collection/curation features will stop immediately.'
-      ),
-      okText: t('停用', 'Disable'),
-      cancelText: t('取消', 'Cancel'),
-      okButtonProps: { danger: true },
-      onOk: () => doToggle(plugin, false),
-    });
+    setConfirmingPlugin(plugin);
   };
 
   const renderGrid = (list: Plugin[]) => {
@@ -91,9 +80,30 @@ const Plugins: React.FC = () => {
     );
   };
 
+  const confirmingDisplayName = confirmingPlugin ? getPluginDisplayName(confirmingPlugin, td) : '';
+
   return (
     <div>
-      {modalContextHolder}
+      <Modal
+        open={Boolean(confirmingPlugin)}
+        title={t(`停用插件 ${confirmingDisplayName}？`, `Disable plugin ${confirmingDisplayName}?`)}
+        onOk={async () => {
+          if (!confirmingPlugin) return;
+          const target = confirmingPlugin;
+          setConfirmingPlugin(null);
+          await doToggle(target, false);
+        }}
+        onCancel={() => setConfirmingPlugin(null)}
+        okText={t('停用', 'Disable')}
+        cancelText={t('取消', 'Cancel')}
+        okButtonProps={{ danger: true }}
+        destroyOnHidden
+      >
+        {t(
+          '停用后将卸载插件模块及其钩子，相关采集/清洗能力会立即失效。',
+          'Disabling unloads the plugin module and its hooks; related collection/curation features will stop immediately.'
+        )}
+      </Modal>
       <PageHeader
         title={t('插件', 'Plugins')}
         description={t(

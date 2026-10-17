@@ -108,7 +108,8 @@ export const PLUGIN_TYPE_ORDER = ['collectors', 'curators', 'reviewers', 'servic
 export const EXPORT_FORMAT_LABELS: Record<string, string> = {
   sharegpt: 'ShareGPT',
   alpaca: 'Alpaca',
-  openai: 'OpenAI Messages',
+  openai: 'OpenAI 消息',
+  openai_messages: 'OpenAI 消息',
   dpo: 'DPO 对抗偏好对',
 };
 
@@ -116,6 +117,7 @@ export const EXPORT_FORMAT_LABELS_EN: Record<string, string> = {
   sharegpt: 'ShareGPT',
   alpaca: 'Alpaca',
   openai: 'OpenAI Messages',
+  openai_messages: 'OpenAI Messages',
   dpo: 'DPO Preference Pairs',
 };
 

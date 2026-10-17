@@ -121,4 +121,47 @@ describe('Sessions Page', () => {
       expect(curatorApi.evaluate).toHaveBeenCalledWith('s2');
     });
   });
+
+  it('should update SessionEditModal labels on mid-modal locale switch and save canonical slugs', async () => {
+    vi.mocked(sessionApi.updateSession).mockResolvedValue(mockResponse({ success: true }));
+
+    render(<Sessions />);
+
+    await waitFor(() => {
+      expect(screen.getByText('代码开发')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: /编辑/ })[0]);
+
+    const roleInput = (await screen.findByPlaceholderText('如 后端开发')) as HTMLInputElement;
+    expect(roleInput.value).toBe('后端研发');
+
+    // Switch locale to 'en' while modal is open
+    window.dispatchEvent(new CustomEvent('harvestflow:locale-change', { detail: 'en' }));
+
+    await waitFor(() => {
+      expect((screen.getByPlaceholderText('e.g. Backend Engineer') as HTMLInputElement).value).toBe(
+        'Backend Developer'
+      );
+      expect((screen.getByPlaceholderText('e.g. Coding & Refactoring') as HTMLInputElement).value).toBe(
+        'Code Engineering'
+      );
+    });
+
+    // Save in 'en' mode and verify canonical slugs ('backend_dev', 'coding') are sent
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(sessionApi.updateSession).toHaveBeenCalledWith(
+        's1',
+        expect.objectContaining({
+          agent_role: 'backend_dev',
+          task_type: 'coding',
+          tags: ['math'],
+        })
+      );
+    });
+
+    window.dispatchEvent(new CustomEvent('harvestflow:locale-change', { detail: 'zh' }));
+  });
 });

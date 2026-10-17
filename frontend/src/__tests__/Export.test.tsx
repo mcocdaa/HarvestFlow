@@ -188,4 +188,36 @@ describe('Export Page', () => {
       ]);
     });
   });
+
+  it('should localize openai_messages format in Export History across zh and en', async () => {
+    vi.mocked(exporterApi.getHistory).mockResolvedValue(
+      mockResponse({
+        exports: [
+          {
+            id: 9,
+            export_format: 'openai_messages',
+            version: 'v1',
+            record_count: 2,
+            file_path: '/data/export/openai_messages_v1_xyz.jsonl',
+            filters: null,
+            created_at: '2026-01-03T00:00:00Z',
+          },
+        ],
+      })
+    );
+
+    render(<Export />);
+
+    await waitFor(() => {
+      expect(screen.getByText('OpenAI 消息')).toBeInTheDocument();
+    });
+
+    window.dispatchEvent(new CustomEvent('harvestflow:locale-change', { detail: 'en' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('OpenAI Messages')).toBeInTheDocument();
+    });
+
+    window.dispatchEvent(new CustomEvent('harvestflow:locale-change', { detail: 'zh' }));
+  });
 });
