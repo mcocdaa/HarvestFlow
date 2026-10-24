@@ -5,6 +5,7 @@ import {
   Checkbox,
   Collapse,
   Divider,
+  Empty,
   Flex,
   Input,
   InputNumber,
@@ -236,14 +237,16 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
   // 待审队列检索过滤
   const filteredQueue = useMemo(() => {
     if (!queueSearch.trim()) return queue;
-    const kw = queueSearch.toLowerCase();
+    const q = queueSearch.trim().toLowerCase();
     return queue.filter(
       (item) =>
-        item.session_id.toLowerCase().includes(kw) ||
-        (item.agent_role && item.agent_role.toLowerCase().includes(kw)) ||
-        (item.task_type && item.task_type.toLowerCase().includes(kw))
+        item.session_id.toLowerCase().includes(q) ||
+        (item.agent_role && item.agent_role.toLowerCase().includes(q)) ||
+        td(item.agent_role || 'assistant').toLowerCase().includes(q) ||
+        (item.task_type && item.task_type.toLowerCase().includes(q)) ||
+        td(item.task_type).toLowerCase().includes(q)
     );
-  }, [queue, queueSearch]);
+  }, [queue, queueSearch, td]);
 
   // 提交审核动作
   const handleReview = useCallback(async (approve: boolean) => {
@@ -593,60 +596,64 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
           />
 
           <div className="queue-list-scroll">
-            {filteredQueue.map((item) => {
-              const itemIdx = queue.findIndex((q) => q.session_id === item.session_id);
-              const isActive = itemIdx === index;
+            {filteredQueue.length === 0 ? (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('common.noData')} />
+            ) : (
+              filteredQueue.map((item) => {
+                const itemIdx = queue.findIndex((q) => q.session_id === item.session_id);
+                const isActive = itemIdx === index;
 
-              return (
-                <div
-                  key={item.session_id}
-                  ref={isActive ? activeItemRef : null}
-                  className={`queue-item ${isActive ? 'active' : ''}`}
-                  onClick={() => setIndex(itemIdx)}
-                >
-                  {isActive && <span className="queue-item-cursor">▶</span>}
-                  <Flex justify="space-between" align="center" gap={6} style={{ marginLeft: isActive ? 8 : 0 }}>
-                    <Typography.Text
-                      strong={isActive}
-                      title={item.session_id}
-                      style={{
-                        fontFamily: 'ui-monospace, monospace',
-                        fontSize: 11,
-                        color: isActive ? '#2563eb' : '#1e293b',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        minWidth: 0,
-                        flex: 1,
-                      }}
-                    >
-                      {truncateSessionId(item.session_id)}
-                    </Typography.Text>
-                    {item.quality_auto_score !== null && item.quality_auto_score !== undefined && (
-                      <ScoreTag score={item.quality_auto_score} />
-                    )}
-                  </Flex>
-                  <Flex justify="space-between" align="center" gap={6} style={{ marginTop: 4, marginLeft: isActive ? 8 : 0 }}>
-                    <Typography.Text
-                      type="secondary"
-                      style={{
-                        fontSize: 11,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        minWidth: 0,
-                        flex: 1,
-                      }}
-                    >
-                      {td(item.agent_role || 'assistant')}
-                    </Typography.Text>
-                    <Typography.Text type="secondary" style={{ fontSize: 10, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                      #{itemIdx + 1}
-                    </Typography.Text>
-                  </Flex>
-                </div>
-              );
-            })}
+                return (
+                  <div
+                    key={item.session_id}
+                    ref={isActive ? activeItemRef : null}
+                    className={`queue-item ${isActive ? 'active' : ''}`}
+                    onClick={() => setIndex(itemIdx)}
+                  >
+                    {isActive && <span className="queue-item-cursor">▶</span>}
+                    <Flex justify="space-between" align="center" gap={6} style={{ marginLeft: isActive ? 8 : 0 }}>
+                      <Typography.Text
+                        strong={isActive}
+                        title={item.session_id}
+                        style={{
+                          fontFamily: 'ui-monospace, monospace',
+                          fontSize: 11,
+                          color: isActive ? '#2563eb' : '#1e293b',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          minWidth: 0,
+                          flex: 1,
+                        }}
+                      >
+                        {truncateSessionId(item.session_id)}
+                      </Typography.Text>
+                      {item.quality_auto_score !== null && item.quality_auto_score !== undefined && (
+                        <ScoreTag score={item.quality_auto_score} />
+                      )}
+                    </Flex>
+                    <Flex justify="space-between" align="center" gap={6} style={{ marginTop: 4, marginLeft: isActive ? 8 : 0 }}>
+                      <Typography.Text
+                        type="secondary"
+                        style={{
+                          fontSize: 11,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          minWidth: 0,
+                          flex: 1,
+                        }}
+                      >
+                        {td(item.agent_role || 'assistant')}
+                      </Typography.Text>
+                      <Typography.Text type="secondary" style={{ fontSize: 10, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        #{itemIdx + 1}
+                      </Typography.Text>
+                    </Flex>
+                  </div>
+                );
+              })
+            )}
           </div>
         </Card>
       </div>

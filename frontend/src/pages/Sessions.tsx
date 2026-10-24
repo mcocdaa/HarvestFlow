@@ -250,6 +250,7 @@ const Sessions: React.FC = () => {
         rowKey="session_id"
         columns={columns}
         tableLayout="fixed"
+        scroll={{ x: 'max-content' }}
         search={false}
         params={{ status: status === 'all' ? undefined : status, sort }}
         request={async (params) => {
