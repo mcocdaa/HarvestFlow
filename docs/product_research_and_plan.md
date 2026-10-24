@@ -252,22 +252,22 @@ stateDiagram-v2
 
 ### 5.1 后端核心架构（backend/core 与 backend/managers）
 - **基础设施层 (`backend/core`)**：
-  - [`database_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/database_manager.py)：统一 SQL 操作入口。启用 SQLite WAL 日志模式；采用 `_ensure()` 统一连接断言与 `_write()` 统一写锁机制（`threading.Lock`）；实现 `session_review_apply()` 原子事务（更新状态 + 写入审计日志）；使用 `PRAGMA table_info` 保证无损 schema 平滑迁移。
-  - [`hook_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/hook_manager.py)：实现了基于 Priority 的同步/异步双分发切面系统。支持 `@wrap_hooks(before=..., after=...)`；before 钩子非 None 时短路原逻辑，after 钩子链式递进修改结果。
-  - [`plugin_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/plugin_manager.py)：实现基于 `plugins.yaml` 的动态注册表，支持热插拔启停；禁用插件仍能读取并保留清单元数据（Manifest）；保证运行期配置文件安全写回。
-  - [`setting_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/setting_manager.py)：统一管理环境变量与 CLI 参数，建立收敛的 `DEFAULTS` 字典，杜绝魔法值散落。
-  - [`secrets_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/secrets_manager.py)：可扩展密钥管理抽象，预留并接入了 Infisical 等外部密钥系统。
-  - [`constants.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/constants.py)：以 `StrEnum` 严格定义 `SessionStatus`（`raw`, `curated`, `approved`, `rejected`）与 `ExportFormat`（`sharegpt`, `alpaca`）。
+  - [`database_manager.py`](../backend/core/database_manager.py)：统一 SQL 操作入口。启用 SQLite WAL 日志模式；采用 `_ensure()` 统一连接断言与 `_write()` 统一写锁机制（`threading.Lock`）；实现 `session_review_apply()` 原子事务（更新状态 + 写入审计日志）；使用 `PRAGMA table_info` 保证无损 schema 平滑迁移。
+  - [`hook_manager.py`](../backend/core/hook_manager.py)：实现了基于 Priority 的同步/异步双分发切面系统。支持 `@wrap_hooks(before=..., after=...)`；before 钩子非 None 时短路原逻辑，after 钩子链式递进修改结果。
+  - [`plugin_manager.py`](../backend/core/plugin_manager.py)：实现基于 `plugins.yaml` 的动态注册表，支持热插拔启停；禁用插件仍能读取并保留清单元数据（Manifest）；保证运行期配置文件安全写回。
+  - [`setting_manager.py`](../backend/core/setting_manager.py)：统一管理环境变量与 CLI 参数，建立收敛的 `DEFAULTS` 字典，杜绝魔法值散落。
+  - [`secrets_manager.py`](../backend/core/secrets_manager.py)：可扩展密钥管理抽象，预留并接入了 Infisical 等外部密钥系统。
+  - [`constants.py`](../backend/core/constants.py)：以 `StrEnum` 严格定义 `SessionStatus`（`raw`, `curated`, `approved`, `rejected`）与 `ExportFormat`（`sharegpt`, `alpaca`）。
 - **业务逻辑层 (`backend/managers`)**：
   - 继承自统一基类 `BaseManager`，生命周期包含 `register_arguments()` 与 `init()`。
-  - [`session_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/managers/session_manager.py)：实现了严格的有限状态机校验字典 `VALID_STATUS_TRANSITIONS`；作为唯一审批入口 `apply_review()` 杜绝绕过校验；提供数据库记录与磁盘源文件的联动物理删除。
-  - [`collector_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/managers/collector_manager.py)：支持单文件解析与文件夹全量扫描；实现基于 `watch_folders.json` 的监听目录持久化；具备后台守护线程（轮询采集）机制。
-  - [`curator_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/managers/curator_manager.py)：构建了清晰的执行模板（`_validate_for_evaluation` → `_score` → 回写落库 → 自动放行判断）；开放 `curator_manager_score_before` 窄钩子，使插件只需实现纯评分算法。
-  - [`reviewer_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/managers/reviewer_manager.py)：提供逐条待审、批量审批、多条件审计日志聚合，并通过钩子聚合 Reviewer 插件的扩展字段 Schema。
-  - [`exporter_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/managers/exporter_manager.py)：负责将已批准（`approved`）数据转换为 ShareGPT 或 Alpaca 标准 JSONL；记录包含精细过滤条件的导出历史；提供带路径穿越防护的单文件流式下载与内存 Zip 打包。
+  - [`session_manager.py`](../backend/managers/session_manager.py)：实现了严格的有限状态机校验字典 `VALID_STATUS_TRANSITIONS`；作为唯一审批入口 `apply_review()` 杜绝绕过校验；提供数据库记录与磁盘源文件的联动物理删除。
+  - [`collector_manager.py`](../backend/managers/collector_manager.py)：支持单文件解析与文件夹全量扫描；实现基于 `watch_folders.json` 的监听目录持久化；具备后台守护线程（轮询采集）机制。
+  - [`curator_manager.py`](../backend/managers/curator_manager.py)：构建了清晰的执行模板（`_validate_for_evaluation` → `_score` → 回写落库 → 自动放行判断）；开放 `curator_manager_score_before` 窄钩子，使插件只需实现纯评分算法。
+  - [`reviewer_manager.py`](../backend/managers/reviewer_manager.py)：提供逐条待审、批量审批、多条件审计日志聚合，并通过钩子聚合 Reviewer 插件的扩展字段 Schema。
+  - [`exporter_manager.py`](../backend/managers/exporter_manager.py)：负责将已批准（`approved`）数据转换为 ShareGPT 或 Alpaca 标准 JSONL；记录包含精细过滤条件的导出历史；提供带路径穿越防护的单文件流式下载与内存 Zip 打包。
 
 ### 5.2 API 路由层（backend/api/v1）
-- 由 [`router_loader.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/api/v1/router_loader.py) 动态遍历挂载，遵循 RESTful 风格与一致的响应格式（[`common.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/api/v1/common.py) 的 `ok()`, `not_found()`, `bad_request()`）。
+- 由 [`router_loader.py`](../backend/core/router_loader.py) 动态遍历挂载，遵循 RESTful 风格与一致的响应格式（[`common.py`](../backend/api/v1/common.py) 的 `ok()`, `not_found()`, `bad_request()`）。
 - 具备可选的 Bearer API Token 鉴权中间件（保护所有业务端点，开放 `/health`）。
 - 六组核心端点完整对应系统生命周期：`/sessions`、`/stats`、`/collector`、`/curator`、`/reviewer`、`/exporter`、`/plugins`。
 
@@ -516,7 +516,7 @@ stateDiagram-v2
 
 ## 9. 未来分期演进路线图与实施状态（P0 / P1 / P2）
 
-结合已有的 [`future_plan.md`](file:///home/mcocdaa/AI_CODE/HarvestFlow/future_plan.md) 与最新研发交付进展（截至 Commit `5844445`），规划三期演进路线并全面建立交付物对标与核验状态：
+结合已有的 [`future_plan.md`](../future_plan.md) 与最新研发交付进展（截至 Commit `5844445`），规划三期演进路线并全面建立交付物对标与核验状态：
 
 ```mermaid
 gantt
@@ -552,23 +552,23 @@ gantt
 **核心目标**：彻底消灭高负载下的数据库瓶颈，将人工复核效率提升 3 倍，打通 DPO 偏好对齐导出闭环。
 
 - **后端工程加固 (100%)**：
-  - [x] **实施 SQLite 读写分离模型与连接池**：在 [`db.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/db.py) 中落地 [`DatabasePool`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/db.py#L58-L130)（1 个排他写连接 + 4~8 个并发只读连接池），配置 WAL 模式、`busy_timeout=10000`、`cache_size=-64000` 与 `synchronous=NORMAL`。（*验证状态*：✅ 单元测试通过，见 [`test_db_pool_and_keyset.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/tests/core_tests/database_manager/test_db_pool_and_keyset.py)）
+  - [x] **实施 SQLite 读写分离模型与连接池**：在 [`db.py`](../backend/core/db.py) 中落地 [`DatabasePool`](../backend/core/db.py#L58-L130)（1 个排他写连接 + 4~8 个并发只读连接池），配置 WAL 模式、`busy_timeout=10000`、`cache_size=-64000` 与 `synchronous=NORMAL`。（*验证状态*：✅ 单元测试通过，见 [`test_db_pool_and_keyset.py`](../backend/tests/core_tests/database_manager/test_db_pool_and_keyset.py)）
   - [x] **复合覆盖索引加固**：建立 `idx_sessions_status_created_at`、`idx_sessions_created_at_id`、`idx_audit_logs_session_created`、`idx_export_records_created` 索引，彻底消除深分页与常用状态过滤的全表扫描。（*验证状态*：✅ 单元测试通过）
-  - [x] **Keyset 游标寻址分页**：实现 `encode_cursor` / `decode_cursor` URL 安全 Base64 Keyset 游标，[`session_get_all`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/database_manager.py#L214-L260) 支持基于 `(created_at, session_id)` 的 O(1) 游标遍历。（*验证状态*：✅ 单元测试覆盖游标正反向编解码与查询）
-  - [x] **收敛 `hook_manager` 同步/异步分发逻辑**：[`hook_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/hook_manager.py#L100-L130) 在同步环境中使用专用执行流跳过异步钩子并告警，杜绝 `asyncio.run` 嵌套已运行事件循环的致命崩溃。（*验证状态*：✅ 单元测试通过，见 [`test_run_sync.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/tests/core_tests/hook_manager/test_run_sync.py)）
+  - [x] **Keyset 游标寻址分页**：实现 `encode_cursor` / `decode_cursor` URL 安全 Base64 Keyset 游标，[`session_get_all`](../backend/core/database_manager.py#L214-L260) 支持基于 `(created_at, session_id)` 的 O(1) 游标遍历。（*验证状态*：✅ 单元测试覆盖游标正反向编解码与查询）
+  - [x] **收敛 `hook_manager` 同步/异步分发逻辑**：[`hook_manager.py`](../backend/core/hook_manager.py#L100-L130) 在同步环境中使用专用执行流跳过异步钩子并告警，杜绝 `asyncio.run` 嵌套已运行事件循环的致命崩溃。（*验证状态*：✅ 单元测试通过，见 [`test_run_sync.py`](../backend/tests/core_tests/hook_manager/test_run_sync.py)）
   - [ ] *待验证项*：建立 10 万+ 级大规模模拟会话的真机吞吐量压测脚本（Benchmark），评估超大并发写入时的排队时延。
 
 - **前端交互重塑 (100%)**：
-  - [x] **黄金三栏紧凑工作台布局**：在 [`ReviewWorkspace.tsx`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/components/review/ReviewWorkspace.tsx#L445-L530) 与 [`Review.css`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/styles/Review.css#L1-L120) 中重塑 20%（左待审队列带搜索与游标定位）- 55%（中对话流与实时编辑）- 25%（右固钉快捷决策面板）黄金动线。（*验证状态*：✅ 前端组件测试通过，见 [`ReviewWorkspace.test.tsx`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/__tests__/ReviewWorkspace.test.tsx)）
-  - [x] **毫秒级全键盘盲打流**：落地 `A` / `Cmd+Enter`（通过）、`R` / `Cmd+Backspace`（拒绝）、`1`~`5`（快速评分）、`J`/`↓` 与 `K`/`↑`（切换上下条）、`T`（一键折叠/展开工具日志）、`E`（编辑模式）、`Esc`（退出编辑）。表单输入时自动屏蔽单字符快捷键，杜绝打字冲突。（*验证状态*：✅ 测试通过，见 [`ReviewErgonomics.test.tsx`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/__tests__/ReviewErgonomics.test.tsx)）
-  - [x] **智能就地修正与 LCS 差异高亮（DiffViewer）**：在 [`DiffViewer.tsx`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/components/review/DiffViewer.tsx) 实现 LCS 算法文本对比，支持实时查看修改差异；保存后自动将 `original_response`（作为 rejected）与 `editedAssistantText`（作为 chosen）注入 `review_meta`，形成 DPO 对抗样本原料。（*验证状态*：✅ 测试通过，见 [`DiffViewer.test.tsx`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/__tests__/DiffViewer.test.tsx)）
+  - [x] **黄金三栏紧凑工作台布局**：在 [`ReviewWorkspace.tsx`](../frontend/src/components/review/ReviewWorkspace.tsx#L445-L530) 与 [`Review.css`](../frontend/src/styles/Review.css#L1-L120) 中重塑 20%（左待审队列带搜索与游标定位）- 55%（中对话流与实时编辑）- 25%（右固钉快捷决策面板）黄金动线。（*验证状态*：✅ 前端组件测试通过，见 [`ReviewWorkspace.test.tsx`](../frontend/src/__tests__/ReviewWorkspace.test.tsx)）
+  - [x] **毫秒级全键盘盲打流**：落地 `A` / `Cmd+Enter`（通过）、`R` / `Cmd+Backspace`（拒绝）、`1`~`5`（快速评分）、`J`/`↓` 与 `K`/`↑`（切换上下条）、`T`（一键折叠/展开工具日志）、`E`（编辑模式）、`Esc`（退出编辑）。表单输入时自动屏蔽单字符快捷键，杜绝打字冲突。（*验证状态*：✅ 测试通过，见 [`ReviewErgonomics.test.tsx`](../frontend/src/__tests__/ReviewErgonomics.test.tsx)）
+  - [x] **智能就地修正与 LCS 差异高亮（DiffViewer）**：在 [`DiffViewer.tsx`](../frontend/src/components/review/DiffViewer.tsx) 实现 LCS 算法文本对比，支持实时查看修改差异；保存后自动将 `original_response`（作为 rejected）与 `editedAssistantText`（作为 chosen）注入 `review_meta`，形成 DPO 对抗样本原料。（*验证状态*：✅ 测试通过，见 [`DiffViewer.test.tsx`](../frontend/src/__tests__/DiffViewer.test.tsx)）
   - [x] **复杂工具日志视觉折叠**：支持 `T` 键及全局开关控制超长日志展开/收起，突出核心入参与输出结果。（*验证状态*：✅ 测试通过）
   - [ ] *待验证项*：无头浏览器跨平台视觉回归（E2E）持续集成流水线搭建。
 
 - **业务功能增强 (100%)**：
-  - [x] **DPO 对抗偏好数据导出**：在 [`constants.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/constants.py#L19-L26) 引入 `ExportFormat.DPO`，在 [`exporter_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/managers/exporter_manager.py#L272-L338) 实现 `_convert_to_dpo`，产出 HuggingFace / LLaMA-Factory 标准 `instruction/prompt/chosen/rejected/system` 结构。（*验证状态*：✅ 测试通过，见 [`test_dpo_openai_export.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/tests/managers_tests/test_dpo_openai_export.py)）
-  - [x] **OpenAI Messages 格式导出**：在 [`exporter_manager.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/managers/exporter_manager.py#L233-L271) 实现 `_convert_to_openai`，无缝输出兼容 OpenAI Fine-Tuning 及 vLLM 标准的 Chat Completions JSONL。（*验证状态*：✅ 测试通过）
-  - [x] **多格式无缝双向导入**：在 [`parsers.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/core/parsers.py#L69-L208) 实现 `normalize_to_session_record` 与 `parse_multiformat_content`，支持将 OpenAI Messages、ShareGPT、Alpaca 及原生格式统一归一化入库；暴露 [`/collector/upload`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/api/v1/collector.py#L20-L28) 与 [`/collector/import-content`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/api/v1/collector.py#L30-L35) 接口。（*验证状态*：✅ 单元测试通过）
+  - [x] **DPO 对抗偏好数据导出**：在 [`constants.py`](../backend/core/constants.py#L19-L26) 引入 `ExportFormat.DPO`，在 [`exporter_manager.py`](../backend/managers/exporter_manager.py#L272-L338) 实现 `_convert_to_dpo`，产出 HuggingFace / LLaMA-Factory 标准 `instruction/prompt/chosen/rejected/system` 结构。（*验证状态*：✅ 测试通过，见 [`test_dpo_openai_export.py`](../backend/tests/managers_tests/test_dpo_openai_export.py)）
+  - [x] **OpenAI Messages 格式导出**：在 [`exporter_manager.py`](../backend/managers/exporter_manager.py#L233-L271) 实现 `_convert_to_openai`，无缝输出兼容 OpenAI Fine-Tuning 及 vLLM 标准的 Chat Completions JSONL。（*验证状态*：✅ 测试通过）
+  - [x] **多格式无缝双向导入**：在 [`parsers.py`](../backend/core/parsers.py#L69-L208) 实现 `normalize_to_session_record` 与 `parse_multiformat_content`，支持将 OpenAI Messages、ShareGPT、Alpaca 及原生格式统一归一化入库；暴露 [`/collector/upload`](../backend/api/v1/collector.py#L20-L28) 与 [`/collector/import-content`](../backend/api/v1/collector.py#L30-L35) 接口。（*验证状态*：✅ 单元测试通过）
   - [ ] *待验证项*：多格式数据在实际 LLaMA-Factory 与 Axolotl 微调训练集装载中的实机跑通验证。
 
 ---
@@ -577,12 +577,12 @@ gantt
 **核心目标**：保障企业数据隐私绝对安全，引入本地模型自动初评，实现评分规则零代码调整。
 
 - **数据安全合规 (50%)**：
-  - [x] **内置 PII 隐私脱敏 Cleaner 插件落地**：在 [`plugins/curators/pii_cleaner/`](file:///home/mcocdaa/AI_CODE/HarvestFlow/plugins/curators/pii_cleaner/) 实现基于正则与高熵探测的脱敏引擎，覆盖 OpenAI/GitHub/AWS/Google API Key、Bearer Token、中国及国际手机号、电子邮箱、18位身份证号，并在入库前置钩子中实现透明遮蔽。（*验证状态*：✅ 8 项测试全绿，见 [`test_pii_cleaner.py`](file:///home/mcocdaa/AI_CODE/HarvestFlow/backend/tests/plugins_tests/test_pii_cleaner.py)）
+  - [x] **内置 PII 隐私脱敏 Cleaner 插件落地**：在 [`plugins/curators/pii_cleaner/`](../plugins/curators/pii_cleaner/) 实现基于正则与高熵探测的脱敏引擎，覆盖 OpenAI/GitHub/AWS/Google API Key、Bearer Token、中国及国际手机号、电子邮箱、18位身份证号，并在入库前置钩子中实现透明遮蔽。（*验证状态*：✅ 8 项测试全绿，见 [`test_pii_cleaner.py`](../backend/tests/plugins_tests/test_pii_cleaner.py)）
   - [ ] **导出前合规检查与阻断机制**：在 `exporter_manager` 导出流程中挂载安全看门狗钩子，扫描是否残留高熵密钥或明文 PII，对未脱敏数据执行“阻断导出”或“强制就地二次脱敏”。
   - [ ] **多策略脱敏模式支持**：通过配置支持“强制掩码”、“阻断入库”与“标记 PII 警告转人工复审”三种策略切换。
 
 - **前端交互补齐 (20%)**：
-  - [ ] **采集页一键文件拖拽导入器 (Dropzone UI)**：在 [`Collect.tsx`](file:///home/mcocdaa/AI_CODE/HarvestFlow/frontend/src/pages/Collect.tsx) 增加拖拽卡片，直接调用 `/collector/upload` 接口，支持用户从桌面直接拖入外部 ShareGPT/Alpaca/OpenAI JSONL 文件批量入库。
+  - [ ] **采集页一键文件拖拽导入器 (Dropzone UI)**：在 [`Collect.tsx`](../frontend/src/pages/Collect.tsx) 增加拖拽卡片，直接调用 `/collector/upload` 接口，支持用户从桌面直接拖入外部 ShareGPT/Alpaca/OpenAI JSONL 文件批量入库。
 
 - **智能化初评（AI-assisted Curation - 0%）**：
   - [ ] **开发 `plugins/curators/llm_judge` 插件**：支持配置本地 Ollama / vLLM 兼容端点（如 Qwen2.5-Coder-7B / DeepSeek-R1-Distill），异步拉取会话并根据 CoT 推理评判 Agent 逻辑严谨性。

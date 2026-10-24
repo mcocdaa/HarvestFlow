@@ -418,6 +418,7 @@ const Export: React.FC = () => {
           dataSource={history}
           rowKey="id"
           loading={historyLoading}
+          scroll={{ x: 'max-content' }}
           rowSelection={{
             selectedRowKeys,
             onChange: setSelectedRowKeys,

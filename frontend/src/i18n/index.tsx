@@ -33,6 +33,7 @@ export const MESSAGES: Record<Locale, Record<string, string>> = {
     'nav.export': '导出',
     'nav.plugins': '插件',
     'nav.github': 'GitHub 仓库',
+    'common.noData': '暂无数据',
     'status.raw': '待清洗',
     'status.curated': '待审核',
     'status.approved': '已通过',
@@ -80,6 +81,7 @@ export const MESSAGES: Record<Locale, Record<string, string>> = {
     'nav.export': 'Exporter',
     'nav.plugins': 'Plugins',
     'nav.github': 'GitHub Repo',
+    'common.noData': 'No data',
     'status.raw': 'Raw',
     'status.curated': 'Pending',
     'status.approved': 'Approved',
@@ -846,6 +848,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode; initialLoca
     } catch {
       // ignore storage errors
     }
+    if (typeof document !== 'undefined') document.documentElement.lang = next === 'zh' ? 'zh-CN' : 'en-US';
     dayjs.locale(next === 'zh' ? 'zh-cn' : 'en');
     setLocaleState(next);
   }, []);
@@ -857,6 +860,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode; initialLoca
   }, [locale, applyLocale]);
 
   useEffect(() => {
+    if (typeof document !== 'undefined') document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en-US';
     dayjs.locale(locale === 'zh' ? 'zh-cn' : 'en');
   }, [locale]);
 
@@ -932,6 +936,7 @@ export const useI18n = (): I18nContextValue => {
     } catch {
       // ignore storage errors
     }
+    if (typeof document !== 'undefined') document.documentElement.lang = next === 'zh' ? 'zh-CN' : 'en-US';
     dayjs.locale(next === 'zh' ? 'zh-cn' : 'en');
     setFallbackLocale(next);
   }, []);
