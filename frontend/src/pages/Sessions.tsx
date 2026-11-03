@@ -84,7 +84,7 @@ const Sessions: React.FC = () => {
       ellipsis: true,
       render: (_, record) => (
         <Space direction="vertical" size={2} style={{ maxWidth: '100%', overflow: 'hidden' }}>
-          <Typography.Text strong ellipsis style={{ display: 'block', maxWidth: 185 }}>
+          <Typography.Text strong ellipsis style={{ display: 'block', maxWidth: '100%' }}>
             {td(record.task_type) || t('未分类', 'Uncategorized')}
           </Typography.Text>
           <CopyText
@@ -99,35 +99,35 @@ const Sessions: React.FC = () => {
       title: t('状态', 'Status'),
       dataIndex: 'status',
       key: 'status',
-      width: 86,
+      width: 90,
       render: (_, record) => <StatusTag status={record.status} />,
     },
     {
       title: t('自动评分', 'Auto'),
       dataIndex: 'quality_auto_score',
       key: 'quality_auto_score',
-      width: 64,
+      width: 66,
       render: (_, record) => <ScoreTag score={record.quality_auto_score} />,
     },
     {
       title: t('人工评分', 'Manual'),
       dataIndex: 'quality_manual_score',
       key: 'quality_manual_score',
-      width: 64,
+      width: 66,
       render: (_, record) => <ScoreTag score={record.quality_manual_score} />,
     },
     {
       title: t('Agent 角色', 'Agent Role'),
       dataIndex: 'agent_role',
       key: 'agent_role',
-      width: 148,
+      width: 90,
       render: (_, record) =>
         record.agent_role ? (
           <Tag
             bordered={false}
             style={{
               marginInlineEnd: 0,
-              maxWidth: 132,
+              maxWidth: '100%',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               verticalAlign: 'bottom',
@@ -143,20 +143,31 @@ const Sessions: React.FC = () => {
       title: t('标签', 'Tags'),
       dataIndex: 'tags',
       key: 'tags',
-      width: 118,
+      width: 86,
       render: (_, record) => {
         const tags = record.tags ?? [];
         if (tags.length === 0) return <span className="score-empty">-</span>;
         return (
-          <Space size={4} style={{ whiteSpace: 'nowrap' }}>
+          <Space size={3} style={{ whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden' }}>
             {tags.slice(0, 1).map((tag) => (
-              <Tag key={tag} color="blue" bordered={false} style={{ marginInlineEnd: 0 }}>
+              <Tag
+                key={tag}
+                color="blue"
+                bordered={false}
+                style={{
+                  marginInlineEnd: 0,
+                  maxWidth: tags.length > 1 ? 46 : 72,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  verticalAlign: 'bottom',
+                }}
+              >
                 {td(tag)}
               </Tag>
             ))}
             {tags.length > 1 && (
               <Tooltip title={tags.slice(1).map((tag) => td(tag)).join(', ')}>
-                <Tag bordered={false} style={{ marginInlineEnd: 0 }}>
+                <Tag bordered={false} style={{ marginInlineEnd: 0, paddingInline: 5 }}>
                   +{tags.length - 1}
                 </Tag>
               </Tooltip>
@@ -169,9 +180,9 @@ const Sessions: React.FC = () => {
       title: t('创建时间', 'Created'),
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 118,
+      width: 94,
       render: (_, record) => (
-        <Typography.Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+        <Typography.Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
           {formatDateTime(record.created_at)}
         </Typography.Text>
       ),
@@ -179,14 +190,14 @@ const Sessions: React.FC = () => {
     {
       title: t('操作', 'Actions'),
       key: 'option',
-      width: 152,
+      width: 128,
       render: (_, record) => (
-        <Space size={2} style={{ whiteSpace: 'nowrap' }}>
+        <Space size={0} style={{ whiteSpace: 'nowrap' }}>
           <Button
             key="view"
             type="link"
             size="small"
-            style={{ paddingInline: 4, fontSize: 13 }}
+            style={{ paddingInline: 2, fontSize: 12 }}
             onClick={() => handleView(record)}
           >
             {t('查看', 'View')}
@@ -195,7 +206,7 @@ const Sessions: React.FC = () => {
             key="edit"
             type="link"
             size="small"
-            style={{ paddingInline: 4, fontSize: 13 }}
+            style={{ paddingInline: 2, fontSize: 12 }}
             onClick={() => {
               setSelected(record);
               setEditOpen(true);
@@ -208,7 +219,7 @@ const Sessions: React.FC = () => {
               key="evaluate"
               type="link"
               size="small"
-              style={{ paddingInline: 4, fontSize: 13 }}
+              style={{ paddingInline: 2, fontSize: 12 }}
               loading={evaluatingId === record.session_id}
               onClick={() => handleEvaluate(record)}
             >
@@ -227,7 +238,7 @@ const Sessions: React.FC = () => {
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDelete(record)}
           >
-            <Button type="link" size="small" style={{ paddingInline: 4, fontSize: 13 }} danger>
+            <Button type="link" size="small" style={{ paddingInline: 2, fontSize: 12 }} danger>
               {t('删除', 'Delete')}
             </Button>
           </Popconfirm>
@@ -250,7 +261,6 @@ const Sessions: React.FC = () => {
         rowKey="session_id"
         columns={columns}
         tableLayout="fixed"
-        scroll={{ x: 'max-content' }}
         search={false}
         params={{ status: status === 'all' ? undefined : status, sort }}
         request={async (params) => {

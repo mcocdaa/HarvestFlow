@@ -94,14 +94,15 @@ describe('i18n bilingual switching (zh <-> en)', () => {
     );
 
     const toggleBtn = await screen.findByTestId('lang-toggle-btn');
-    expect(toggleBtn.textContent).toContain('EN');
+    expect(toggleBtn).toHaveAttribute('data-action', 'toggle-locale');
+    expect(toggleBtn.textContent).toBe('EN');
     expect(screen.getByText('概览')).toBeInTheDocument();
     expect(screen.getByText('会话')).toBeInTheDocument();
 
     fireEvent.click(toggleBtn);
 
     await waitFor(() => {
-      expect(toggleBtn.textContent).toContain('中文');
+      expect(toggleBtn.textContent).toBe('中文');
       expect(screen.getByText('Dashboard')).toBeInTheDocument();
       expect(screen.getByText('Sessions')).toBeInTheDocument();
       expect(screen.getByText('Collector')).toBeInTheDocument();

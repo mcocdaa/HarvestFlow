@@ -4,7 +4,14 @@ updates:
   - package-ecosystem: uv
     directory: /backend
     schedule:
-      interval: monthly
+      interval: "cron"
+      cronjob: "0 6 1 * *"
+      timezone: "Asia/Shanghai"
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
     open-pull-requests-limit: 5
     groups:
       backend-minor-patch:
@@ -16,7 +23,14 @@ updates:
   - package-ecosystem: npm
     directory: /frontend
     schedule:
-      interval: monthly
+      interval: "cron"
+      cronjob: "0 6 1 * *"
+      timezone: "Asia/Shanghai"
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
     open-pull-requests-limit: 5
     groups:
       frontend-minor-patch:
@@ -45,7 +59,11 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
+      interval: "cron"
+      cronjob: "0 6 1 * *"
+      timezone: "Asia/Shanghai"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     groups:
       actions:
@@ -55,20 +73,44 @@ updates:
   - package-ecosystem: docker
     directory: /backend
     schedule:
-      interval: monthly
+      interval: "cron"
+      cronjob: "0 6 1 * *"
+      timezone: "Asia/Shanghai"
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: 'python'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
   - package-ecosystem: docker
     directory: /frontend
     schedule:
-      interval: monthly
+      interval: "cron"
+      cronjob: "0 6 1 * *"
+      timezone: "Asia/Shanghai"
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: 'python'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'node'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
   - package-ecosystem: docker-compose
     directory: /
     schedule:
-      interval: monthly
+      interval: "cron"
+      cronjob: "0 6 1 * *"
+      timezone: "Asia/Shanghai"
+    cooldown:
+      default-days: 7
   # gitsubmodule
   - package-ecosystem: gitsubmodule
     directory: /
     schedule:
-      interval: monthly
+      interval: "cron"
+      cronjob: "0 6 1 * *"
+      timezone: "Asia/Shanghai"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: 'chore(submodule)'

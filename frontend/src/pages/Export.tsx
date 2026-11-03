@@ -154,9 +154,9 @@ const Export: React.FC = () => {
       title: t('导出时间', 'Exported At'),
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 155,
+      width: 108,
       render: (value: string) => (
-        <Typography.Text type="secondary" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+        <Typography.Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
           {formatDateTime(value)}
         </Typography.Text>
       ),
@@ -165,11 +165,11 @@ const Export: React.FC = () => {
       title: t('格式', 'Format'),
       dataIndex: 'export_format',
       key: 'export_format',
-      width: 150,
+      width: 114,
       render: (format: string) => {
         const label = getExportFormatLabel(format, locale);
         return (
-          <Tag color="blue" bordered={false}>
+          <Tag color="blue" bordered={false} style={{ marginInlineEnd: 0 }}>
             {label !== format ? label : td(format) || format}
           </Tag>
         );
@@ -179,20 +179,20 @@ const Export: React.FC = () => {
       title: t('版本', 'Version'),
       dataIndex: 'version',
       key: 'version',
-      width: 82,
+      width: 64,
     },
     {
       title: t('记录数', 'Records'),
       dataIndex: 'record_count',
       key: 'record_count',
-      width: 86,
+      width: 68,
       render: (count: number) => <Typography.Text strong>{count}</Typography.Text>,
     },
     {
       title: t('筛选条件', 'Filters'),
       dataIndex: 'filters',
       key: 'filters',
-      width: 240,
+      width: 146,
       render: (filters?: string | null) => {
         const chips = parseFilterChips(filters, locale, td);
         if (chips.length === 0) {
@@ -212,7 +212,8 @@ const Export: React.FC = () => {
                   marginInlineEnd: 0,
                   whiteSpace: 'normal',
                   wordBreak: 'break-word',
-                  lineHeight: 1.5,
+                  lineHeight: 1.4,
+                  fontSize: 11,
                 }}
               >
                 {chip}
@@ -239,7 +240,7 @@ const Export: React.FC = () => {
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                maxWidth: 260,
+                maxWidth: '100%',
                 display: 'inline-block',
                 verticalAlign: 'bottom',
               }}
@@ -253,13 +254,14 @@ const Export: React.FC = () => {
     {
       title: t('操作', 'Actions'),
       key: 'action',
-      width: 110,
+      width: 86,
       render: (_: unknown, record: ExportHistory) => {
         const filename = basename(record.file_path);
         return (
           <Button
             type="link"
             size="small"
+            style={{ paddingInline: 2 }}
             icon={<DownloadOutlined />}
             loading={downloading === filename}
             onClick={() => handleDownload(filename)}
@@ -418,7 +420,7 @@ const Export: React.FC = () => {
           dataSource={history}
           rowKey="id"
           loading={historyLoading}
-          scroll={{ x: 'max-content' }}
+          tableLayout="fixed"
           rowSelection={{
             selectedRowKeys,
             onChange: setSelectedRowKeys,

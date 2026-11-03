@@ -285,25 +285,25 @@ export const DYNAMIC_EN_EXACT: Record<string, string> = {
     'Root cause: user query may return None; fixed src/auth/login.py and added regression tests',
   // OpenClaw session assistant replies
   '现在让我更新 MEMORY.md 技能清单：': 'Now let me update the skill list in MEMORY.md:',
-  '📝 收到指令！开始执行智能技能搜索...\n\n让我先提取核心关键词并搜索相关技能：':
-    '📝 Received instructions! Starting intelligent skill search...\n\nLet me extract core keywords and search for relevant skills first:',
+  '收到指令！开始执行智能技能搜索...\n\n让我先提取核心关键词并搜索相关技能：':
+    'Received instructions! Starting intelligent skill search...\n\nLet me extract core keywords and search for relevant skills first:',
   '很好！让我继续搜索更多相关技能：': 'Great! Let me continue searching for more related skills:',
-  '📝 收到！开始安装3个核心技能...': '📝 Received! Starting installation of the 3 core skills...',
+  '收到！开始安装3个核心技能...': 'Received! Starting installation of the 3 core skills...',
   '遇到速率限制，让我继续安装其他技能：': 'Hit rate limit; let me continue installing the remaining skills:',
   '第一个技能安装成功！让我继续安装其他技能：': 'First skill installed successfully! Continuing with the remaining skills:',
   '让我查看已安装的技能和更新 TOOLS.md：': 'Let me check the installed skills and update TOOLS.md:',
-  '📝 收到指令！开始整理记忆并缩减上下文...\n\n首先让我检查当前 memory 目录的状态：':
-    '📝 Received instructions! Starting memory organization and context compaction...\n\nFirst let me inspect the current memory directory status:',
+  '收到指令！开始整理记忆并缩减上下文...\n\n首先让我检查当前 memory 目录的状态：':
+    'Received instructions! Starting memory organization and context compaction...\n\nFirst let me inspect the current memory directory status:',
   '现在我来精简这些文件。首先创建 archive 目录并精简 MEMORY.md：':
     'Now I will compact these files. First, creating the archive directory and compacting MEMORY.md:',
   '将原 MEMORY.md 归档：': 'Archiving the original MEMORY.md:',
   '现在写入精简版 MEMORY.md：': 'Writing the compacted MEMORY.md:',
   '现在归档并精简 LEARNINGS.md：': 'Archiving and compacting LEARNINGS.md:',
   '检查精简效果：': 'Checking compaction results:',
-  '📝 收到每日自我检查指令！\n\n让我先回顾今日工作并搜索相关记忆：':
-    '📝 Received daily self-check instructions!\n\nLet me review today’s work and search related memory records first:',
-  '📝 收到记忆整理任务！开始执行...\n\n## 步骤1：检索历史记忆':
-    '📝 Received memory organization task! Executing...\n\n## Step 1: Retrieve historical memories',
+  '收到每日自我检查指令！\n\n让我先回顾今日工作并搜索相关记忆：':
+    'Received daily self-check instructions!\n\nLet me review today’s work and search related memory records first:',
+  '收到记忆整理任务！开始执行...\n\n## 步骤1：检索历史记忆':
+    'Received memory organization task! Executing...\n\n## Step 1: Retrieve historical memories',
   '## 步骤2：检查并更新 LEARNINGS.md': '## Step 2: Check and update LEARNINGS.md',
   'LEARNINGS.md 已有较新内容，无需大幅更新。让我检查 ERRORS.md：':
     'LEARNINGS.md is already up to date. Let me check ERRORS.md:',
@@ -731,8 +731,9 @@ const formatSnakeCaseToTitle = (slug: string): string =>
     .map((word) => ACRONYM_MAP[word.toLowerCase()] || word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
-export const translateDynamicText = (text: string | undefined | null, locale: Locale): string => {
-  if (!text) return '';
+export const translateDynamicText = (rawText: string | undefined | null, locale: Locale): string => {
+  if (!rawText) return '';
+  const text = rawText.replace(/\uD83D\uDCDD\s*/g, '');
   const trimmed = text.trim();
   if (/^oc_[0-9a-f]{16,}$/i.test(trimmed)) {
     return locale === 'zh' ? 'OpenClaw 助手' : 'OpenClaw Agent';

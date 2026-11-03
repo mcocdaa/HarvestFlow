@@ -257,7 +257,7 @@ const Dashboard: React.FC = () => {
                       strokeColor="#2563EB"
                       format={() => <span style={{ fontSize: 18, fontWeight: 600 }}>{stats.avg_auto_score}</span>}
                     />
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    <Typography.Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
                       {t('平均自动评分 / 5', 'Avg Auto Score / 5')}
                     </Typography.Text>
                   </Flex>
