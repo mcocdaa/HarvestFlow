@@ -68,9 +68,10 @@
   left: 4px;
   top: 50%;
   transform: translateY(-50%);
-  color: #2563eb;
-  font-size: 10px;
-  font-weight: bold;
+  width: 3px;
+  height: 18px;
+  border-radius: 999px;
+  background: #2563eb;
 }
 
 /* 中间栏：对话流与工具日志 (55%) */

@@ -1,7 +1,7 @@
 import React from 'react';
 import { ProLayout } from '@ant-design/pro-components';
 import { Badge, Tooltip } from 'antd';
-import { GithubOutlined } from '@ant-design/icons';
+import { GithubOutlined, GlobalOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { APP_NAME, GITHUB_URL, MENU_ITEMS } from '../constants/menu';
 import { statsApi } from '../services';
@@ -48,14 +48,23 @@ const SidebarHeader: React.FC = () => {
       <button
         type="button"
         data-testid="lang-toggle-btn"
+        data-action="toggle-locale"
         className="lang-toggle-btn"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          whiteSpace: 'nowrap',
+          flexShrink: 0,
+        }}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
           toggleLocale();
         }}
       >
-        {locale === 'zh' ? '🌐 EN' : '🌐 中文'}
+        <GlobalOutlined />
+        <span>{locale === 'zh' ? 'EN' : '中文'}</span>
       </button>
     </div>
   );

@@ -610,7 +610,7 @@ const ReviewWorkspace: React.FC<ReviewWorkspaceProps> = ({ onCurrentChange }) =>
                     className={`queue-item ${isActive ? 'active' : ''}`}
                     onClick={() => setIndex(itemIdx)}
                   >
-                    {isActive && <span className="queue-item-cursor">▶</span>}
+                    {isActive && <span className="queue-item-cursor" />}
                     <Flex justify="space-between" align="center" gap={6} style={{ marginLeft: isActive ? 8 : 0 }}>
                       <Typography.Text
                         strong={isActive}
