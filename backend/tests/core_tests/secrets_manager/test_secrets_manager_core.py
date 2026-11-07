@@ -129,13 +129,15 @@ class TestRefreshConcurrency:
         try:
             calls = []
 
+            barrier = threading.Barrier(3)
+
             class SlowClient:
                 def is_available(self):
                     return True
 
                 def get_secret(self, name):
                     calls.append(name)
-                    time.sleep(0.2)
+                    time.sleep(0.3)
                     return "slow-value"
 
             secrets_manager.client = SlowClient()
@@ -144,6 +146,7 @@ class TestRefreshConcurrency:
             results = []
 
             def worker():
+                barrier.wait(timeout=5.0)
                 results.append(secrets_manager.refresh_secret("KEY2"))
 
             threads = [threading.Thread(target=worker) for _ in range(3)]

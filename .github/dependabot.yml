@@ -36,16 +36,6 @@ updates:
       frontend-minor-patch:
         patterns: ['*']
         update-types: ['minor', 'patch']
-      # 成对主版本必须一起升级（否则出现 react 18 + react-dom 19 之类不兼容组合）
-      react:
-        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
-        update-types: ['major']
-      vite:
-        patterns: ['vite', '@vitejs/plugin-react']
-        update-types: ['major']
-      vitest:
-        patterns: ['vitest', '@vitest/coverage-v8']
-        update-types: ['major']
     ignore:
       # antd 6：等 @ant-design/pro-components 支持（当前 2.8.10 peer 仅 antd ^4 || ^5）
       - dependency-name: 'antd'
